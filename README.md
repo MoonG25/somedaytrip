@@ -3,6 +3,7 @@
 > 언젠가 갈 여행을, 같이.
 
 - **시작일**: 2026-10-19
+- **사이트**: https://somedaytrip.vercel.app
 - **상태**: 🔬 진행 중 (1단계 완료 · 서버 없음)
 - **출발점**: [moon.log](../2026-10-15-moonlog-blog/)의 Plans(가고 싶은 곳) 기능을 떼어 내서, 여러 사람이 같이 짜는 서비스로 만든다. 블로그는 건드리지 않았다.
 - **사용한 것**: Vite · TypeScript (프레임워크 없음) · [Leaflet](https://leafletjs.com) (BSD-2) · OSM 타일 · [Nominatim](https://nominatim.org) 장소 검색 · [qrcode](https://github.com/soldair/node-qrcode) (MIT)
