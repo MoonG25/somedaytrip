@@ -10,6 +10,7 @@ import { optimizeRoute, routeKm } from '@/blog/plans-lib.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from '@/blog/leaflet.js';
 import { applyDirect, propose } from '@/app/actions';
 import { rememberPlan } from '@/lib/mine';
+import { googleMapsAt } from '@/lib/links';
 import ItemModal from './ItemModal';
 import Modal from './Modal';
 import OpCard from './OpCard';
@@ -306,6 +307,11 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
                           {it.memo ? <p>{it.memo}</p> : null}
                         </div>
                         <div className="ri-actions" onClick={(e) => e.stopPropagation()}>
+                          {it.place && r.mark !== 'remove' ? (
+                            <a className="ri-btn ri-gmap" href={googleMapsAt(it.place.lat, it.place.lng)} target="_blank" rel="noopener noreferrer" aria-label={`${it.title} Google 지도에서 보기`} title="Google 지도에서 보기">
+                              G
+                            </a>
+                          ) : null}
                           {r.mark && !owner ? (
                             <>
                               <button type="button" className="link-u" onClick={() => undo(it.id)}>

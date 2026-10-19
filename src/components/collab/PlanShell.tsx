@@ -8,6 +8,7 @@ import type { Item, Plan } from '@/lib/types';
 import { changePassword, deletePlan, login, logout, rejectAll, updatePlan } from '@/app/actions';
 import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
+import PlanLinks from './PlanLinks';
 import Modal from './Modal';
 import { broadcast, toast } from './util';
 
@@ -183,6 +184,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
         </div>
       </div>
 
+      <PlanLinks plan={plan} owner={owner} />
       {children}
       <Itinerary plan={plan} items={items} owner={owner} />
 

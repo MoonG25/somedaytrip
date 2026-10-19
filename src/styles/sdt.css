@@ -1848,3 +1848,102 @@ body:has(.basket) .toasts {
 .group-total b {
   font-size: 18px;
 }
+
+/* 지도 · 참고 링크 */
+.link-row .b-ico {
+  margin-left: 0;
+}
+.link-fields {
+  flex: 1;
+  display: grid;
+  min-width: 0;
+}
+.link-fields .b-name {
+  height: 30px;
+  padding: 0 6px;
+}
+.link-url {
+  padding: 0 6px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.link-url:hover {
+  color: var(--accent-strong);
+}
+.link-add .ba-ico {
+  font-size: 14px;
+}
+.plan-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0 clamp(28px, 4vw, 48px);
+}
+.pl-title {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  margin-right: 4px;
+}
+.pl-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  transition: border-color 0.2s, transform 0.3s var(--ease-spring);
+}
+.pl-chip:hover {
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+.pl-chip a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.pl-chip.k-google {
+  border-color: color-mix(in oklab, #4285f4 45%, var(--line));
+}
+.pl-arrow {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.pl-chip button {
+  width: 28px;
+  height: 28px;
+  margin-right: 5px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.pl-chip button:hover {
+  background: color-mix(in oklab, var(--over) 12%, transparent);
+  color: var(--over);
+}
+.pl-add {
+  height: 38px;
+  padding: 0 14px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.pl-add:hover {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.ri-gmap {
+  font-weight: 800;
+  font-size: 13px;
+  color: #4285f4;
+}

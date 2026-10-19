@@ -66,6 +66,8 @@ export interface PlanInfo {
   /** 1인 기준 예산 (budgetItems에서 서버가 계산한다. 탑승권·"시간 났다!"·도넛이 쓴다) */
   budget: Record<string, number>;
   checklist: [string, boolean][];
+  /** 지도·참고 링크 (구글맵 리스트 공유 등) */
+  links: { label: string; url: string }[];
   ownerName: string;
   visibility: Visibility;
 }

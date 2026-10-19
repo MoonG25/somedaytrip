@@ -17,6 +17,7 @@ import { loadLeaflet, createMap, destroyMap, pinIcon } from './leaflet.js';
 import { toast } from './toast.js';
 import { reverse, nameOf, enOf, geoPending, geoIdle, CURRENCY, SCENES, SCENE_KO, TIMES } from './geo.js';
 import { iataFor } from './airports.js';
+import { linkKind, LINK_META, defaultLabel, normalizeUrl } from '../lib/links';
 
 const SCOPES = {
   abroad: { icon: '✈️', ko: '해외', hint: '여권 챙겨서' },
@@ -76,6 +77,7 @@ export const blankPlan = () => ({
   budgetItems: [],
   budget: {},
   checklist: [],
+  links: [],
   ownerName: '',
   visibility: 'link',
 });
@@ -221,12 +223,21 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     </fieldset>
 
     <fieldset class="cstep" data-step="why">
-      <legend><span class="step-no mono">${n(6)}</span>소개<span class="step-done" aria-hidden="true">✓</span></legend>
+      <legend><span class="step-no mono">${n(6)}</span>소개 · 링크<span class="step-done" aria-hidden="true">✓</span></legend>
       <label class="field-block">${lbl('한 줄 소개', '계획 첫머리에 큰 글씨로 나와요')}<input class="inp" name="why" placeholder="눈 쌓인 밤길을 걷다가 노천온천에 들어가고 싶다." maxlength="200"></label>
       <label class="field-block">${lbl('더 하고 싶은 이야기', '선택 · **굵게**, - 목록')}<textarea class="textarea" name="intro" rows="5" placeholder="누구랑, 왜, 어떤 여행이 되면 좋을지." maxlength="6000"></textarea></label>
       <div class="field-block">
         ${lbl('태그', 'Enter로 추가')}
         <div class="tag-input"><span class="tag-chips"></span><input name="tagIn" placeholder="겨울, 온천…" maxlength="20" aria-label="태그 추가"></div>
+      </div>
+      <div class="field-block">
+        ${lbl('지도 · 참고 링크', '구글맵 리스트 공유, 내 지도, 블로그 글 등')}
+        <ul class="todo-list link-edit" role="list"></ul>
+        <div class="todo-add link-add">
+          <span class="ba-ico" aria-hidden="true">🗺️</span>
+          <input name="linkIn" placeholder="구글맵에서 '공유 → 링크 복사' 한 주소를 붙여 넣고 Enter" aria-label="지도 링크 붙여 넣기" inputmode="url">
+          <button type="button" class="btn btn--sm btn--solid" data-ladd>추가</button>
+        </div>
       </div>
     </fieldset>
 
@@ -583,7 +594,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     });
   };
   form.addEventListener('input', (e) => {
-    if (['q', 'sq', 'newCheck', 'bName', 'bAmt', 'tagIn'].includes(e.target.name) || e.target.closest('.budget-list')) return;
+    if (['q', 'sq', 'newCheck', 'bName', 'bAmt', 'tagIn', 'linkIn'].includes(e.target.name) || e.target.closest('.budget-list') || e.target.closest('.link-edit')) return;
     if (e.target.name === 'pw') {
       const m = root.querySelector('.pw-meter');
       const s = strength(form.pw.value);
@@ -1205,6 +1216,59 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   });
   root.querySelector('.tag-input').addEventListener('click', (e) => e.target === e.currentTarget && form.tagIn.focus());
 
+  /* ---------- 06 지도 · 참고 링크 ---------- */
+  d.links = Array.isArray(d.links) ? d.links : [];
+  const linkEl = root.querySelector('.link-edit');
+  const drawLinks = () => {
+    linkEl.innerHTML = d.links
+      .map((l, i) => {
+        const k = linkKind(l.url);
+        return `<li class="todo-row link-row" data-i="${i}"><span class="b-ico" aria-hidden="true">${LINK_META[k].icon}</span>
+          <span class="link-fields"><input class="b-name" value="${esc(l.label)}" maxlength="40" aria-label="링크 이름"><a class="link-url mono" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.url.replace(/^https?:\/\//, ''))}</a></span>
+          <button type="button" class="b-del" data-ldel aria-label="${esc(l.label)} 링크 지우기">✕</button></li>`;
+      })
+      .join('');
+  };
+  const addLink = () => {
+    const url = normalizeUrl(form.linkIn.value);
+    if (!url) {
+      if (form.linkIn.value.trim()) toast('http:// 또는 https:// 로 시작하는 주소를 붙여 넣어 주세요', '!');
+      return;
+    }
+    if (d.links.some((l) => l.url === url)) {
+      form.linkIn.value = '';
+      return toast('이미 붙인 링크예요', '·');
+    }
+    if (d.links.length >= 10) return toast('링크는 10개까지 붙일 수 있어요', '!');
+    d.links.push({ url, label: defaultLabel(url) });
+    form.linkIn.value = '';
+    drawLinks();
+    update();
+  };
+  root.querySelector('[data-ladd]').addEventListener('click', addLink);
+  form.linkIn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      addLink();
+    }
+  });
+  // 붙여 넣으면 바로 추가 (주소만 있는 경우)
+  form.linkIn.addEventListener('paste', () => setTimeout(() => normalizeUrl(form.linkIn.value) && addLink(), 0));
+  linkEl.addEventListener('input', (e) => {
+    const li = e.target.closest('.link-row');
+    if (li && e.target.classList.contains('b-name')) {
+      d.links[Number(li.dataset.i)].label = e.target.value;
+      update();
+    }
+  });
+  linkEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ldel]');
+    if (!b) return;
+    d.links.splice(Number(b.closest('.link-row').dataset.i), 1);
+    drawLinks();
+    update();
+  });
+
   /* ---------- 07 공개 범위 ---------- */
   const visPick = root.querySelector('.vis-pick');
   const syncVis = () => visPick.querySelectorAll('[data-vis]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.vis === d.visibility)));
@@ -1265,6 +1329,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (!confirm('지금 쓰던 내용을 비우고 새로 쓸까요?')) return;
     d = blankPlan();
     budget = [];
+    d.links = [];
     whenMode = null;
     try {
       localStorage.removeItem(WIP);
@@ -1283,6 +1348,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     drawStops();
     drawChecks();
     drawTags();
+    drawLinks();
     drawMap(true);
     cal.set(d.target, d.target ? addDaysIso(d.target, d.days - 1) : null);
     if (whenMode) setWhen(whenMode);

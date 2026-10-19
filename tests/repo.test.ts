@@ -163,3 +163,23 @@ describe('인원 · 예산', () => {
     expect(i.budgetItems).toEqual([{ name: '항공', amount: 380000, per: 'person' }]);
   });
 });
+
+describe('지도 링크', () => {
+  it('http(s)만 받고, 붙여 넣은 문장에서 주소만 뽑고, 종류로 이름을 붙인다', () => {
+    const i = cleanInfo({
+      title: 't',
+      place: 'p',
+      links: [
+        { url: '구글맵에서 공유: https://maps.app.goo.gl/AbCd123 ' },
+        { url: 'javascript:alert(1)' },
+        { url: 'https://naver.me/xyz', label: '' },
+        { url: 'https://blog.example.com/kyoto', label: '교토 정리 글' },
+      ],
+    });
+    expect(i.links).toEqual([
+      { url: 'https://maps.app.goo.gl/AbCd123', label: 'Google 지도' },
+      { url: 'https://naver.me/xyz', label: '네이버 지도' },
+      { url: 'https://blog.example.com/kyoto', label: '교토 정리 글' },
+    ]);
+  });
+});

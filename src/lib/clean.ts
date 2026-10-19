@@ -1,4 +1,5 @@
 // 브라우저에서 온 값은 믿지 않는다. 서버가 저장하기 전에 모양과 길이를 맞춘다.
+import { defaultLabel, normalizeUrl } from './links';
 import type { BudgetItem, Item, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim().slice(0, max);
@@ -96,6 +97,17 @@ export function cleanInfo(i: unknown): PlanInfo {
         .map((c): [string, boolean] => (Array.isArray(c) ? [str(c[0], 80), !!c[1]] : [str(c, 80), false]))
         .filter(([t]) => t)
     : [];
+  // 링크: http(s)만, 10개까지. 이름이 없으면 지도 종류로 붙인다
+  const links = Array.isArray(o.links)
+    ? o.links
+        .slice(0, 10)
+        .map((l) => {
+          const x = (l && typeof l === 'object' ? l : {}) as Record<string, unknown>;
+          const url = normalizeUrl(String(x.url ?? ''));
+          return url ? { url, label: str(x.label, 40) || defaultLabel(url) } : null;
+        })
+        .filter((l): l is { url: string; label: string } => !!l)
+    : [];
   const months = Array.isArray(o.months) ? [...new Set(o.months.map((m) => num(m, 1, 12, 1)))].sort((a, b) => a - b) : [];
   const coords = Array.isArray(o.coords) ? coord(o.coords[0], o.coords[1]) : null;
   return {
@@ -122,6 +134,7 @@ export function cleanInfo(i: unknown): PlanInfo {
     budgetItems,
     budget,
     checklist,
+    links,
     ownerName: str(o.ownerName, 20) || '주인',
     visibility: oneOf<Visibility>(o.visibility, ['link', 'public'], 'link'),
   };
