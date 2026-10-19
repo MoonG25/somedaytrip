@@ -3,10 +3,10 @@
 > 언젠가 갈 여행을, 같이.
 
 - **시작일**: 2026-10-19
-- **사이트**: https://somedaytrip.vercel.app (지금 배포된 것은 v0.1 Vite판. v0.2 Next.js판은 Supabase를 붙인 뒤 배포)
-- **상태**: 🔬 진행 중 · v0.2 (Next.js + moon.log Plans 디자인, 서버 저장소는 개발용 JSON 파일)
+- **사이트**: https://somedaytrip.vercel.app · **GitHub**: https://github.com/MoonG25/somedaytrip
+- **상태**: 🔬 진행 중 · v0.2 (Next.js + moon.log Plans 디자인 + Supabase, 배포 완료)
 - **출발점**: [moon.log](../2026-10-15-moonlog-blog/)의 Plans(가고 싶은 곳)를 떼어 내서 여러 사람이 같이 짜는 서비스로 만든다. 블로그는 건드리지 않았다.
-- **사용한 것**: Next.js 16 (App Router) · React 19 · TypeScript · [Leaflet](https://leafletjs.com) (BSD-2, CDN) · OSM 타일 · [Nominatim](https://nominatim.org) · [Open-Meteo](https://open-meteo.com) · [ExchangeRate-API](https://www.exchangerate-api.com) · [qrcode](https://github.com/soldair/node-qrcode) (MIT)
+- **사용한 것**: Supabase Postgres (Free, 서울) · [postgres.js](https://github.com/porsager/postgres) · Next.js 16 (App Router) · React 19 · TypeScript · [Leaflet](https://leafletjs.com) (BSD-2, CDN) · OSM 타일 · [Nominatim](https://nominatim.org) · [Open-Meteo](https://open-meteo.com) · [ExchangeRate-API](https://www.exchangerate-api.com) · [qrcode](https://github.com/soldair/node-qrcode) (MIT)
 
 ## 컨셉
 
@@ -96,21 +96,39 @@ tests/                       vitest 26개
 
 ```bash
 npm install
-npm run dev        # http://localhost:3100 (처음 실행하면 .data/db.json에 예시 계획 8개가 들어감)
-npm test
+npm run dev        # http://localhost:3100
+npm test           # 단위 테스트 (DATABASE_URL이 있으면 Supabase 통합 테스트도)
 npm run build
 ```
 
-`SDT_SAMPLE_PASSWORD`를 정해 두면 예시 계획의 주인이 될 수 있다. 정하지 않으면 아무도 모르는 값이 들어간다.
+- **`DATABASE_URL`이 없으면** 개발용 JSON 파일(`.data/db.json`)을 쓴다. 처음 실행하면 예시 계획 8개가 들어간다.
+- **`DATABASE_URL`이 있으면** Supabase Postgres를 쓴다. `.env.local`에만 두고 절대 커밋하지 않는다.
+- **스키마:** `supabase/migrations/`에 있고, `node --env-file=.env.local scripts/migrate.mjs`로 적용한다.
+- **테스트 데이터 정리:** `node --env-file=.env.local scripts/clean-test-data.mjs` (예시 계획은 남긴다)
+- **`SDT_SAMPLE_PASSWORD`:** 정해 두면 예시 계획의 주인이 될 수 있다. 정하지 않으면 아무도 모르는 값이 들어간다.
+
+## 배포와 비밀값
+
+- **배포 위치:** Vercel(Hobby). 함수 리전은 `icn1`(서울)이라 Supabase(서울)와 가깝다.
+- **비밀값 보관:**
+  - `DATABASE_URL`은 Vercel 환경 변수에 **Sensitive**로만 들어 있다. 대시보드에서도 다시 볼 수 없다.
+  - 로컬에는 git이 무시하는 `.env.local`에만 있다.
+  - `.vercelignore`로 `.env*` 파일은 업로드에서도 뺀다.
+- **브라우저에는 키가 없다.** 모든 DB 접근은 서버 액션과 서버 컴포넌트에서만 한다. Supabase 공개(anon) 키는 쓰지 않는다.
+- **공개 키로는 아무것도 못 한다.** 모든 테이블에 RLS를 켜고 정책을 두지 않았으며, anon·authenticated 권한도 회수했다. 공개 키로 REST를 호출하면 4개 테이블 모두 읽기·쓰기가 `permission denied`로 막히는 것을 확인했다.
+- **비밀번호는 원문을 남기지 않는다.** PBKDF2 해시와 토큰 해시만 `plan_secrets`에 있고, 화면 데이터에는 들어가지 않는다.
 
 ## 결과 (v0.2)
 
-- **단위 테스트 26개 통과**
+- **단위 테스트 27개 통과 + Supabase 통합 테스트 3개 통과**
+  - 동시에 제안 10개를 보내도 번호가 겹치지 않음
+  - 동시에 6개를 수락해도 하나도 빠지지 않고 버전이 정확히 오름
+  - 틀린 비밀번호 횟수가 DB에 저장되고 잠김
   - 3-way 충돌과 바구니 합치기
   - 비밀번호 해시 비노출, 잠금, 토큰 없는 쓰기 차단
   - 제안 횟수 제한, 일괄 거절, 비밀번호 변경 시 토큰 무효화
   - 입력 검사
-- **브라우저 시나리오 38개 통과, 콘솔 오류 0.** 주인·손님·다른 기기·복사한 사람을 서로 다른 브라우저 세션으로 돌렸다.
+- **브라우저 시나리오 38개 통과, 콘솔 오류 0.** 로컬(Supabase)에서 두 번, **실제 배포 사이트에서 한 번** 돌렸다. 주인·손님·다른 기기·복사한 사람을 서로 다른 브라우저 세션으로 돌렸다.
   1. 홈 HTML에 계획 글자가 서버에서 들어 있음
   2. 계획 쓰기, 짧은 비밀번호 거부, 링크 공개는 noindex
   3. 주인 직접 추가
@@ -122,18 +140,16 @@ npm run build
   9. 주인이 아니면 고치기 화면 차단, 정보 고치기
   10. 공개 계획 복사, 홈의 "내 계획"
   11. 모바일 가로 넘침 없음, 다크 모드, 404
+- **고친 버그:** 새 일정이 직전에 고친 일정의 id를 물려받아, 수락할 때 추가가 빠지는 일이 가끔 있었다. 일정 창을 열 때마다 새로 그리고, 저장 때 새 id를 주고, 서버도 겹치는 id를 새로 바꾸게 해서 세 겹으로 막았다.
 - **한계**
-  - 저장소가 개발용 JSON 파일이라 Vercel(서버리스)에서는 데이터가 남지 않는다. 그래서 v0.2는 아직 배포하지 않았다.
+  - Supabase Free는 7일 동안 아무 요청이 없으면 프로젝트가 일시 정지된다. 대시보드에서 다시 켜야 한다.
   - 실시간 반영은 같은 브라우저의 탭끼리는 즉시, 그 밖에는 30초마다 새로 받아 온다.
   - 충돌 판단이 변경 단위라, 한 일정의 시간과 메모를 같이 고쳤는데 시간만 겹쳐도 그 변경 전체가 빠진다.
   - 계획 정보(제목·예산·체크리스트 문구)는 주인만 고친다. 손님 제안은 일정만 다룬다.
 
 ## 다음
 
-1. **Supabase 연결:** `SupabaseRepo`를 만든다(Repo와 같은 인터페이스).
-   - 비밀번호 해시와 토큰은 anon이 못 읽는 테이블에 둔다.
-   - 수락·거절·직접 수정은 security definer RPC로 한 트랜잭션 안에서 처리한다.
-   - 실시간 반영은 Supabase Realtime으로 바꾼다.
-2. **배포:** `somedaytrip.vercel.app`에 v0.2를 올리고, Google Search Console과 네이버 서치어드바이저에 등록한다.
+1. **검색엔진 등록:** Google Search Console과 네이버 서치어드바이저에 사이트맵을 등록한다. 소유 확인은 사용자 계정이 필요하다.
+2. **실시간 반영:** Supabase Realtime으로 바꾸거나, 서버가 보내는 이벤트로 바꾼다.
 3. **여행지 페이지:** `/destinations/<도시>`에 공개 계획을 모아 검색 유입을 받는다.
 4. **장소 검색 개선:** 카카오 로컬 API로 바꾸고, 키는 서버 쪽에 둔다.
