@@ -301,7 +301,7 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
                             {r.mark ? <span className={`ri-badge ${r.mark}`}>{r.mark === 'add' ? '추가 예정' : r.mark === 'remove' ? '삭제 예정' : '수정 예정'}</span> : null}
                           </div>
                           <p className="ri-meta mono">
-                            {[it.time, it.place?.name, it.cost ? won(it.cost) : '', gap != null ? `↳ ${distanceLabel(gap)}` : ''].filter(Boolean).join(' · ')}
+                            {[it.time, it.place && it.place.name !== it.title ? `📍 ${it.place.name}` : '', it.cost ? won(it.cost) : '', gap != null ? `↳ ${distanceLabel(gap)}` : ''].filter(Boolean).join(' · ')}
                           </p>
                           {it.memo ? <p>{it.memo}</p> : null}
                         </div>

@@ -1,155 +1,301 @@
+<div align="center">
+
+<a href="https://somedaytrip.vercel.app"><img src="docs/screenshots/og.png" alt="섬데트 탑승권" width="720"></a>
+
 # 섬데트 · SomedayTrip
 
-> 언젠가 갈 여행을, 같이.
+**언젠가 갈 여행을, 같이.**
 
-- **시작일**: 2026-10-19
-- **사이트**: https://somedaytrip.vercel.app · **GitHub**: https://github.com/MoonG25/somedaytrip
-- **상태**: 🔬 진행 중 · v0.2 (Next.js + moon.log Plans 디자인 + Supabase, 배포 완료)
-- **출발점**: [moon.log](../2026-10-15-moonlog-blog/)의 Plans(가고 싶은 곳)를 떼어 내서 여러 사람이 같이 짜는 서비스로 만든다. 블로그는 건드리지 않았다.
-- **사용한 것**: Supabase Postgres (Free, 서울) · [postgres.js](https://github.com/porsager/postgres) · Next.js 16 (App Router) · React 19 · TypeScript · [Leaflet](https://leafletjs.com) (BSD-2, CDN) · OSM 타일 · [Nominatim](https://nominatim.org) · [Open-Meteo](https://open-meteo.com) · [ExchangeRate-API](https://www.exchangerate-api.com) · [qrcode](https://github.com/soldair/node-qrcode) (MIT)
+계획을 만들고 링크를 보내면, 친구는 일정을 **제안**하고 주인은 **수락**해요.<br>
+GitHub의 Pull Request처럼, 여행 계획을 함께 다듬는 서비스입니다.
 
-## 컨셉
+[**✈ 사이트 열기**](https://somedaytrip.vercel.app) · [같이 짜는 법](#-같이-짜는-법) · [화면](#-화면) · [직접 돌려 보기](#-직접-돌려-보기)
 
-메인은 **세계여행**이다. 동네 여행은 "이것도 됩니다"라는 부가 기능이다. 화면은 moon.log Plans 디자인을 그대로 가져왔다.
+![Next.js](https://img.shields.io/badge/Next.js_16-000?logo=nextdotjs&logoColor=white)
+![React](https://img.shields.io/badge/React_19-20232a?logo=react&logoColor=61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178c6?logo=typescript&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-3ecf8e?logo=supabase&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel_Seoul-000?logo=vercel&logoColor=white)
+![Leaflet](https://img.shields.io/badge/Leaflet-199900?logo=leaflet&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-27_unit_·_3_db_·_38_e2e-2e9e58)
 
-- **홈 (떠날 곳)**
-  - 공항 출발 전광판(스플릿 플랩)
-  - "시간 났다!": 남는 날·달·예산으로 갈 수 있는 곳 찾기
-  - 🎲 골라줘
-  - 탑승권 그리드
-- **계획 상세**
-  - 큰 탑승권과 카운트다운 플랩
-  - 현지 시각·날씨·환율
-  - 일정과 지도, 동선 최적화
-  - 체크리스트·여행 적금 병·예산 도넛
-- **계획 쓰기**: 6단계 작성기와 실시간 탑승권 미리보기. 여기에 **07 공개 · 주인 정하기**를 더했다.
+</div>
 
-## 같이 짜기
+<br>
 
-1. **누구나 계획을 만든다.** 가입은 없다. 만들 때 **주인 비밀번호**를 정한다.
-2. **링크를 아는 사람은 누구나 일정을 고칠 수 있다.**
-   - 손님이 고친 내용은 바로 반영되지 않고 🧺 **제안 바구니**에 모인다.
-   - 다 고친 뒤 제목과 하고 싶은 말을 붙여 **제안**한다. GitHub의 PR과 같다.
-3. **주인이 수락·거절한다.**
-   - diff 카드(전 → 후)를 보고 결정하고, 한마디를 남길 수 있다.
-   - 열린 제안을 한꺼번에 거절할 수도 있다.
-   - 제안한 사람은 처리되기 전까지 철회할 수 있다.
-4. **공개 범위는 두 가지다.**
-   - 🔗 **링크 공개**(기본): 친구끼리만 본다. `noindex`이고 사이트맵에서 빠진다.
-   - 🌍 **전체 공개**: 누구나 볼 수 있고 검색에도 나온다. 사이트맵과 구조화 데이터(TouristTrip)에 들어간다.
-   - 어느 쪽이든 반영은 주인만 한다.
-5. **공개 계획 복사.** 전체 공개 계획은 "이 계획으로 내 계획 만들기"로 복사해서 새 계획의 주인이 될 수 있다.
+<p align="center">
+  <img src="docs/screenshots/board.jpg" alt="출발 전광판" width="100%">
+</p>
 
-### 주인 판단: 비밀번호로만
+<br>
 
-- **인증:** 비밀번호를 맞히면 서버가 토큰을 주고, 계획별 **httpOnly 쿠키**(`sdt_o_<id>`)에 담는다. 브라우저 스크립트는 이 쿠키를 읽을 수 없다.
-- **쿠키를 지우거나 기기를 바꿔도 괜찮다.** 비밀번호만 다시 넣으면 된다.
-- **저장:** 비밀번호 원문은 저장하지 않는다. PBKDF2-SHA256(15만 회) 해시와 솔트만 남긴다.
-- **검사 위치:** 비밀번호 검사와 주인 확인은 모두 **서버 액션**에서 한다.
-- **틀렸을 때:** 5번 틀리면 30초를 기다려야 하고, 그 뒤로는 틀릴 때마다 대기 시간이 두 배로 늘어난다.
-- **비밀번호 변경:** 바꾸면 다른 기기의 주인 인증이 모두 풀린다.
-- **제안 남발 막기:** 같은 사람은 10분에 5번까지만 제안할 수 있고, 열린 제안은 50개까지다.
-- **입력 검사:** 브라우저에서 온 값은 서버가 길이와 모양을 다듬은 뒤 저장한다(`lib/clean.ts`).
+## ✦ 한눈에
 
-### 동시 수정과 충돌 (3-way)
-
-변경 하나는 "원래 값 → 바꿀 값"을 담는다. 수락할 때 지금 계획과 비교한다.
-
-| 상황 | 처리 |
+| | |
 |---|---|
-| 그 사이 다른 칸이 바뀜 | 둘 다 반영 |
-| 그 사이 같은 칸이 다른 값으로 바뀜 | ⚠ 충돌. "지금 계획에는 08:30으로 바뀌어 있어요"라고 보여 준다. 주인은 겹치지 않는 것만 수락하거나 거절한다 |
-| 고치려던 일정이 지워짐 | 충돌 |
-| 순서만 바뀜 | 충돌로 치지 않음 |
+| 🛫 **세계여행이 메인, 동네 여행도 OK** | 해외·국내·동네 중에 고르고, 날짜가 없으면 "언젠가"로 둬요 |
+| 🔗 **링크 하나로 공유** | 링크를 받은 사람은 누구나 일정을 고칠 수 있어요. QR 코드도 돼요 |
+| 📮 **고치면 제안이 돼요** | 친구가 고친 내용은 바로 반영되지 않고, 제안 바구니에 모였다가 한 번에 제안돼요 |
+| 👑 **주인은 비밀번호로** | 가입이 없어요. 만들 때 정한 비밀번호를 아는 사람이 주인이고, 수락·거절을 해요 |
+| ⚠️ **겹치면 알려 줘요** | 그 사이 같은 칸이 바뀌었으면 충돌로 표시하고, 겹치지 않는 것만 수락할 수 있어요 |
+| 🌍 **링크 공개 / 전체 공개** | 기본은 친구끼리만이에요. 전체 공개로 바꾸면 Google·네이버 검색에 나와요 |
 
-## 검색 최적화
+<br>
 
-- **서버 렌더링:** 모든 페이지를 서버에서 그린다. 전광판과 탑승권 글자도 HTML에 들어 있고, 애니메이션은 브라우저가 이어받은 뒤에 돈다.
-- **메타데이터:** 계획마다 제목·설명·canonical(`/p/<id>/<slug>`)을 만든다. 예전 주소는 정식 주소로 308 이동한다.
-- **링크 미리보기:** 계획마다 **탑승권 모양 OG 이미지**를 만든다(`opengraph-image`, 한글 글꼴은 쓰는 글자만 받아 옴).
-- **검색엔진용 파일:** `sitemap.xml`에는 전체 공개 계획만 넣고, `robots.txt`는 고치기·제안 화면을 막는다. 홈에는 WebSite, 공개 계획에는 TouristTrip 구조화 데이터를 넣는다.
-- **이미지 분리:** 생성 그림(풍경·위조방지 무늬)은 `/art/...` 주소로 따로 내려보내고 1년 캐시한다. 페이지 HTML에 수십 KB씩 넣지 않는다.
+## 🧭 같이 짜는 법
 
-## 구조
+```mermaid
+sequenceDiagram
+    autonumber
+    actor O as 👑 주인
+    participant S as 섬데트
+    actor F as 🙋 친구
+    O->>S: 계획 쓰기 + 비밀번호 정하기
+    S-->>O: 공유 링크 · QR
+    O->>F: 링크 보내기
+    F->>F: 일정 추가·수정·삭제 → 🧺 제안 바구니
+    F->>S: 제안 보내기 (제목 + 하고 싶은 말)
+    S-->>O: 검토할 제안 1개
+    alt 수락
+        O->>S: ✓ 수락하고 반영
+        S-->>F: 계획에 반영됨
+    else 그 사이 같은 칸이 바뀜
+        S-->>O: ⚠ 충돌 표시 → 겹치지 않는 것만 수락 / 거절
+    end
+```
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/basket.jpg" alt="제안 바구니"></td>
+    <td width="50%"><img src="docs/screenshots/proposal.jpg" alt="제안 검토"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>🧺 친구 화면</b> · 고친 내용이 <em>추가·수정·삭제 예정</em>으로 모여요</td>
+    <td align="center"><b>👑 주인 화면</b> · 바뀐 칸을 전 → 후로 보고 수락·거절해요</td>
+  </tr>
+</table>
+
+<br>
+
+## 🖼 화면
+
+화면은 [moon.log](https://moonglog.vercel.app)의 Plans(가고 싶은 곳) 디자인을 그대로 가져왔어요.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/home-hero.jpg" alt="홈"></td>
+    <td width="50%"><img src="docs/screenshots/plan-hero.jpg" alt="계획 상세"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>떠날 곳</b> · 출발 전광판 · "시간 났다!" · 🎲 골라줘</td>
+    <td align="center"><b>계획 상세</b> · 탑승권 · 카운트다운 플랩 · 현지 날씨·환율</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/composer.jpg" alt="계획 쓰기"></td>
+    <td><img src="docs/screenshots/item-modal.jpg" alt="일정 추가"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>계획 쓰기</b> · 7단계 작성기 · 실시간 탑승권 미리보기</td>
+    <td align="center"><b>일정 추가</b> · 장소 검색 또는 지도에서 직접 찍기</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/dark-home.jpg" alt="다크 모드 전광판"></td>
+    <td><img src="docs/screenshots/dark-plan.jpg" alt="다크 모드 계획"></td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2"><b>다크 모드</b> · 시스템 설정을 따르고, 버튼을 누른 자리에서 원형으로 번져요</td>
+  </tr>
+</table>
+
+<details>
+<summary><b>🎫 탑승권 모아 보기</b></summary>
+<br>
+<img src="docs/screenshots/tickets.jpg" alt="탑승권 그리드">
+</details>
+
+<details>
+<summary><b>📱 모바일</b></summary>
+<br>
+<p align="center">
+  <img src="docs/screenshots/m-home.jpg" alt="모바일 홈" width="31%">
+  <img src="docs/screenshots/m-plan.jpg" alt="모바일 계획" width="31%">
+  <img src="docs/screenshots/m-itinerary.jpg" alt="모바일 일정" width="31%">
+</p>
+</details>
+
+<br>
+
+## 👑 주인과 보안
+
+> 가입 없이, **비밀번호를 아는 사람이 주인**이에요. 쿠키를 지우거나 기기를 바꿔도 비밀번호만 다시 넣으면 돼요.
+
+- 🔐 **비밀번호 원문은 저장하지 않아요.** PBKDF2-SHA256(15만 회) 해시와 솔트만 남겨요.
+- 🍪 **인증은 서버가 해요.** 맞히면 계획별 **httpOnly 쿠키**에 토큰을 담아요. 브라우저 스크립트는 이 쿠키를 읽을 수 없어요.
+- ⏳ **5번 틀리면 30초 잠겨요.** 그 뒤로는 틀릴 때마다 대기 시간이 두 배로 늘어요.
+- 🔄 **비밀번호를 바꾸면** 다른 기기에 남아 있던 주인 인증이 모두 풀려요.
+- 🚦 **제안 도배를 막아요.** 같은 사람은 10분에 5번까지 제안할 수 있고, 열린 제안은 50개까지예요. 주인은 열린 제안을 한꺼번에 거절할 수 있어요.
+- 🧱 **DB는 서버만 만져요.** Supabase 모든 테이블에 RLS를 켜고 공개 권한을 거둬서, 공개(anon) 키로는 읽기도 쓰기도 막혀요. 브라우저에는 키가 하나도 없어요.
+
+<details>
+<summary><b>⚙️ 동시 수정은 이렇게 처리해요 (3-way 비교)</b></summary>
+<br>
+
+변경 하나는 "원래 값 → 바꿀 값"을 담아요. 수락할 때 **지금 계획**과 비교하고, DB에서는 계획 행을 잠근 채(`FOR UPDATE`) 한 트랜잭션 안에서 반영해요.
+
+| 그 사이 무슨 일이? | 결과 |
+|---|---|
+| 다른 칸이 바뀜 (주인은 메모, 친구는 시간) | ✅ 둘 다 반영 |
+| **같은 칸**이 다른 값으로 바뀜 | ⚠️ 충돌. "지금 계획에는 08:30으로 바뀌어 있어요" |
+| 고치려던 일정이 지워짐 | ⚠️ 충돌 |
+| 지우려던 일정이 이미 없음 | ✅ 통과 |
+| 순서만 바뀜 | ✅ 충돌로 치지 않음 |
+
+친구의 바구니 안에서 같은 일정을 여러 번 고치면 변경 하나로 합쳐지고, 원래 값으로 되돌리면 그 변경은 빠져요.
+</details>
+
+<br>
+
+## 🔎 검색에 잘 나오게
+
+검색 노출이 목표라서 **Next.js 서버 렌더링**을 골랐어요. 카카오톡과 네이버는 JS를 실행하지 않아서, 서버가 그린 HTML이 꼭 있어야 해요.
+
+| | 링크 공개 (기본) | 전체 공개 |
+|---|:---:|:---:|
+| 볼 수 있는 사람 | 링크를 받은 친구 | 누구나 |
+| 검색 노출 | ❌ `noindex` | ✅ |
+| 사이트맵 · 구조화 데이터(`TouristTrip`) | ❌ | ✅ |
+| 카톡·슬랙 링크 미리보기 | ✅ | ✅ |
+| 일정 제안 · 주인만 반영 | ✅ | ✅ |
+
+- **글자가 HTML에 들어 있어요.** 전광판과 탑승권 글자까지 서버가 HTML로 보내고, 애니메이션은 화면이 뜬 뒤에 돌아요.
+- **정식 주소가 하나예요.** 계획마다 `/p/<id>/<slug>`를 canonical로 쓰고, 예전 주소는 308로 옮겨 가요.
+- **링크 미리보기 그림이 탑승권이에요.** 맨 위 그림이 실제로 자동 생성되는 미리보기예요.
+- **생성 그림은 따로 내려보내요.** 풍경과 위조방지 무늬는 별도 주소로 보내고 1년 동안 캐시해서, 페이지 HTML이 가벼워요.
+
+<br>
+
+## 🧱 만든 재료
+
+| 영역 | 사용한 것 |
+|---|---|
+| 프레임워크 | Next.js 16 (App Router, 서버 액션) · React 19 · TypeScript |
+| 데이터 | Supabase Postgres (Free, 서울) · [postgres.js](https://github.com/porsager/postgres) |
+| 배포 | Vercel · 함수 리전 `icn1` (서울) |
+| 지도 · 장소 | [Leaflet](https://leafletjs.com) · OpenStreetMap 타일 · [Nominatim](https://nominatim.org) |
+| 실시간 정보 | [Open-Meteo](https://open-meteo.com) 날씨 · [ExchangeRate-API](https://www.exchangerate-api.com) 환율 |
+| 디자인 | [moon.log](https://moonglog.vercel.app) Plans: 스플릿 플랩 전광판, 탑승권, 생성 풍경 그림 |
+| 기타 | [qrcode](https://github.com/soldair/node-qrcode) · Instrument Serif · JetBrains Mono · Pretendard |
+
+<details>
+<summary><b>📁 폴더 구조</b></summary>
 
 ```
 src/
   app/
-    page.tsx                 떠날 곳 (홈)
-    new/                     계획 쓰기 · ?from=<id> 복사
-    p/[id]/[[...slug]]/      계획 상세 (서버 렌더링, 메타데이터, JSON-LD)
-    p/[id]/edit/             계획 고치기 (주인만)
-    p/[id]/pr/[no]/          제안 화면
-    p/[id]/opengraph-image   링크 미리보기 그림
-    art/                     풍경·무늬 SVG
-    actions.ts               서버 액션 (쓰기 전부, 주인 확인)
+    page.tsx                  떠날 곳 (홈)
+    new/                      계획 쓰기 · ?from=<id> 공개 계획 복사
+    p/[id]/[[...slug]]/       계획 상세 (서버 렌더링 · 메타데이터 · JSON-LD)
+    p/[id]/edit/              계획 고치기 (주인만)
+    p/[id]/pr/[no]/           제안 화면
+    p/[id]/opengraph-image    링크 미리보기 그림
+    art/                      풍경 · 위조방지 무늬 SVG
+    actions.ts                서버 액션 (모든 쓰기, 주인 확인)
     sitemap.ts · robots.ts
-  blog/                      moon.log에서 옮긴 템플릿·연출 (서버에서 HTML, 브라우저에서 움직임)
-  components/                Chrome(헤더·테마·커서) · PlansExplorer · Composer · collab/(일정·바구니·제안·모달)
-  server/                    repo.ts(저장소 인터페이스 + FileRepo) · auth.ts(쿠키) · secret.ts(PBKDF2)
-  lib/                       types · proposals(병합·충돌) · clean(입력 검사)
-  styles/blog/               moon.log CSS 그대로 + sdt.css(협업 UI)
-tests/                       vitest 26개
+  blog/                       moon.log에서 옮긴 템플릿·연출 (서버에서 HTML, 브라우저에서 움직임)
+  components/                 Chrome · PlansExplorer · Composer · collab/ (일정 · 바구니 · 제안)
+  server/                     repo.ts (업무 규칙 + 파일 저장소) · pg-repo.ts (Supabase) · auth.ts · secret.ts
+  lib/                        types · proposals (병합·충돌) · clean (입력 검사)
+  styles/blog/                moon.log CSS 그대로 + sdt.css (협업 UI)
+supabase/migrations/          스키마 (RLS)
+tests/                        vitest
 ```
+</details>
 
-## 실행
+<br>
+
+## 🚀 직접 돌려 보기
 
 ```bash
+git clone https://github.com/MoonG25/somedaytrip.git
+cd somedaytrip
 npm install
-npm run dev        # http://localhost:3100
-npm test           # 단위 테스트 (DATABASE_URL이 있으면 Supabase 통합 테스트도)
+npm run dev          # http://localhost:3100
+```
+
+`DATABASE_URL`이 없으면 **개발용 JSON 파일**(`.data/db.json`)을 써요. 처음 실행하면 예시 계획 8개가 들어가요.
+
+<details>
+<summary><b>Supabase에 연결하기</b></summary>
+
+1. Supabase 프로젝트를 만들고, 커넥션 풀러(트랜잭션 모드) 주소를 `.env.local`에 넣어요. **이 파일은 절대 커밋하지 마세요.**
+   ```bash
+   DATABASE_URL=postgres://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+   ```
+2. 스키마를 적용해요.
+   ```bash
+   node --env-file=.env.local scripts/migrate.mjs
+   ```
+3. 배포할 때는 Vercel 환경 변수에 `DATABASE_URL`을 **Sensitive**로 넣어요. 브라우저에 노출되는 `NEXT_PUBLIC_` 접두사는 붙이지 마세요.
+
+| 환경 변수 | 설명 |
+|---|---|
+| `DATABASE_URL` | Supabase Postgres 주소. 없으면 JSON 파일 저장소 |
+| `SDT_SAMPLE_PASSWORD` | 예시 계획의 주인 비밀번호 (선택). 없으면 아무도 모르는 값 |
+| `NEXT_PUBLIC_SITE_URL` | 사이트 주소 (선택, 기본 `https://somedaytrip.vercel.app`) |
+</details>
+
+```bash
+npm test             # 단위 테스트 (DATABASE_URL이 있으면 Supabase 통합 테스트도)
 npm run build
 ```
 
-- **`DATABASE_URL`이 없으면** 개발용 JSON 파일(`.data/db.json`)을 쓴다. 처음 실행하면 예시 계획 8개가 들어간다.
-- **`DATABASE_URL`이 있으면** Supabase Postgres를 쓴다. `.env.local`에만 두고 절대 커밋하지 않는다.
-- **스키마:** `supabase/migrations/`에 있고, `node --env-file=.env.local scripts/migrate.mjs`로 적용한다.
-- **테스트 데이터 정리:** `node --env-file=.env.local scripts/clean-test-data.mjs` (예시 계획은 남긴다)
-- **`SDT_SAMPLE_PASSWORD`:** 정해 두면 예시 계획의 주인이 될 수 있다. 정하지 않으면 아무도 모르는 값이 들어간다.
+<br>
 
-## 배포와 비밀값
+## 🗺 다음
 
-- **배포 위치:** Vercel(Hobby). 함수 리전은 `icn1`(서울)이라 Supabase(서울)와 가깝다.
-- **비밀값 보관:**
-  - `DATABASE_URL`은 Vercel 환경 변수에 **Sensitive**로만 들어 있다. 대시보드에서도 다시 볼 수 없다.
-  - 로컬에는 git이 무시하는 `.env.local`에만 있다.
-  - `.vercelignore`로 `.env*` 파일은 업로드에서도 뺀다.
-- **브라우저에는 키가 없다.** 모든 DB 접근은 서버 액션과 서버 컴포넌트에서만 한다. Supabase 공개(anon) 키는 쓰지 않는다.
-- **공개 키로는 아무것도 못 한다.** 모든 테이블에 RLS를 켜고 정책을 두지 않았으며, anon·authenticated 권한도 회수했다. 공개 키로 REST를 호출하면 4개 테이블 모두 읽기·쓰기가 `permission denied`로 막히는 것을 확인했다.
-- **비밀번호는 원문을 남기지 않는다.** PBKDF2 해시와 토큰 해시만 `plan_secrets`에 있고, 화면 데이터에는 들어가지 않는다.
+- [x] moon.log Plans 디자인 이식 (전광판 · 탑승권 · 작성기)
+- [x] 제안 바구니 → 제안 → 수락·거절, 3-way 충돌
+- [x] 비밀번호 주인 인증 (서버 · httpOnly 쿠키)
+- [x] 링크 / 전체 공개 · 사이트맵 · OG 이미지
+- [x] Supabase 연결 · 행 잠금 트랜잭션 · RLS
+- [ ] Google Search Console · 네이버 서치어드바이저 등록
+- [ ] 실시간 반영 (지금은 같은 브라우저 탭끼리는 즉시, 그 밖에는 30초마다)
+- [ ] 여행지 페이지 `/destinations/<도시>`: 공개 계획 모음
+- [ ] 카카오 로컬 API로 동네 장소 검색 개선
+- [ ] 칸 단위 부분 수락
 
-## 결과 (v0.2)
+<br>
 
-- **단위 테스트 27개 통과 + Supabase 통합 테스트 3개 통과**
-  - 동시에 제안 10개를 보내도 번호가 겹치지 않음
-  - 동시에 6개를 수락해도 하나도 빠지지 않고 버전이 정확히 오름
-  - 틀린 비밀번호 횟수가 DB에 저장되고 잠김
+<details>
+<summary><b>🧪 실험 노트</b> (AI Slop Lab 기록)</summary>
+
+- **시작일**: 2026-10-19
+- **상태**: 🔬 진행 중 · v0.2 배포 완료
+- **출발점**: [moon.log](https://github.com/MoonG25/blog)의 Plans를 떼어 내서, 여러 사람이 같이 짜는 서비스로 만들었다. 블로그는 그대로 두었다.
+- **흐름**
+  1. **v0.1**: Vite판, 서버 없음 (태그 `v0.1.0-vite`)
+  2. **v0.2**: 검색 노출을 위해 Next.js로 전환했다. 메인 컨셉을 세계여행으로 잡고 moon.log 디자인을 그대로 이식했다.
+  3. **Supabase 연결**: 같은 날 연결해서 배포했다.
+
+**결과**
+
+- **단위 테스트 27개**
   - 3-way 충돌과 바구니 합치기
   - 비밀번호 해시 비노출, 잠금, 토큰 없는 쓰기 차단
   - 제안 횟수 제한, 일괄 거절, 비밀번호 변경 시 토큰 무효화
-  - 입력 검사
-- **브라우저 시나리오 38개 통과, 콘솔 오류 0.** 로컬(Supabase)에서 두 번, **실제 배포 사이트에서 한 번** 돌렸다. 주인·손님·다른 기기·복사한 사람을 서로 다른 브라우저 세션으로 돌렸다.
-  1. 홈 HTML에 계획 글자가 서버에서 들어 있음
-  2. 계획 쓰기, 짧은 비밀번호 거부, 링크 공개는 noindex
-  3. 주인 직접 추가
-  4. 손님 바구니(추가·수정·삭제·되돌리기), 제안 보내기
-  5. 주인 수락 반영
-  6. 충돌 표시와 거절
-  7. 다른 기기에서 비밀번호 인증, 체크리스트 공유, 손님 화면 미리보기
-  8. 전체 공개 전환 후 index, JSON-LD, 사이트맵 반영
-  9. 주인이 아니면 고치기 화면 차단, 정보 고치기
-  10. 공개 계획 복사, 홈의 "내 계획"
-  11. 모바일 가로 넘침 없음, 다크 모드, 404
-- **고친 버그:** 새 일정이 직전에 고친 일정의 id를 물려받아, 수락할 때 추가가 빠지는 일이 가끔 있었다. 일정 창을 열 때마다 새로 그리고, 저장 때 새 id를 주고, 서버도 겹치는 id를 새로 바꾸게 해서 세 겹으로 막았다.
-- **한계**
-  - Supabase Free는 7일 동안 아무 요청이 없으면 프로젝트가 일시 정지된다. 대시보드에서 다시 켜야 한다.
-  - 실시간 반영은 같은 브라우저의 탭끼리는 즉시, 그 밖에는 30초마다 새로 받아 온다.
-  - 충돌 판단이 변경 단위라, 한 일정의 시간과 메모를 같이 고쳤는데 시간만 겹쳐도 그 변경 전체가 빠진다.
-  - 계획 정보(제목·예산·체크리스트 문구)는 주인만 고친다. 손님 제안은 일정만 다룬다.
+  - 입력 검사, 추가 일정 id 겹침
+- **Supabase 통합 테스트 3개:** 동시 제안 10개의 번호가 겹치지 않음, 동시 수락 6개가 하나도 빠지지 않음, 잠금
+- **브라우저 시나리오 38개, 콘솔 오류 0.** 로컬에서 두 번, 배포 사이트에서 한 번 돌렸다. 주인·손님·다른 기기·복사한 사람을 서로 다른 브라우저 세션으로 나눴다.
+- **고친 버그:** 새 일정이 직전에 고친 일정의 id를 물려받아, 수락할 때 추가가 빠지는 일이 가끔 있었다. 일정 창, 저장할 때, 서버, 세 군데에서 막았다.
 
-## 다음
+**한계**
 
-1. **검색엔진 등록:** Google Search Console과 네이버 서치어드바이저에 사이트맵을 등록한다. 소유 확인은 사용자 계정이 필요하다.
-2. **실시간 반영:** Supabase Realtime으로 바꾸거나, 서버가 보내는 이벤트로 바꾼다.
-3. **여행지 페이지:** `/destinations/<도시>`에 공개 계획을 모아 검색 유입을 받는다.
-4. **장소 검색 개선:** 카카오 로컬 API로 바꾸고, 키는 서버 쪽에 둔다.
+- Supabase Free는 7일 동안 요청이 없으면 일시 정지된다.
+- 충돌을 변경 단위로 판단한다. 한 일정의 시간과 메모를 같이 고쳤는데 시간만 겹쳐도 그 변경 전체가 빠진다.
+- 손님은 일정만 제안할 수 있다. 계획 정보(제목·예산·체크리스트 문구)는 주인만 고친다.
+
+</details>
+
+<br>
+
+<p align="center"><sub>Made with ✈ in Seoul · 예시 계획의 좌표는 실제 장소 기준이에요</sub></p>
