@@ -6,7 +6,7 @@ import { renderPlansPage, mountPlansPage } from '@/blog/plans-page.js';
 import { toView } from '@/blog/plans-lib.js';
 import { enhance } from '@/blog/enhance.js';
 import { myPlans } from '@/app/actions';
-import { forgetPlan, readMine } from '@/lib/mine';
+import { readMine, writeMine } from '@/lib/mine';
 
 type View = ReturnType<typeof toView>;
 
@@ -20,12 +20,12 @@ export default function PlansExplorer({ initial }: { initial: View[] }) {
     const navigate = (href: string) => window.__sdtNavigate?.(href);
     let off = mountPlansPage(root, { list: initial, navigate });
     let alive = true;
-    const ids = readMine();
-    if (ids.length) {
-      myPlans(ids).then((rows) => {
+    // 브라우저 목록이 비어 있어도 묻는다: 서버 쿠키 백업에서 되살릴 수 있다
+    myPlans(readMine()).then(
+      (rows) => {
         if (!alive) return;
         const found = new Set(rows.map((r) => r.bundle.plan.id));
-        ids.filter((id) => !found.has(id)).forEach(forgetPlan);
+        writeMine(rows.map((r) => r.bundle.plan.id));
         if (!rows.length) return;
         const mine = rows.map((r) => toView(r.bundle.plan, r.bundle.items));
         const mineIds = mine.map((p) => p.id);
@@ -36,8 +36,9 @@ export default function PlansExplorer({ initial }: { initial: View[] }) {
         root.innerHTML = renderPlansPage({ list, mine: mineIds, open });
         off = mountPlansPage(root, { list, mine: mineIds, navigate, open });
         enhance(root);
-      });
-    }
+      },
+      () => {}
+    );
     return () => {
       alive = false;
       off();

@@ -11,7 +11,12 @@ export default function MoveDevices() {
   const [ids, setIds] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [qr, setQr] = useState('');
-  useEffect(() => setIds(readMine()), []);
+  useEffect(() => {
+    const read = () => setIds(readMine());
+    read();
+    window.addEventListener('sdt:mine', read); // 홈이 쿠키 백업에서 되살리면 다시 읽는다
+    return () => window.removeEventListener('sdt:mine', read);
+  }, []);
   const url = typeof location !== 'undefined' ? `${location.origin}/move#${ids.join('.')}` : '';
   useEffect(() => {
     if (open && url) QRCode.toDataURL(url, { width: 336, margin: 1, color: { dark: '#17150f', light: '#ffffff' } }).then(setQr, () => {});

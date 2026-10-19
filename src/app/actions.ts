@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import type { Bundle, Item, Op, PlanInfo } from '@/lib/types';
 import { cleanItem } from '@/lib/clean';
 import { repo, RepoError, isRepoError } from '@/server';
-import { clearOwnerToken, ownerToken, setOwnerToken, visitorId } from '@/server/auth';
+import { clearOwnerToken, ownerToken, savedMine, setOwnerToken, setSavedMine, visitorId } from '@/server/auth';
 import { uid } from '@/server/secret';
 import { headers } from 'next/headers';
 import { allow } from '@/server/limit';
@@ -156,8 +156,14 @@ export async function rekeyPlan(id: string) {
 }
 
 /** "내 계획": 이 브라우저가 기억하는 계획 id들 → 계획 묶음 (일정 수만 필요해서 가볍게) */
+/** 홈의 "내 계획". 브라우저가 기억한 id에 쿠키 백업을 합쳐서, 어느 한쪽이 지워져도 되살린다.
+ *  찾은 계획 순서대로 돌려주고, 쿠키도 그 목록으로 새로 쓴다 (지운 계획·바뀐 링크는 빠진다) */
 export async function myPlans(ids: string[]): Promise<{ bundle: Pick<Bundle, 'plan' | 'items'>; owner: boolean; open: number }[]> {
-  const list = await repo().getMany((Array.isArray(ids) ? ids : []).slice(0, 100).map(String));
+  const want = [...new Set([...(Array.isArray(ids) ? ids : []).map(String), ...(await savedMine())])].slice(0, 100);
+  if (!want.length) return [];
+  const byId = new Map((await repo().getMany(want)).map((b) => [b.plan.id, b]));
+  const list = want.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+  await setSavedMine(list.map((b) => b.plan.id));
   return Promise.all(
     list.map(async (b) => ({
       bundle: { plan: b.plan, items: b.items },
@@ -165,4 +171,10 @@ export async function myPlans(ids: string[]): Promise<{ bundle: Pick<Bundle, 'pl
       open: b.proposals.filter((p) => p.status === 'open').length,
     }))
   );
+}
+
+/** 새로 기억한 계획을 쿠키 백업에도 넣는다 */
+export async function keepMine(ids: string[]) {
+  const add = (Array.isArray(ids) ? ids : []).map(String).slice(0, 100);
+  await setSavedMine([...new Set([...add, ...(await savedMine())])]);
 }
