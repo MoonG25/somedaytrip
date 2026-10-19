@@ -15,3 +15,5 @@ export function routeKm(stops: { coords: number[] }[]): number;
 export function guillocheSvg(seed: string): string;
 export function sortPlans<T>(list: T[], mode?: string): T[];
 export function readiness(p: any): { done: number; total: number; pct: number };
+export function barcode(seed: string, w?: number, h?: number): string;
+export function travelField(p: any): { dt: string; dd: string };
