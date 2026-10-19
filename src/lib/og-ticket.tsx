@@ -4,7 +4,7 @@
 //  - 절취선 위·아래 반원 홈은 바탕색 원을 덮어서 만든다.
 import { ImageResponse } from 'next/og';
 import { sceneSvg } from '@/blog/art.js';
-import { ARC_PATH, PLANE, STATUS, SCOPE, barcode, flagOf, guillocheSvg, nights, readiness, totalBudget, travelField } from '@/blog/plans-lib.js';
+import { ARC_PATH, STATUS, SCOPE, barcode, flagOf, guillocheSvg, nights, readiness, ticketKind, totalBudget, travelField } from '@/blog/plans-lib.js';
 import { ddayLabel } from '@/blog/ticket.js';
 import type { View } from '@/blog/plans-lib.js';
 
@@ -37,13 +37,14 @@ function arcPoint(t: number) {
   return { x: b(0), y: b(1), ang: (Math.atan2(d(1), d(0)) * 180) / Math.PI };
 }
 
-function arcSvg(tone: string) {
+function arcSvg(tone: string, icon: string, upright: boolean) {
   const t = 0.6;
   const p = arcPoint(t);
+  const g = upright ? `translate(${p.x.toFixed(2)} ${(p.y - 4).toFixed(2)}) scale(0.9)` : `translate(${p.x.toFixed(2)} ${p.y.toFixed(2)}) rotate(${p.ang.toFixed(1)})`;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -10 200 62" width="400" height="124">
     <path d="${ARC_PATH}" fill="none" stroke="${C.ink3}" stroke-width="1.2" stroke-dasharray="2 4"/>
     <path d="${ARC_PATH}" fill="none" stroke="${tone}" stroke-width="2.2" stroke-linecap="round" pathLength="1" stroke-dasharray="${t} 1"/>
-    <g transform="translate(${p.x.toFixed(2)} ${p.y.toFixed(2)}) rotate(${p.ang.toFixed(1)})"><path d="${PLANE}" fill="${tone}"/></g>
+    <g transform="${g}"><path d="${icon}" fill="${tone}" fill-rule="evenodd"/></g>
   </svg>`;
 }
 
@@ -86,7 +87,8 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
   const ready = readiness(p);
   const tf = travelField(p);
   const chip = brand ? '섬데트' : `${p.sample ? '예시 · ' : ''}${p.scope !== 'abroad' ? `${SCOPE[p.scope].ko} · ` : ''}${st.ko}`;
-  const code = p.iata || (p.scope === 'local' ? 'LCL' : p.scope === 'domestic' ? 'DOM' : '???');
+  const tk = ticketKind(p);
+  const code = tk.to;
   const flag = brand ? '✈️' : p.scope === 'abroad' || p.countryCode ? flagOf(p.countryCode) : SCOPE[p.scope].icon;
   const fields = brand
     ? [
@@ -105,9 +107,9 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
   const ddFont = /^[∞✓]$/.test(dd.big) ? 'Sans' : 'Serif';
   const now = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', month: 'numeric' }).format(new Date()));
 
-  const sans = `∞✓SEL서울명인·${p.place}${p.title}${chip}${fields.flat().join('')}준비출발까지시간 나면다녀왔어요다녀왔나요?오늘 출발!예약 완료도착 · 다녀옴섬데트`;
-  const mono = `SOMEDAY AIR · BOARDING PASS GATE CONFIRMED ARRIVED ${code} JFMASOND 0123456789%·`;
-  const big = `SEL${code}0123456789`;
+  const sans = `∞✓${tk.from[0]}${tk.from[1]}명인·${p.place}${p.title}${chip}${fields.flat().join('')}준비출발까지시간 나면다녀왔어요다녀왔나요?오늘 출발!예약 완료도착 · 다녀옴섬데트`;
+  const mono = `${tk.brand} GATE CONFIRMED ARRIVED ${code} JFMASOND 0123456789%·`;
+  const big = `${tk.from[0]}${code}0123456789`;
   const [s5, s7, s8, m4, m7, sf] = await Promise.all([
     font('Noto+Sans+KR', 500, sans),
     font('Noto+Sans+KR', 700, sans),
@@ -142,15 +144,15 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', width: MAIN, height: H, padding: '38px 46px 34px' }}>
             <img src={guilloche} width={MAIN} height={H} style={{ position: 'absolute', left: 0, top: 0, width: MAIN, height: H, objectFit: 'cover', opacity: 0.28 }} />
             <div style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ fontFamily: 'Mono', fontSize: 17, letterSpacing: 3, color: C.ink3, marginRight: 'auto' }}>SOMEDAY AIR · BOARDING PASS</span>
+              <span style={{ fontFamily: 'Mono', fontSize: 17, letterSpacing: 3, color: C.ink3, marginRight: 'auto' }}>{tk.brand}</span>
               <span style={{ padding: '5px 18px', borderRadius: 999, fontSize: 20, fontWeight: 700, color: tone, background: `${tone}24` }}>{chip}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 82, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1 }}>SEL</span>
-                <span style={{ marginTop: 10, fontSize: 21, color: C.ink3 }}>서울</span>
+                <span style={{ fontSize: 82, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1 }}>{tk.from[0]}</span>
+                <span style={{ marginTop: 10, fontSize: 21, color: C.ink3 }}>{tk.from[1]}</span>
               </div>
-              <img src={svgUri(arcSvg(tone))} width={300} height={93} style={{ flex: 1, margin: '0 18px 30px', height: 93 }} />
+              <img src={svgUri(arcSvg(tone, tk.icon, tk.upright))} width={300} height={93} style={{ flex: 1, margin: '0 18px 30px', height: 93 }} />
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                 <span style={{ fontSize: 82, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1 }}>{code}</span>
                 <span style={{ marginTop: 10, fontSize: 21, color: C.ink3 }}>{p.place}</span>

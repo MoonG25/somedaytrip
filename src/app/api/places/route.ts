@@ -6,6 +6,7 @@
 // 결과는 서버 메모리에 잠깐 캐시하고, 응답에는 키가 절대 들어가지 않는다.
 import { NextResponse } from 'next/server';
 import { findCities } from '@/blog/cities.js';
+import { allow, clientIp } from '@/server/limit';
 
 export const runtime = 'nodejs';
 
@@ -127,6 +128,8 @@ export async function GET(req: Request) {
   const lat = url.searchParams.has('lat') ? Number(url.searchParams.get('lat')) : undefined;
   const lng = url.searchParams.has('lng') ? Number(url.searchParams.get('lng')) : undefined;
   if (q.length < 2) return NextResponse.json({ hits: [] });
+  // 한 사람이 1분에 40번까지 (자동완성으로 치기엔 넉넉하고, 남용은 막는다)
+  if (!allow(`places:${clientIp(req)}`, 40, 60_000)) return NextResponse.json({ hits: [], limited: true }, { status: 429, headers: { 'Retry-After': '30' } });
   const key = `${mode}|${q}|${lat?.toFixed(1)}|${lng?.toFixed(1)}`;
   const c = cache.get(key);
   if (c && Date.now() - c.at < 3600_000) return NextResponse.json({ hits: c.hits });

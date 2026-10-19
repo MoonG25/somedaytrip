@@ -205,4 +205,16 @@ export function barcode(seed, w = 120, h = 34) {
 export const ARC_PATH = 'M14 46 C 60 -6, 140 -6, 186 46';
 export const PLANE = 'M8 0 L2 -1.2 L-2 -7 L-4 -7 L-2.2 -1.2 L-6 -1 L-7.6 -3 L-8.6 -3 L-7.8 0 L-8.6 3 L-7.6 3 L-6 1 L-2.2 1.2 L-4 7 L-2 7 L2 1.2 Z';
 
+// 국내는 기차, 동네는 걷는 사람 (비행기와 같은 -10..10 좌표)
+export const TRAIN = 'M-6.5 -5.5 H6.5 A3.5 3.5 0 0 1 10 -2 V3 A2 2 0 0 1 8 5 H-8 A2 2 0 0 1 -10 3 V-2 A3.5 3.5 0 0 1 -6.5 -5.5 Z M-7.5 -2.8 V0.6 H-2.2 V-2.8 Z M-0.9 -2.8 V0.6 H4.4 V-2.8 Z M5.7 -2.8 V0.6 H8.3 V-1.4 A1.4 1.4 0 0 0 6.9 -2.8 Z M-6 6.2 A1.6 1.6 0 1 0 -6 6.21 Z M6 6.2 A1.6 1.6 0 1 0 6 6.21 Z';
+export const WALK = 'M1.2 -9.5 A2.2 2.2 0 1 1 1.21 -9.5 Z M-0.6 -5.6 L2.6 -5.3 L4.6 -1.4 L7 0 L6.2 1.4 L3.2 -0.2 L2.4 -2 L1.6 1.6 L4.4 5 L4.8 9.6 L3 9.8 L2.6 5.8 L0 3 L-1.6 6.4 L-4.6 9.4 L-5.8 8.2 L-3.2 5.4 L-1.4 0.4 L-0.6 -3 L-2.4 -1.8 L-3.4 1.4 L-5 1 L-3.8 -3 Z';
+
+/** 여행 종류별 표: 이름 · 출발 · 도착 코드 · 아이콘 */
+export function ticketKind(p) {
+  const en3 = (p.placeEn || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+  if (p.scope === 'local') return { brand: 'SOMEDAY WALK · DAY PASS', from: ['HERE', '여기서'], to: p.iata || en3 || 'LCL', icon: WALK, upright: true };
+  if (p.scope === 'domestic') return { brand: 'SOMEDAY RAIL · TRAIN TICKET', from: ['SEL', '서울'], to: p.iata || en3 || 'DOM', icon: TRAIN, upright: true };
+  return { brand: 'SOMEDAY AIR · BOARDING PASS', from: ['SEL', '서울'], to: p.iata || '???', icon: PLANE, upright: false };
+}
+
 export const sceneUrl = (p) => `/art/scene/${p.cover?.scene || 'mountain'}/${p.cover?.time || 'day'}/${safeSeed(p.id || p.slug)}.svg`;

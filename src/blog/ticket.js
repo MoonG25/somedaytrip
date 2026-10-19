@@ -1,7 +1,7 @@
 // 탑승권 카드: 위조방지 무늬, 항로 위를 나는 비행기, 홀로그램, 찢어지는 스텁 (moon.log ui/ticket.js에서 옮김)
 // ticketHTML 등 문자열 함수는 서버에서도 돈다. bindTickets만 브라우저 전용.
 import { esc, fmtDot, fmtWon, clamp, easeOutCubic, reducedMotion, seoulMonth } from './util.js';
-import { STATUS, SCOPE, totalBudget, travelField, daysUntil, flagOf, nights, readiness, guilloche, barcode, ARC_PATH, PLANE, sceneUrl } from './plans-lib.js';
+import { STATUS, SCOPE, totalBudget, travelField, daysUntil, flagOf, nights, readiness, guilloche, barcode, ARC_PATH, sceneUrl, ticketKind } from './plans-lib.js';
 
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 
@@ -29,34 +29,34 @@ export function readyRing(pct, size = 44) {
     <b>${pct}<small>%</small></b></span>`;
 }
 
-/** 목적지 공항 칸: 해외는 공항 코드, 국내·동네는 코드가 없으면 이모지 */
-const destCode = (p) => (p.iata ? esc(p.iata) : p.scope === 'local' ? '🏘' : p.scope === 'domestic' ? '🚄' : '???');
 
-export function ticketHTML(p, { big = false, fit = null, mine = false, preview = false } = {}) {
+export function ticketHTML(p, { big = false, fit = null, mine = false, preview = false, open = 0 } = {}) {
   const st = STATUS[p.status] || STATUS.dream;
   const dd = ddayLabel(p);
   const ready = readiness(p);
   const tf = travelField(p);
   const chip = `${p.sample ? '예시 · ' : ''}${p.scope !== 'abroad' ? `${SCOPE[p.scope].ko} · ` : ''}${st.ko}`;
+  const tk = ticketKind(p);
   return `<article class="ticket tone-${p.status}${big ? ' ticket--big' : ''}${mine ? ' is-mine' : ''}" data-slug="${esc(p.id)}" data-reveal>
     <a ${preview ? 'tabindex="-1" aria-hidden="true"' : `href="${esc(p.href)}"`} class="ticket-link" data-tilt="6" data-cursor="${big || preview ? '' : p.status === 'done' ? '추억' : '탑승'}" aria-label="${esc(p.title)} 계획 보기${p.status === 'done' ? ' (다녀옴)' : ''}">
       <div class="tk-main">
         ${guilloche(p.id)}
         <header class="tk-head">
-          <span class="tk-brand mono">SOMEDAY AIR · BOARDING PASS</span>
+          <span class="tk-brand mono">${tk.brand}</span>
           ${fit ? `<span class="tk-fit${fit.fit ? ' ok' : ''}">${fit.fit ? '딱 맞아요 ' : '적합 '}${fit.score}%</span>` : ''}
+          ${open ? `<span class="tk-open" title="검토를 기다리는 제안">📮 제안 ${open}</span>` : ''}
           <span class="tk-chip">${esc(chip)}</span>
         </header>
         <div class="tk-route">
-          <div class="tk-port"><b>SEL</b><span>서울</span></div>
+          <div class="tk-port"><b>${tk.from[0]}</b><span>${tk.from[1]}</span></div>
           <svg class="tk-arc" viewBox="0 0 200 52" aria-hidden="true">
             <path class="tk-arc-base" d="${ARC_PATH}"/>
             <path class="tk-arc-trail" d="${ARC_PATH}" pathLength="1"/>
-            <g class="tk-plane" transform="translate(14 46) rotate(-48)"><path d="${PLANE}"/></g>
+            <g class="tk-plane${tk.upright ? ' upright' : ''}" transform="translate(14 46)${tk.upright ? ' scale(0.9)' : ' rotate(-48)'}"><path d="${tk.icon}" fill-rule="evenodd"/></g>
           </svg>
-          <div class="tk-port to"><b>${destCode(p)}</b><span>${esc(p.place)}</span></div>
+          <div class="tk-port to"><b>${esc(tk.to)}</b><span>${esc(p.place)}</span></div>
         </div>
-        <h3 class="tk-title"><span class="tk-flag">${p.scope === 'abroad' || p.countryCode ? flagOf(p.countryCode) : SCOPE[p.scope].icon}</span>${esc(p.title)}</h3>
+        <${big ? 'h1' : 'h3'} class="tk-title"><span class="tk-flag" aria-hidden="true">${p.scope === 'abroad' || p.countryCode ? flagOf(p.countryCode) : SCOPE[p.scope].icon}</span>${esc(p.title)}</${big ? 'h1' : 'h3'}>
         <dl class="tk-fields">
           <div><dt>출발</dt><dd>${p.target ? fmtDot(p.target) : '언젠가'}</dd></div>
           <div><dt>기간${(p.travelers || 1) > 1 ? ` · ${p.travelers}명` : ''}</dt><dd>${nights(p.days)}</dd></div>
@@ -100,7 +100,8 @@ export function bindTickets(root, navigate) {
       const a = path.getPointAtLength(st.p * len);
       const b = path.getPointAtLength(Math.min(len, st.p * len + 1));
       const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
-      plane.setAttribute('transform', `translate(${a.x.toFixed(2)} ${a.y.toFixed(2)}) rotate(${ang.toFixed(1)})`);
+      // 기차·걷는 사람은 기울이지 않고 똑바로 (비행기만 항로 방향으로 돈다)
+      plane.setAttribute('transform', plane.classList.contains('upright') ? `translate(${a.x.toFixed(2)} ${(a.y - 4).toFixed(2)}) scale(0.9)` : `translate(${a.x.toFixed(2)} ${a.y.toFixed(2)}) rotate(${ang.toFixed(1)})`);
       trail.style.strokeDashoffset = String(1 - st.p);
       if (k < 1) st.raf = requestAnimationFrame(step);
     };

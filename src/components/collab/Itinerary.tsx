@@ -78,7 +78,8 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
         const map = createMap(L, mapEl.current);
         const layer = L.layerGroup().addTo(map);
         mapRef.current = { L, map, layer };
-        map.setView(plan.coords || [37.5665, 126.978], plan.coords ? 11 : 5);
+        // 동네 여행은 처음부터 동네 크기로
+        map.setView(plan.coords || [37.5665, 126.978], plan.coords ? (plan.scope === 'local' ? 15 : 11) : 5);
         mapEl.current.parentElement?.querySelector('.map-loading')?.remove();
         setFocus((f) => f); // 다시 그리기
         drawRef.current?.(true);
@@ -124,7 +125,7 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
       });
       if (day != null && line.length > 1) L.polyline(line, { className: 'route-plan', weight: 2.5, interactive: false, color: dayColor(day) }).addTo(layer);
     }
-    if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: 14, animate: false });
+    if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: plan.scope === 'local' ? 16 : 14, animate: false });
   };
   const fittedRef = useRef(false);
   useEffect(() => {
@@ -223,6 +224,24 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
     commit(ops, `동선을 ${(before - after).toFixed(1)}km 줄였어요 (${before.toFixed(1)} → ${after.toFixed(1)}km)`);
   };
 
+  /** 그날 일정을 시간순으로 (시간 있는 일정 먼저, 시간 없는 일정은 원래 순서대로 뒤에) */
+  const timeSorted = (day: number | null) => {
+    const list = live.filter((r) => r.item.day === day).map((r) => r.item);
+    const timed = list.filter((i) => i.time).sort((a, b) => a.time.localeCompare(b.time));
+    const rest = list.filter((i) => !i.time);
+    return { list, next: [...timed, ...rest] };
+  };
+  const outOfOrder = (day: number | null) => {
+    const { list, next } = timeSorted(day);
+    return list.filter((i) => i.time).length > 1 && list.some((it, i) => it.id !== next[i].id);
+  };
+  const sortByTime = (day: number | null) => {
+    const { list, next } = timeSorted(day);
+    const slots = list.map((i) => i.order).sort((a, b) => a - b);
+    const ops = next.map((it, i) => diffItem(it, { ...it, order: slots[i] })).filter(Boolean) as Op[];
+    commit(ops, '시간순으로 정렬했어요');
+  };
+
   const totalKm = useMemo(() => {
     let s = 0;
     for (const day of days) {
@@ -283,6 +302,11 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
                     {liveList.length ? `${liveList.length}곳` : ''}
                     {cost ? ` · ${won(cost)}` : ''}
                   </small>
+                  {day != null && outOfOrder(day) ? (
+                    <button type="button" className="time-sort" onClick={() => sortByTime(day)} disabled={busy}>
+                      ⏱ 시간순
+                    </button>
+                  ) : null}
                 </h3>
                 <ol className="route-list" role="list">
                   {list.map((r, i) => {

@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import type { Item, Plan } from '@/lib/types';
-import { changePassword, deletePlan, login, logout, rejectAll, updatePlan } from '@/app/actions';
+import { changePassword, deletePlan, login, logout, rejectAll, rekeyPlan, updatePlan } from '@/app/actions';
 import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
 import PlanLinks from './PlanLinks';
@@ -145,6 +145,23 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
                   <button type="button" onClick={(e) => (closeMenu(e), setPrev(true))}>
                     👀 손님 화면 미리보기
                   </button>
+                  {!plan.sample ? (
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        closeMenu(e);
+                        if (!confirm('링크를 새로 만들까요?\n\n예전 링크는 더 이상 열리지 않아요. 같이 짜는 친구들에게 새 링크를 다시 보내야 해요. 일정·제안·기록은 그대로예요.')) return;
+                        const r = await rekeyPlan(plan.id);
+                        if (!r.ok) return toast(r.error, '!');
+                        forgetPlan(plan.id);
+                        rememberPlan(r.data.id);
+                        toast('새 링크를 만들었어요. 친구들에게 다시 보내 주세요', '🔄');
+                        router.replace(`/p/${r.data.id}/${r.data.slug}?welcome=1`);
+                      }}
+                    >
+                      🔄 링크 새로 만들기
+                    </button>
+                  ) : null}
                   <button type="button" onClick={(e) => (closeMenu(e), setModal('password'))}>
                     🔑 비밀번호 바꾸기
                   </button>
@@ -267,7 +284,25 @@ export function ShareModal({ open, plan, onClose, welcome }: { open: boolean; pl
               📤 다른 앱으로 보내기
             </button>
           ) : null}
-          {welcome ? <p className="muted">링크를 친구에게 보내 보세요. 친구가 일정을 고치면 <b>제안</b>으로 쌓이고, 주인인 내가 수락하거나 거절해요. <b>비밀번호는 되찾을 수 없으니 꼭 기억해 두세요.</b></p> : null}
+          {welcome ? (
+            <div className="keep-link">
+              <b>📌 이 링크를 나에게 꼭 보내 두세요</b>
+              <p>가입이 없어서, 다른 기기나 브라우저 기록을 지운 뒤에는 <b>링크가 있어야</b> 계획을 다시 찾을 수 있어요. 주인 인증은 비밀번호로 해요.</p>
+              <div className="keep-actions">
+                {typeof navigator !== 'undefined' && 'share' in navigator ? (
+                  <button type="button" className="btn btn--sm btn--solid" onClick={() => navigator.share({ title: plan.title, text: `내 여행 계획 링크 (섬데트): ${plan.title}`, url }).catch(() => {})}>
+                    📤 카톡·메모로 보내기
+                  </button>
+                ) : null}
+                <a
+                  className="btn btn--sm btn--ghost"
+                  href={`mailto:?subject=${encodeURIComponent(`[섬데트] ${plan.title}`)}&body=${encodeURIComponent(`내 여행 계획 링크\n${url}\n\n주인 비밀번호는 따로 기억해 두세요. (섬데트는 비밀번호를 되찾아 주지 못해요)`)}`}
+                >
+                  ✉️ 메일로 보내기
+                </a>
+              </div>
+            </div>
+          ) : null}
           <ul className="pub-rules">
             <li>🔗 링크를 받은 사람은 누구나 일정을 <b>제안</b>할 수 있어요.</li>
             <li>👑 반영은 비밀번호를 아는 <b>주인</b>만 할 수 있어요.</li>

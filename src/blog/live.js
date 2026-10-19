@@ -72,3 +72,11 @@ export function tzOffsetHours(tz) {
   const seoul = new Date(now.toLocaleString('en-US', { timeZone: HOME_TZ }));
   return Math.round(((local - seoul) / 3600000) * 2) / 2;
 }
+
+/** 오늘 해 뜨고 지는 시각 (현지 시간 'HH:MM') */
+export async function sunAt([lat, lon], signal) {
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lon.toFixed(3)}&daily=sunrise,sunset&timezone=auto&forecast_days=1`, { signal });
+  if (!r.ok) throw new Error(r.status);
+  const d = await r.json();
+  return { rise: d.daily.sunrise[0].slice(11, 16), set: d.daily.sunset[0].slice(11, 16) };
+}

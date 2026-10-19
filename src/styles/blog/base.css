@@ -16,7 +16,7 @@
   --paper-3: #e1dbcc;
   --ink: #17150f;
   --ink-2: #4b473e;
-  --ink-3: #8c8678;
+  --ink-3: #6f6a5d; /* 섬데트: 접근성 대비 4.5:1 이상으로 (원래 #8c8678) */
   --line: color-mix(in oklab, var(--ink) 13%, transparent);
   --line-strong: color-mix(in oklab, var(--ink) 28%, transparent);
   --night: #0d0e12;
@@ -64,7 +64,7 @@
   --paper-3: #212128;
   --ink: #ece7dc;
   --ink-2: #aaa499;
-  --ink-3: #6f6b63;
+  --ink-3: #8f8a80; /* 섬데트: 대비 조정 (원래 #6f6b63) */
   --line: color-mix(in oklab, var(--ink) 11%, transparent);
   --line-strong: color-mix(in oklab, var(--ink) 24%, transparent);
   --accent: oklch(0.74 0.17 var(--hue));

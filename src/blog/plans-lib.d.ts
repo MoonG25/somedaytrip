@@ -18,3 +18,6 @@ export function readiness(p: any): { done: number; total: number; pct: number };
 export function barcode(seed: string, w?: number, h?: number): string;
 export function travelField(p: any): { dt: string; dd: string };
 export function groupBudget(p: any): number;
+export function ticketKind(p: any): { brand: string; from: [string, string]; to: string; icon: string; upright: boolean };
+export const TRAIN: string;
+export const WALK: string;

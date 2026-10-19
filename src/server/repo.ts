@@ -53,6 +53,8 @@ export interface Repo {
   rejectAllOpen(id: string, token: string, note: string): Promise<number>;
   withdraw(id: string, no: number, authorId: string): Promise<void>;
   remove(id: string, token: string): Promise<void>;
+  /** 링크 새로 만들기: 계획 id를 바꾼다. 예전 링크는 더 이상 열리지 않는다 */
+  rekey(id: string, token: string): Promise<string>;
 }
 
 /** 저장소 안에서 다루는 계획 한 건 (비밀 포함) */
@@ -89,6 +91,7 @@ export abstract class BaseRepo implements Repo {
   protected abstract delete(id: string): Promise<void>;
   protected abstract readMany(ids: string[]): Promise<Row[]>;
   protected abstract readPublic(limit: number): Promise<Row[]>;
+  protected abstract changeId(oldId: string, newId: string): Promise<void>;
 
   private async must(id: string) {
     const r = await this.read(id);
@@ -155,8 +158,8 @@ export abstract class BaseRepo implements Repo {
     const token = await this.mutate(id, (row) => {
       if (!ok) {
         row.fails.count++;
-        // 5번 틀리면 30초, 그 뒤로는 틀릴 때마다 두 배
-        if (row.fails.count >= 5) row.fails.until = Date.now() + 30_000 * 2 ** Math.min(10, row.fails.count - 5);
+        // 계획 전체로는 20번 틀리면 1분, 그 뒤로 두 배 (IP 단위 제한은 서버 액션에서 따로. 한 사람이 일부러 틀려도 바로 잠기지 않게)
+        if (row.fails.count >= 20) row.fails.until = Date.now() + 60_000 * 2 ** Math.min(8, row.fails.count - 20);
         return null;
       }
       const t = uid(24);
@@ -327,6 +330,19 @@ export abstract class BaseRepo implements Repo {
     this.owner(await this.must(id), token);
     await this.delete(id);
   }
+
+  async rekey(id: string, token: string) {
+    const r = await this.must(id);
+    this.owner(r, token);
+    if (r.plan.sample) throw new RepoError('예시 계획은 링크를 바꿀 수 없어요', 'invalid');
+    const next = uid(10);
+    await this.changeId(id, next);
+    await this.mutate(next, (row) => {
+      this.log(row, 'meta', row.plan.ownerName, '링크를 새로 만들었어요 (예전 링크는 더 이상 열리지 않아요)');
+      this.touch(row);
+    });
+    return next;
+  }
 }
 
 /** 개발·테스트용 JSON 파일 저장소. 쓰기는 한 줄로 세워서 한 번에 하나씩 한다 */
@@ -403,6 +419,18 @@ export class FileRepo extends BaseRepo {
   protected async readMany(ids: string[]) {
     const db = await this.load();
     return ids.map((id) => db.rows[id]).filter(Boolean);
+  }
+
+  protected changeId(oldId: string, newId: string) {
+    return this.queue(async () => {
+      const db = await this.load();
+      const r = db.rows[oldId];
+      if (!r) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
+      r.plan.id = newId;
+      db.rows[newId] = r;
+      delete db.rows[oldId];
+      await this.save();
+    });
   }
 
   protected async readPublic(limit: number) {

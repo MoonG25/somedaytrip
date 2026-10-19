@@ -46,7 +46,7 @@ const staticBoard = (rows) => `
     )
     .join('')}</div>`;
 
-export function renderPlansPage({ list, mine = [], sort = 'status', status = 'all' }) {
+export function renderPlansPage({ list, mine = [], sort = 'status', status = 'all', open = {} }) {
   const sorted = sortPlans(list, sort);
   const counts = Object.fromEntries(Object.keys(STATUS).map((k) => [k, sorted.filter((p) => p.status === k).length]));
   const next = sorted.filter((p) => p.status !== 'done' && p.target && daysUntil(p.target) >= 0).sort((a, b) => a.target.localeCompare(b.target))[0];
@@ -121,7 +121,7 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
     </div>
     <label class="field sort-field"><select aria-label="정렬">${Object.entries(SORTS).map(([k, v]) => `<option value="${k}" ${k === sort ? 'selected' : ''}>${v}</option>`)}</select></label>
   </div>
-  <div class="tickets" data-stagger="70">${sorted.map((p) => ticketHTML(p, { mine: mineSet.has(p.id) }))}</div>
+  <div class="tickets" data-stagger="70">${sorted.map((p) => ticketHTML(p, { mine: mineSet.has(p.id), open: open[p.id] || 0 }))}</div>
   <div class="empty" ${sorted.length ? 'hidden' : ''}><b>텅.</b>${sorted.length ? '이 조건에 맞는 계획이 없어요.' : '아직 계획이 없어요. 첫 계획을 써 보세요.'}</div>
 </section>
 
@@ -135,7 +135,7 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
 </section>`;
 }
 
-export function mountPlansPage(root, { list, mine = [], navigate }) {
+export function mountPlansPage(root, { list, mine = [], navigate, open = {} }) {
   const cleanups = [];
   let sort = root.querySelector('.sort-field select').value || 'status';
   let all = sortPlans(list, sort);
@@ -245,7 +245,7 @@ export function mountPlansPage(root, { list, mine = [], navigate }) {
       const existing = new Map([...tickets.children].map((c) => [c.dataset.slug, c]));
       order.forEach(({ p, f }) => {
         const holder = document.createElement('div');
-        holder.innerHTML = ticketHTML(p, { fit: f, mine: mineSet.has(p.id) });
+        holder.innerHTML = ticketHTML(p, { fit: f, mine: mineSet.has(p.id), open: open[p.id] || 0 });
         const next = holder.firstElementChild;
         next.classList.add('is-in');
         next.classList.toggle('dim', !!f && !f.fit);

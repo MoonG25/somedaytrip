@@ -106,14 +106,14 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
       <legend><span class="step-no mono">01</span>어디로?<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="choice-cards three" role="radiogroup" aria-label="여행 종류">
         ${Object.entries(SCOPES)
-          .map(([k, s]) => `<button type="button" role="radio" class="choice" data-scope="${k}"><span class="choice-ico">${s.icon}</span><b>${s.ko}</b><small>${s.hint}</small></button>`)
+          .map(([k, s]) => `<button type="button" role="radio" aria-checked="false" class="choice" data-scope="${k}"><span class="choice-ico">${s.icon}</span><b>${s.ko}</b><small>${s.hint}</small></button>`)
           .join('')}
       </div>
       <div class="field-block">
         ${lbl('목적지', '도시·동네·지역 이름')}
         <div class="ac" data-ac="dest">
-          <label class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="q" placeholder="예: 삿포로, Lisbon, 망원동" aria-label="목적지 검색" role="combobox" aria-expanded="false" aria-autocomplete="list"></label>
-          <ul class="ac-list" role="listbox" hidden></ul>
+          <label class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="q" placeholder="예: 삿포로, Lisbon, 망원동" aria-label="목적지 검색" role="combobox" aria-expanded="false" aria-controls="ac-dest" aria-autocomplete="list"></label>
+          <ul class="ac-list" id="ac-dest" role="listbox" hidden></ul>
         </div>
         <div class="dest-card" hidden></div>
       </div>
@@ -131,15 +131,15 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
       <div class="field-block">
         ${lbl('탑승권 그림')}
         <div class="scene-grid" role="radiogroup" aria-label="풍경"></div>
-        <div class="chips time-chips" role="radiogroup" aria-label="시간대">${Object.entries(TIMES).map(([k, v]) => `<button type="button" class="chip" role="radio" data-time="${k}">${v}</button>`).join('')}</div>
+        <div class="chips time-chips" role="radiogroup" aria-label="시간대">${Object.entries(TIMES).map(([k, v]) => `<button type="button" class="chip" role="radio" aria-checked="false" data-time="${k}">${v}</button>`).join('')}</div>
       </div>
     </fieldset>
 
     <fieldset class="cstep" data-step="when">
       <legend><span class="step-no mono">02</span>언제?<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="choice-cards two" role="radiogroup" aria-label="날짜">
-        <button type="button" role="radio" class="choice" data-when="date"><span class="choice-ico">📅</span><b>날짜를 정했어요</b><small>달력에서 가는 날과 오는 날을 골라요</small></button>
-        <button type="button" role="radio" class="choice" data-when="someday"><span class="choice-ico">🌙</span><b>아직 몰라요 · 언젠가</b><small>가기 좋은 달과 며칠짜리인지만 정해요</small></button>
+        <button type="button" role="radio" aria-checked="false" class="choice" data-when="date"><span class="choice-ico">📅</span><b>날짜를 정했어요</b><small>달력에서 가는 날과 오는 날을 골라요</small></button>
+        <button type="button" role="radio" aria-checked="false" class="choice" data-when="someday"><span class="choice-ico">🌙</span><b>아직 몰라요 · 언젠가</b><small>가기 좋은 달과 며칠짜리인지만 정해요</small></button>
       </div>
       <div class="when-pane" data-pane="date" hidden>
         <div class="cal" aria-label="여행 날짜 고르기"></div>
@@ -147,7 +147,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
         <div class="field-block">
           ${lbl('어디까지 준비했나요?')}
           <div class="segmented status-seg" role="radiogroup" aria-label="준비 상태">
-            ${['planning', 'preparing', 'booked', ...(editing ? ['done'] : [])].map((k) => `<button type="button" role="radio" data-status="${k}">${STATUS[k].ko}</button>`).join('')}
+            ${['planning', 'preparing', 'booked', ...(editing ? ['done'] : [])].map((k) => `<button type="button" role="radio" aria-checked="false" data-status="${k}">${STATUS[k].ko}</button>`).join('')}
             <span class="seg-indicator"></span>
           </div>
         </div>
@@ -203,8 +203,8 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
         : `<fieldset class="cstep" data-step="places">
       <legend><span class="step-no mono">04</span>어디를 볼까?<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="ac" data-ac="stop">
-        <label class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="sq" placeholder="가 볼 곳 찾기 (예: 오타루 운하, 망원시장)" aria-label="장소 검색" role="combobox" aria-expanded="false" aria-autocomplete="list"></label>
-        <ul class="ac-list" role="listbox" hidden></ul>
+        <label class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="sq" placeholder="가 볼 곳 찾기 (예: 오타루 운하, 망원시장)" aria-label="장소 검색" role="combobox" aria-expanded="false" aria-controls="ac-stop" aria-autocomplete="list"></label>
+        <ul class="ac-list" id="ac-stop" role="listbox" hidden></ul>
       </div>
       <div class="composer-map-wrap"><div class="composer-map" aria-label="지도를 눌러 장소 추가"></div><span class="map-hint">검색에 안 나오면 지도를 눌러 추가하세요</span></div>
       <ol class="stop-list" role="list"></ol>
@@ -244,8 +244,8 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     <fieldset class="cstep" data-step="share">
       <legend><span class="step-no mono">${n(7)}</span>${editing ? '공개 범위' : '공개 · 주인 정하기'}<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="choice-cards two vis-pick" role="radiogroup" aria-label="공개 범위">
-        <button type="button" role="radio" class="choice" data-vis="link"><span class="choice-ico">🔗</span><b>링크 공개</b><small>링크를 받은 친구만 볼 수 있어요. 검색에는 안 나와요.</small></button>
-        <button type="button" role="radio" class="choice" data-vis="public"><span class="choice-ico">🌍</span><b>전체 공개</b><small>누구나 볼 수 있고 Google·네이버 검색에도 나와요.</small></button>
+        <button type="button" role="radio" aria-checked="false" class="choice" data-vis="link"><span class="choice-ico">🔗</span><b>링크 공개</b><small>링크를 받은 친구만 볼 수 있어요. 검색에는 안 나와요.</small></button>
+        <button type="button" role="radio" aria-checked="false" class="choice" data-vis="public"><span class="choice-ico">🌍</span><b>전체 공개</b><small>누구나 볼 수 있고 Google·네이버 검색에도 나와요.</small></button>
       </div>
       <p class="faint step-note">어느 쪽이든 누구나 일정을 <b>제안</b>할 수 있지만, 반영은 <b>주인만</b> 할 수 있어요.</p>
       ${
@@ -265,9 +265,9 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     </fieldset>
   </form>
 
-  <aside class="composer-side">
+  <div class="composer-side">
     <div class="composer-sticky">
-      <p class="eyebrow">Live preview</p>
+      <h2 class="eyebrow">Live preview · 미리보기</h2>
       <div class="preview-ticket"></div>
       <ol class="step-progress" role="list" aria-label="작성 진행"></ol>
       <div class="composer-actions">
@@ -275,7 +275,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
         ${editing ? '' : '<button type="button" class="link-u faint" data-clear>새로 쓰기</button>'}
       </div>
     </div>
-  </aside>
+  </div>
 </section>
 <div class="composer-mbar"><span class="mbar-ticket mono"></span><button type="button" class="btn btn--solid btn--sm" data-save>${editing ? '저장' : '계획 만들기'}</button></div>`;
 }
@@ -312,6 +312,7 @@ async function searchPlaces(q, { mode, near, signal }) {
     u.set('lng', String(near[1]));
   }
   const r = await fetch(`/api/places?${u}`, { signal });
+  if (r.status === 429) throw Object.assign(new Error('limited'), { name: 'Limited' });
   if (!r.ok) throw new Error(String(r.status));
   return (await r.json()).hits;
 }
@@ -351,7 +352,8 @@ function autocomplete(box, { mode, near, onPick }) {
       if (hits.length) paint();
       else paint(mode === 'dest' ? '결과가 없어요. 영문으로도 찾아보세요.' : '결과가 없어요. 지도를 눌러 직접 추가할 수 있어요.');
     } catch (e) {
-      if (e.name !== 'AbortError') paint('검색하지 못했어요. 잠시 뒤 다시 해 주세요.');
+      if (e.name === 'Limited') paint('검색을 너무 자주 했어요. 30초 뒤에 다시 찾아 주세요.');
+      else if (e.name !== 'AbortError') paint('검색하지 못했어요. 잠시 뒤 다시 해 주세요.');
     }
   };
   const pick = (i) => {
@@ -501,7 +503,8 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
       d.ownerName = localStorage.getItem('sdt:name') || '';
     } catch {}
   }
-  let whenMode = d.target ? 'date' : initial || wip ? 'someday' : null;
+  // 날짜 방식: 날짜가 있으면 '정했어요', 고치기·복사면 '언젠가', 새로 쓰기면 고른 적이 있을 때만
+  let whenMode = d.target ? 'date' : initial ? 'someday' : wip?._when || null;
   // 예산: 순서를 지키려고 화면에서는 목록으로 다룬다
   // DB(jsonb)는 키 순서를 바꾸므로, 자주 쓰는 항목 순서대로 다시 세운다
   const ORDER = ['항공', '숙소', '식비', '카페', '교통', '렌터카', '입장료', '쇼핑', '통신', '보험'];
@@ -527,7 +530,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (!WIP) return;
     try {
       syncBudget();
-      localStorage.setItem(WIP, JSON.stringify(d));
+      localStorage.setItem(WIP, JSON.stringify({ ...d, _when: whenMode }));
     } catch {}
   };
   function syncBudget() {
@@ -683,10 +686,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     sceneGrid.innerHTML = SCENES.map(
       (s) => `<button type="button" role="radio" data-scene="${s}" aria-checked="${d.cover.scene === s}"><img src="${scene(s, d.cover.time, 'pick-' + s)}" alt=""><span>${SCENE_KO[s]}</span></button>`
     ).join('');
-    root.querySelectorAll('[data-time]').forEach((b) => {
-      b.setAttribute('aria-checked', String(b.dataset.time === d.cover.time));
-      b.setAttribute('aria-pressed', String(b.dataset.time === d.cover.time));
-    });
+    root.querySelectorAll('[data-time]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.time === d.cover.time)));
   };
   sceneGrid.addEventListener('click', (e) => {
     const b = e.target.closest('[data-scene]');

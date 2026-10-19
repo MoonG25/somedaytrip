@@ -34,11 +34,23 @@ describe.skipIf(!url)('PgRepo (Supabase)', () => {
     expect(b.proposals.every((p) => p.status === 'accepted')).toBe(true);
   });
 
+  it('링크 새로 만들기: 제안·기록·비밀이 새 id로 따라간다 (ON UPDATE CASCADE)', async () => {
+    const { bundle, token } = await r.create(cleanInfo({ title: '링크 교체', place: '테스트', ownerName: 't' }), [item('k1')], 'pass1234');
+    await r.propose(bundle.plan.id, { authorId: 'z', authorName: 'z', title: 't', message: '', baseVersion: 1, ops: [{ type: 'add', item: item('k2') }] });
+    const next = await r.rekey(bundle.plan.id, token);
+    made.push({ id: next, token });
+    expect(await r.get(bundle.plan.id)).toBeNull();
+    const b = (await r.get(next))!;
+    expect(b.proposals).toHaveLength(1);
+    expect(b.history.length).toBeGreaterThanOrEqual(3);
+    expect(await r.checkToken(next, token)).toBe(true);
+  });
+
   it('비밀번호 해시는 묶음에 없고, 틀린 횟수는 저장된다', async () => {
     const { bundle, token } = await r.create(cleanInfo({ title: '보안', place: '테스트', ownerName: 't' }), [], 'pass1234');
     made.push({ id: bundle.plan.id, token });
     expect(JSON.stringify(await r.get(bundle.plan.id))).not.toMatch(/salt|"hash"|tokens/);
-    for (let i = 0; i < 5; i++) await r.login(bundle.plan.id, 'x').catch(() => {});
+    for (let i = 0; i < 20; i++) await r.login(bundle.plan.id, 'x').catch(() => {});
     await expect(r.login(bundle.plan.id, 'pass1234')).rejects.toMatchObject({ code: 'locked' });
   });
 });

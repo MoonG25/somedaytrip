@@ -3,7 +3,7 @@ import type { MetadataRoute } from 'next';
 import { repo } from '@/server';
 import { SITE } from '@/lib/site';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const list = await repo().listPublic(5000);

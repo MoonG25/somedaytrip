@@ -12,7 +12,7 @@ export const SAMPLES = [
     iata: 'KIX',
     status: 'booked',
     priority: 8,
-    target: '2025-11-21',
+    target: '2027-11-19',
     days: 5,
     months: [4, 11],
     tz: 'Asia/Tokyo',

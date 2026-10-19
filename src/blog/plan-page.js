@@ -6,7 +6,7 @@
 import { esc, fmtNum, fmtWon, fmtDot, clamp, lerp, reducedMotion } from './util.js';
 import { renderMarkdown } from './md.js';
 import { STATUS, SCOPE, totalBudget, groupBudget, flight, daysUntil, nights, planCenter, readiness, hasPlace } from './plans-lib.js';
-import { weatherAt, krwPer, fxLabel, tzOffsetHours } from './live.js';
+import { weatherAt, krwPer, fxLabel, tzOffsetHours, sunAt } from './live.js';
 import { createFlapEngine } from './splitflap.js';
 import { ticketHTML, bindTickets, monthsStrip, readyRing, donut, bindDonut } from './ticket.js';
 import { toast } from './toast.js';
@@ -59,10 +59,10 @@ export function renderPlanHero(p, { owner = false, nowMonth }) {
     </div>
     <div class="plan-hero-grid">
       <div class="plan-ticket">${ticketHTML(p, { big: true })}</div>
-      <aside class="plan-count">
+      <div class="plan-count">
         ${aside}
         <div class="count-ready">${readyRing(ready.pct, 52)}<div><b>${ready.done}/${ready.total}</b><span>준비 완료</span></div></div>
-      </aside>
+      </div>
     </div>
   </header>`;
 }
@@ -92,26 +92,42 @@ export function renderPlanStory(p, { nowMonth }) {
         ${monthsStrip(p.months, { big: true })}
         <p class="fact-note">${seasonNote(p.months, nowMonth)}</p>
       </div>
-      <div class="fact" data-reveal>
+      ${
+        offset !== 0 || p.scope === 'abroad'
+          ? `<div class="fact" data-reveal>
         <p class="eyebrow">지금 현지 시각</p>
         <b class="fact-big num" data-localtime>--:--</b>
         <p class="fact-note">${offset === 0 ? '서울과 같은 시간' : `서울보다 ${Math.abs(offset)}시간 ${offset > 0 ? '빠름' : '느림'}`}</p>
-      </div>
+      </div>`
+          : `<div class="fact" data-reveal>
+        <p class="eyebrow">오늘 해 · 일출 → 일몰</p>
+        <b class="fact-big num" data-sun>--:-- → --:--</b>
+        <p class="fact-note">노을 보려면 일몰 30분 전에</p>
+      </div>`
+      }
       <div class="fact" data-reveal>
         <p class="eyebrow">지금 날씨 (실시간)</p>
         <b class="fact-big" data-weather>…</b>
         <p class="fact-note" data-weather-note>Open-Meteo</p>
       </div>
-      <div class="fact" data-reveal>
+      ${
+        p.currency && p.currency !== 'KRW'
+          ? `<div class="fact" data-reveal>
         <p class="eyebrow">환율 (실시간)</p>
-        <b class="fact-big num" data-fx>${p.currency === 'KRW' ? '원화' : '…'}</b>
+        <b class="fact-big num" data-fx>…</b>
         <p class="fact-note" data-fx-note>${esc(p.currency || '')}</p>
-      </div>
-      <div class="fact" data-reveal>
+      </div>`
+          : ''
+      }
+      ${
+        p.scope === 'local'
+          ? ''
+          : `<div class="fact" data-reveal>
         <p class="eyebrow">서울에서</p>
         <b class="fact-big num">${hasPlace(p) ? `${fmtNum(fl.km)}km` : '—'}</b>
-        <p class="fact-note">${!hasPlace(p) ? '목적지를 정하면 계산해요' : p.scope === 'abroad' ? `비행 ${fl.label} (직항 기준 추정)` : p.scope === 'domestic' ? '직선거리' : '동네 여행'}</p>
-      </div>
+        <p class="fact-note">${!hasPlace(p) ? '목적지를 정하면 계산해요' : p.scope === 'abroad' ? `비행 ${fl.label} (직항 기준 추정)` : '직선거리'}</p>
+      </div>`
+      }
       <div class="fact" data-reveal>
         <p class="eyebrow">기간 · 예산${(p.travelers || 1) > 1 ? ` · ${p.travelers}명` : ''}</p>
         <b class="fact-big">${nights(p.days)}</b>
@@ -227,6 +243,12 @@ export function mountPlanPage(root, p, { owner = false, onCheck, navigate } = {}
         root.querySelector('[data-weather-note]').textContent = `${w.label} · 바람 ${w.wind}km/h`;
       })
       .catch(() => alive && (root.querySelector('[data-weather]').textContent = '—'));
+  }
+  const sunEl = root.querySelector('[data-sun]');
+  if (sunEl && hasPlace(p)) {
+    sunAt(planCenter(p), ctrl.signal)
+      .then((s) => (sunEl.textContent = `${s.rise} → ${s.set}`))
+      .catch(() => alive && (sunEl.textContent = '—'));
   }
   if (root.querySelector('[data-fx]') && p.currency && p.currency !== 'KRW') {
     krwPer(p.currency, ctrl.signal)

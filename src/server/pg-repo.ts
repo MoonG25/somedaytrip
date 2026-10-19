@@ -152,6 +152,15 @@ export class PgRepo extends BaseRepo {
     await this.sql.begin((tx) => this.insertRow(tx, r));
   }
 
+  protected async changeId(oldId: string, newId: string) {
+    // 비밀·제안·기록은 ON UPDATE CASCADE로 따라온다 (0002_rekey.sql)
+    await this.sql.begin(async (tx) => {
+      const [p] = await tx`select id from plans where id = ${oldId} for update`;
+      if (!p) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
+      await tx`update plans set id = ${newId} where id = ${oldId}`;
+    });
+  }
+
   protected async delete(id: string) {
     await this.sql`delete from plans where id = ${id}`;
   }

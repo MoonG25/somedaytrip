@@ -29,10 +29,12 @@ export default function PlansExplorer({ initial }: { initial: View[] }) {
         if (!rows.length) return;
         const mine = rows.map((r) => toView(r.bundle.plan, r.bundle.items));
         const mineIds = mine.map((p) => p.id);
+        // 주인인 계획의 검토 대기 제안 수 (탑승권에 배지)
+        const open = Object.fromEntries(rows.filter((r) => r.owner && r.open).map((r) => [r.bundle.plan.id, r.open]));
         const list = [...mine, ...initial.filter((p) => !found.has(p.id))];
         off();
-        root.innerHTML = renderPlansPage({ list, mine: mineIds });
-        off = mountPlansPage(root, { list, mine: mineIds, navigate });
+        root.innerHTML = renderPlansPage({ list, mine: mineIds, open });
+        off = mountPlansPage(root, { list, mine: mineIds, navigate, open });
         enhance(root);
       });
     }

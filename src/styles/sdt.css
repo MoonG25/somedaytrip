@@ -1947,3 +1947,169 @@ body:has(.basket) .toasts {
   font-size: 13px;
   color: #4285f4;
 }
+
+/* 라벨 한 줄 정렬: "(선택)" 같은 안내가 라벨 옆에 오고, 입력칸은 아래 한 줄을 다 쓴다 (칸 높이가 옆과 맞는다) */
+.lbl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 6px;
+  row-gap: 6px;
+}
+.lbl > .faint {
+  font-weight: 400;
+  font-size: 12.5px;
+}
+.lbl > :is(input, select, textarea, .inp, .textarea, .won, .money, .place-field, .chips, .day-chips, .time-pick, details) {
+  flex-basis: 100%;
+}
+/* 창 제목: 영문 세리프에 한글이 없어서 고딕 굵게 */
+.sdt-modal-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+.keep-link {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--accent) 8%, var(--paper));
+}
+.keep-link p {
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.keep-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 일정 창: DAY 칩 · 시간 고르기 · 비용 */
+.day-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+.day-chips .chip {
+  flex: none;
+  gap: 6px;
+  height: 38px;
+}
+.day-chips .chip b {
+  font-size: 12px;
+  font-weight: 700;
+}
+.day-chips .chip span {
+  font-size: 12.5px;
+}
+.chip[role='radio'][aria-checked='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.chip[role='radio'][aria-checked='true'] .faint {
+  color: inherit;
+  opacity: 0.7;
+}
+.time-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tp-selects {
+  display: flex;
+  gap: 6px;
+}
+.tp-sel {
+  width: auto;
+  min-width: 112px;
+  padding-right: 34px;
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 52%, calc(100% - 13px) 52%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+.tp-quick .chip {
+  height: 34px;
+  padding: 0 11px;
+  font-size: 13px;
+}
+.tp-quick .chip .faint {
+  font-size: 11px;
+}
+.chip[aria-pressed='true'] .faint {
+  color: inherit;
+  opacity: 0.7;
+}
+.money-hint {
+  font-size: 12px;
+  margin-top: -2px;
+}
+.en-adv {
+  padding: 2px 14px;
+}
+.en-adv[open] {
+  padding-bottom: 12px;
+}
+.move-devices {
+  padding-top: clamp(40px, 6vw, 72px);
+}
+.md-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+}
+.md-card > div {
+  display: grid;
+  gap: 4px;
+  max-width: 640px;
+}
+.md-card b {
+  font-size: 18px;
+}
+.md-card .muted {
+  font-size: 14px;
+}
+.time-sort {
+  height: 28px;
+  padding: 0 10px;
+  margin-left: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.time-sort:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+/* 한쪽 칸에만 안내(예: "6,000원")가 붙어도 옆 칸 입력이 밀려 내려가지 않게 */
+.lbl {
+  align-content: flex-start;
+}
+.sdt-modal .money input {
+  height: 44px;
+}
+.tk-open {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+  background: var(--accent);
+}

@@ -1,5 +1,5 @@
 'use client';
-// 일정 추가·수정 창. 장소는 검색(OSM)하거나 지도에서 직접 찍는다 (moon.log 계획 쓰기의 장소 고르기와 같은 방식)
+// 일정 추가·수정 창. 작성 화면과 같은 부품을 쓴다: DAY 칩, 시간 고르기, 자동완성 장소 검색, 금액 입력.
 import { useEffect, useRef, useState } from 'react';
 import type { Item, Kind, Place, Plan } from '@/lib/types';
 import { KINDS } from '@/lib/proposals';
@@ -8,60 +8,83 @@ import { loadLeaflet, createMap, destroyMap, pinIcon } from '@/blog/leaflet.js';
 import Modal from './Modal';
 import { dayLabel, toast } from './util';
 
-type G = { lat: string; lon: string; display_name: string; name?: string; namedetails?: Record<string, string> };
 type Hit = { name: string; en?: string; address?: string; lat: number; lng: number; kind: string };
 
+const manwon = (n: number) => {
+  if (!n) return '';
+  const man = Math.floor(n / 10000);
+  const rest = n % 10000;
+  if (!man) return `${n.toLocaleString('ko-KR')}원`;
+  return `${man.toLocaleString('ko-KR')}만${rest ? ` ${rest.toLocaleString('ko-KR')}` : ''} 원`;
+};
+
+/** 장소: 입력하는 동안 찾고(↑↓ Enter), 안 나오면 지도에서 찍는다 */
 function PlaceField({ value, onChange, near }: { value: Place | null; onChange: (p: Place | null) => void; near: [number, number] | null }) {
   const [q, setQ] = useState('');
-  const [res, setRes] = useState<Hit[] | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [hits, setHits] = useState<Hit[] | null>(null);
+  const [msg, setMsg] = useState('');
+  const [at, setAt] = useState(0);
   const [pick, setPick] = useState(false);
   const mapEl = useRef<HTMLDivElement>(null);
 
-  // 서버가 카카오·Photon·OSM 결과를 합쳐 준다. 입력하는 동안 자동으로 찾는다
-  const search = async (text = q) => {
-    if (text.trim().length < 2) return setRes(null);
-    setBusy(true);
-    try {
-      const u = new URLSearchParams({ q: text.trim(), mode: 'poi' });
-      if (near) {
-        u.set('lat', String(near[0]));
-        u.set('lng', String(near[1]));
-      }
-      const r = await fetch(`/api/places?${u}`);
-      const { hits } = (await r.json()) as { hits: Hit[] };
-      setRes(hits);
-    } catch {
-      toast('검색하지 못했어요. 잠시 뒤 다시 해 주세요', '!');
-    } finally {
-      setBusy(false);
-    }
-  };
   useEffect(() => {
-    const t = setTimeout(() => search(q), 300);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+    if (q.trim().length < 2) {
+      setHits(null);
+      setMsg('');
+      return;
+    }
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      setMsg('찾는 중…');
+      try {
+        const u = new URLSearchParams({ q: q.trim(), mode: 'poi' });
+        if (near) {
+          u.set('lat', String(near[0]));
+          u.set('lng', String(near[1]));
+        }
+        const r = await fetch(`/api/places?${u}`, { signal: ctrl.signal });
+        if (r.status === 429) return setMsg('검색을 너무 자주 했어요. 30초 뒤에 다시 찾아 주세요.');
+        const { hits: h } = (await r.json()) as { hits: Hit[] };
+        setHits(h);
+        setAt(0);
+        setMsg(h.length ? '' : '결과가 없어요. 영문으로 찾거나 지도에서 직접 찍어 보세요.');
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') setMsg('검색하지 못했어요. 잠시 뒤 다시 해 주세요.');
+      }
+    }, 280);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q, near]);
+
+  const choose = (h: Hit) => {
+    onChange({ name: h.name, en: h.en || undefined, address: h.address, lat: +h.lat.toFixed(5), lng: +h.lng.toFixed(5) });
+    setQ('');
+    setHits(null);
+    setMsg('');
+  };
 
   useEffect(() => {
     if (!pick) return;
-    let map: any;
-    let marker: any;
+    let map: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    let marker: any; // eslint-disable-line @typescript-eslint/no-explicit-any
     let alive = true;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     loadLeaflet().then((L: any) => {
       if (!alive || !mapEl.current) return;
       map = createMap(L, mapEl.current, { scrollWheelZoom: true });
       const c = value ? [value.lat, value.lng] : near;
       map.setView(c || [37.5665, 126.978], c ? 14 : 11);
       if (value) marker = L.marker([value.lat, value.lng], { icon: pinIcon(L, { label: '★', kind: 'is-plan' }) }).addTo(map);
-      map.on('click', async (ev: any) => {
+      map.on('click', async (ev: { latlng: { lat: number; lng: number } }) => {
         const lat = +ev.latlng.lat.toFixed(5);
         const lng = +ev.latlng.lng.toFixed(5);
         marker?.remove();
         marker = L.marker([lat, lng], { icon: pinIcon(L, { label: '★', kind: 'is-plan' }) }).addTo(map);
         onChange({ name: '찾는 중…', lat, lng });
         try {
-          const g = (await reverse([lat, lng])) as G;
+          const g = await reverse([lat, lng]);
           if (alive) onChange({ name: nameOf(g), en: enOf(g) || undefined, address: g.display_name?.split(', ').slice(0, 4).join(', '), lat, lng });
         } catch {
           if (alive) onChange({ name: `${lat}, ${lng}`, lat, lng });
@@ -75,6 +98,7 @@ function PlaceField({ value, onChange, near }: { value: Place | null; onChange: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pick]);
 
+  const listId = 'item-place-list';
   return (
     <div className="place-field">
       {value ? (
@@ -89,7 +113,7 @@ function PlaceField({ value, onChange, near }: { value: Place | null; onChange: 
           </button>
         </div>
       ) : null}
-      <div className="geo-search">
+      <div className="ac">
         <label className="field">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
@@ -99,50 +123,86 @@ function PlaceField({ value, onChange, near }: { value: Place | null; onChange: 
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+              if (e.nativeEvent.isComposing || !hits?.length) return;
+              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
-                search(q);
+                setAt((a) => (a + (e.key === 'ArrowDown' ? 1 : -1) + hits.length) % hits.length);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                choose(hits[at]);
               }
             }}
-            placeholder="장소 찾기 (예: 후시미 이나리, 망원시장)"
+            placeholder={value ? '다른 장소로 바꾸기' : '장소 찾기 (예: 후시미 이나리, 망원시장)'}
             aria-label="장소 검색"
+            role="combobox"
+            aria-expanded={!!(hits?.length || msg)}
+            aria-controls={listId}
+            aria-autocomplete="list"
           />
         </label>
-        <button type="button" className="btn btn--sm" onClick={() => search(q)} disabled={busy}>
-          {busy ? '찾는 중…' : '찾기'}
-        </button>
-      </div>
-      {res ? (
-        <ul className="geo-results" role="listbox">
-          {res.length ? (
-            res.map((h, i) => (
-              <li key={i}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected="false"
-                  onClick={() => {
-                    onChange({ name: h.name, en: h.en || undefined, address: h.address, lat: +h.lat.toFixed(5), lng: +h.lng.toFixed(5) });
-                    setRes(null);
-                    setQ('');
-                  }}
-                >
+        {hits?.length || msg ? (
+          <ul className="ac-list" id={listId} role="listbox">
+            {msg ? <li className="ac-msg">{msg}</li> : null}
+            {hits?.map((h, i) => (
+              <li key={i} role="option" aria-selected={i === at} data-i={i} onMouseDown={(e) => e.preventDefault()} onClick={() => choose(h)}>
+                <span className="ac-ico">{h.kind === 'region' ? '🗺️' : '📍'}</span>
+                <span className="ac-txt">
                   <b>
-                    {h.kind === 'region' ? '🗺️' : '📍'} {h.name} {h.en && h.en !== h.name ? <span className="serif faint">{h.en}</span> : null}
+                    {h.name} {h.en && h.en !== h.name ? <span className="serif faint">{h.en}</span> : null}
                   </b>
-                  <span>{h.address}</span>
-                </button>
+                  <small>{h.address}</small>
+                </span>
               </li>
-            ))
-          ) : (
-            <li className="geo-loading">결과가 없어요. 영문으로 찾거나 지도에서 찍어 보세요.</li>
-          )}
-        </ul>
-      ) : null}
+            ))}
+          </ul>
+        ) : null}
+      </div>
       <button type="button" className="link-u faint pick-toggle" onClick={() => setPick((v) => !v)}>
-        {pick ? '지도 닫기' : '🗺 지도에서 직접 찍기'}
+        {pick ? '지도 닫기' : '🗺 검색에 안 나오면 지도에서 직접 찍기'}
       </button>
       {pick ? <div className="pick-map" ref={mapEl} /> : null}
+    </div>
+  );
+}
+
+const QUICK_TIMES: [string, string][] = [
+  ['아침', '09:00'],
+  ['점심', '12:00'],
+  ['오후', '15:00'],
+  ['저녁', '18:30'],
+  ['밤', '21:00'],
+];
+
+/** 시간: 빠른 칩 + 시·분 고르기 (기본 시간 입력은 디자인과 안 맞아서) */
+function TimePick({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [h, m] = value ? value.split(':') : ['', ''];
+  const set = (hh: string, mm: string) => onChange(hh ? `${hh}:${mm || '00'}` : '');
+  return (
+    <div className="time-pick">
+      <div className="tp-selects">
+        <select className="inp tp-sel" value={h} onChange={(e) => set(e.target.value, m)} aria-label="시">
+          <option value="">시간 없음</option>
+          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map((x) => (
+            <option key={x} value={x}>
+              {Number(x) < 12 ? `오전 ${Number(x) || 12}시` : `오후 ${Number(x) - 12 || 12}시`}
+            </option>
+          ))}
+        </select>
+        <select className="inp tp-sel" value={m || '00'} onChange={(e) => set(h, e.target.value)} disabled={!h} aria-label="분">
+          {['00', '10', '15', '20', '30', '40', '45', '50'].map((x) => (
+            <option key={x} value={x}>
+              {x}분
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="chips tp-quick">
+        {QUICK_TIMES.map(([label, t]) => (
+          <button key={t} type="button" className="chip" aria-pressed={value === t} onClick={() => onChange(value === t ? '' : t)}>
+            {label} <span className="mono faint">{t}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -170,7 +230,8 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item, day]);
   if (!d) return <Modal open={false} title="" onClose={onClose}>{null}</Modal>;
-  const set = (patch: Partial<Item>) => setD({ ...d, ...patch });
+  const set = (patch: Partial<Item>) => setD((cur) => (cur ? { ...cur, ...patch } : cur));
+  const days = [...Array.from({ length: plan.days }, (_, i) => i + 1), null] as (number | null)[];
   return (
     <Modal open={open} title={item ? '일정 고치기' : '일정 추가'} onClose={onClose} wide>
       <form
@@ -184,55 +245,67 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
           onSave(out);
         }}
       >
-        <div className="grid2">
-          <label className="lbl">
-            무엇을
-            <input className="inp" value={d.title} onChange={(e) => set({ title: e.target.value })} placeholder="후시미 이나리 새벽 등산" autoFocus maxLength={80} />
-          </label>
-          <label className="lbl">
-            영문 이름 <span className="faint">(선택)</span>
-            <input className="inp" value={d.en} onChange={(e) => set({ en: e.target.value })} placeholder="Fushimi Inari" maxLength={80} />
-          </label>
-        </div>
+        <label className="lbl">
+          무엇을
+          <input className="inp" value={d.title} onChange={(e) => set({ title: e.target.value })} placeholder="예: 후시미 이나리 새벽 등산" autoFocus maxLength={80} />
+        </label>
         <div className="chips kind-chips" role="radiogroup" aria-label="종류">
           {(Object.keys(KINDS) as Kind[]).map((k) => (
-            <button key={k} type="button" className="chip" role="radio" aria-checked={d.kind === k} aria-pressed={d.kind === k} onClick={() => set({ kind: k })}>
+            <button key={k} type="button" className="chip" role="radio" aria-checked={d.kind === k} onClick={() => set({ kind: k })}>
               {KINDS[k].icon} {KINDS[k].label}
             </button>
           ))}
         </div>
-        <div className="grid2">
-          <label className="lbl">
-            날짜
-            <select className="inp" value={d.day ?? ''} onChange={(e) => set({ day: e.target.value ? Number(e.target.value) : null })}>
-              {Array.from({ length: plan.days }, (_, i) => (
-                <option key={i} value={i + 1}>
-                  {dayLabel(plan, i + 1).code} · {dayLabel(plan, i + 1).text}
-                </option>
-              ))}
-              <option value="">날짜 미정 (언젠가 가 볼 곳)</option>
-            </select>
-          </label>
-          <label className="lbl">
-            시간 <span className="faint">(선택)</span>
-            <input className="inp" type="time" value={d.time} onChange={(e) => set({ time: e.target.value })} />
-          </label>
+        <div className="lbl">
+          언제
+          <div className="chips day-chips" role="radiogroup" aria-label="날짜">
+            {days.map((n) => (
+              <button key={n ?? 'none'} type="button" className="chip" role="radio" aria-checked={d.day === n} onClick={() => set({ day: n })}>
+                {n == null ? (
+                  '날짜 미정'
+                ) : (
+                  <>
+                    <b className="mono">{dayLabel(plan, n).code}</b>
+                    {plan.target ? <span className="faint">{dayLabel(plan, n).text}</span> : null}
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+          <TimePick value={d.time} onChange={(t) => set({ time: t })} />
         </div>
         <div className="lbl">
           장소 <span className="faint">(선택)</span>
-          <PlaceField value={d.place} near={plan.coords} onChange={(p) => setD((cur) => (cur ? { ...cur, place: p, en: cur.en || p?.en || '' } : cur))} />
+          <PlaceField value={d.place} near={plan.coords} onChange={(p) => setD((cur) => (cur ? { ...cur, place: p, en: p?.en || cur.en } : cur))} />
+          <details className="adv en-adv">
+            <summary>
+              <span>영문 이름</span>
+              <span className="adv-sum mono">{d.en || '장소를 고르면 자동으로'}</span>
+            </summary>
+            <input className="inp" value={d.en} onChange={(e) => set({ en: e.target.value })} placeholder="Fushimi Inari" maxLength={80} aria-label="영문 이름" />
+          </details>
         </div>
         <div className="grid2">
           <label className="lbl">
-            예상 비용 <span className="faint">(1인 기준, 원, 선택)</span>
-            <span className="won">
-              <input className="inp num" type="number" min={0} step={1000} value={d.cost ?? ''} onChange={(e) => set({ cost: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} />
+            예상 비용 <span className="faint">(1인 기준, 선택)</span>
+            <span className="money">
+              <input
+                className="num"
+                inputMode="numeric"
+                value={d.cost ? d.cost.toLocaleString('ko-KR') : ''}
+                onChange={(e) => {
+                  const n = Number(e.target.value.replace(/[^\d]/g, ''));
+                  set({ cost: n ? Math.min(1e10, n) : null });
+                }}
+                placeholder="0"
+              />
               <span>원</span>
             </span>
+            {d.cost ? <small className="faint money-hint">{manwon(d.cost)}</small> : null}
           </label>
           <label className="lbl">
             메모 <span className="faint">(선택)</span>
-            <input className="inp" value={d.memo} onChange={(e) => set({ memo: e.target.value })} placeholder="새벽 6시 반 출발" maxLength={400} />
+            <input className="inp" value={d.memo} onChange={(e) => set({ memo: e.target.value })} placeholder="예: 새벽 6시 반 출발" maxLength={400} />
           </label>
         </div>
         {!owner ? <p className="hint">💡 바로 바뀌지 않고 <b>제안 바구니</b>에 담겨요. 다 고친 뒤 한 번에 제안하세요.</p> : null}

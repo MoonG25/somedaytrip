@@ -39,13 +39,13 @@ describe('FileRepo', () => {
     expect((await r.listPublic()).some((b) => b.plan.id === bundle.plan.id)).toBe(false);
   });
 
-  it('비밀번호를 맞혀야 주인 토큰을 준다 · 5번 틀리면 잠긴다', async () => {
+  it('비밀번호를 맞혀야 주인 토큰을 준다 · 계획 전체로 20번 틀리면 잠긴다', async () => {
     const { bundle } = await r.create(info, [], 'pass1234');
     const id = bundle.plan.id;
     await expect(r.login(id, 'nope')).rejects.toMatchObject({ code: 'forbidden' });
     const t = await r.login(id, 'pass1234');
     expect(await r.checkToken(id, t)).toBe(true);
-    for (let i = 0; i < 5; i++) await r.login(id, 'x').catch(() => {});
+    for (let i = 0; i < 20; i++) await r.login(id, 'x').catch(() => {});
     await expect(r.login(id, 'pass1234')).rejects.toMatchObject({ code: 'locked' });
   });
 
@@ -181,5 +181,22 @@ describe('지도 링크', () => {
       { url: 'https://naver.me/xyz', label: '네이버 지도' },
       { url: 'https://blog.example.com/kyoto', label: '교토 정리 글' },
     ]);
+  });
+});
+
+describe('링크 새로 만들기', () => {
+  it('새 id로 옮기고 예전 id는 사라진다 · 제안·일정·주인 토큰은 그대로', async () => {
+    const r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
+    const { bundle, token } = await r.create(info, [item('a')], 'pass1234');
+    await r.propose(bundle.plan.id, pr([{ type: 'add', item: item('b') }]));
+    await expect(r.rekey(bundle.plan.id, 'fake')).rejects.toMatchObject({ code: 'forbidden' });
+    const next = await r.rekey(bundle.plan.id, token);
+    expect(next).not.toBe(bundle.plan.id);
+    expect(await r.get(bundle.plan.id)).toBeNull();
+    const b = (await r.get(next))!;
+    expect(b.plan.id).toBe(next);
+    expect(b.items.map((i) => i.id)).toEqual(['a']);
+    expect(b.proposals).toHaveLength(1);
+    expect(await r.checkToken(next, token)).toBe(true);
   });
 });

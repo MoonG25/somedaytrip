@@ -6,6 +6,8 @@ import { cleanItem } from '@/lib/clean';
 import { repo, RepoError, isRepoError } from '@/server';
 import { clearOwnerToken, ownerToken, setOwnerToken, visitorId } from '@/server/auth';
 import { uid } from '@/server/secret';
+import { headers } from 'next/headers';
+import { allow } from '@/server/limit';
 
 export type Result<T = null> = { ok: true; data: T } | { ok: false; error: string; code?: string };
 
@@ -49,6 +51,9 @@ export async function createPlan(input: { info: PlanInfo; items: Item[]; passwor
 
 export async function login(id: string, password: string, remember: boolean) {
   return run(async () => {
+    // 같은 곳(IP)에서 10분에 8번까지. 누가 일부러 틀려도 주인의 다른 기기는 막히지 않게 IP 단위로 센다
+    const ip = ((await headers()).get('x-forwarded-for') || 'local').split(',')[0].trim();
+    if (!allow(`login:${ip}:${id}`, 8, 600_000)) throw new RepoError('비밀번호를 여러 번 틀렸어요. 10분 뒤에 다시 해 주세요', 'locked');
     const t = await repo().login(id, String(password ?? ''));
     await setOwnerToken(id, t, !!remember);
     return null;
@@ -133,6 +138,20 @@ export async function deletePlan(id: string) {
     await clearOwnerToken(id);
     touch(id);
     return null;
+  });
+}
+
+/** 링크 새로 만들기: 새 id로 옮기고, 주인 쿠키도 새 id로 옮긴다 */
+export async function rekeyPlan(id: string) {
+  return run(async () => {
+    const t = await token(id);
+    const next = await repo().rekey(id, t);
+    await setOwnerToken(next, t, true);
+    await clearOwnerToken(id);
+    touch(id);
+    touch(next);
+    const b = await repo().get(next);
+    return { id: next, slug: b?.plan.slug ?? '' };
   });
 }
 
