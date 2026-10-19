@@ -2,13 +2,23 @@
 //
 // 변경 하나(Op)는 "무엇을, 원래 어땠는데, 어떻게 바꾸자"를 담는다.
 // 수락할 때 지금 계획과 비교해서, 그 사이 같은 칸을 누가 바꿨으면 충돌로 본다 (3-way 비교).
-import type { Item, ItemField, Op } from '../types';
-import { KINDS } from './util';
+import type { Item, ItemField, Kind, Op } from './types';
+
+export const KINDS: Record<Kind, { label: string; icon: string }> = {
+  see: { label: '구경', icon: '📍' },
+  eat: { label: '먹기', icon: '🍜' },
+  cafe: { label: '카페', icon: '☕' },
+  shop: { label: '쇼핑', icon: '🛍️' },
+  move: { label: '이동', icon: '🚆' },
+  stay: { label: '숙소', icon: '🛏️' },
+  etc: { label: '기타', icon: '✨' },
+};
 
 export const FIELD_LABEL: Record<ItemField, string> = {
   day: '날짜',
   time: '시간',
   title: '이름',
+  en: '영문 이름',
   kind: '종류',
   place: '장소',
   memo: '메모',

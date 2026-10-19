@@ -1,0 +1,10 @@
+export const SCENES: string[];
+export const SCENE_KO: Record<string, string>;
+export const TIMES: Record<string, string>;
+export const CURRENCY: Record<string, string>;
+export function geocode(q: string): Promise<any[]>;
+export function reverse(c: [number, number]): Promise<any>;
+export function nameOf(g: any): string;
+export function enOf(g: any): string;
+export function geoPending(): number;
+export function geoIdle(): Promise<unknown>;

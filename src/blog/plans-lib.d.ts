@@ -1,0 +1,17 @@
+import type { Item, Plan } from '@/lib/types';
+export type View = Plan & { slug: string; href: string; items: Item[]; stops: { id: string; name: string; en: string; coords: [number, number]; note: string; day: number | null }[] };
+export const HOME: { city: string; code: string; coords: [number, number]; tz: string };
+export const STATUS: Record<Plan['status'], { ko: string; en: string; flap: string; order: number }>;
+export const SCOPE: Record<Plan['scope'], { ko: string; icon: string }>;
+export const PLANE: string;
+export const ARC_PATH: string;
+export function toView(plan: Plan, items?: Item[]): View;
+export function totalBudget(p: { budget?: Record<string, number> }): number;
+export function nights(d: number): string;
+export function daysUntil(target: string | null): number | null;
+export function flagOf(cc?: string): string;
+export function optimizeRoute<T extends { coords: [number, number] }>(stops: T[]): T[];
+export function routeKm(stops: { coords: number[] }[]): number;
+export function guillocheSvg(seed: string): string;
+export function sortPlans<T>(list: T[], mode?: string): T[];
+export function readiness(p: any): { done: number; total: number; pct: number };

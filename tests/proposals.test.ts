@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Item, Op } from '../src/types';
+import type { Item, Op } from '../src/lib/types';
 import { applyOps, diffItem, findConflicts, stage, stagedView } from '../src/lib/proposals';
 
-const mk = (id: string, o: Partial<Item> = {}): Item => ({ id, day: 1, time: '', title: id, kind: 'see', place: null, memo: '', cost: null, order: 0, ...o });
+const mk = (id: string, o: Partial<Item> = {}): Item => ({ id, day: 1, time: '', title: id, en: '', kind: 'see', place: null, memo: '', cost: null, order: 0, ...o });
 
 describe('diffItem', () => {
   it('바뀐 칸만 담는다', () => {

@@ -1,5 +1,10 @@
 node_modules
-dist
-.env
-.vercel
+.next
+out
+.data
 .env*
+!.env.example
+.vercel
+next-env.d.ts
+*.tsbuildinfo
+AGENTS.md
