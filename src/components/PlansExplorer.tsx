@@ -5,8 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { renderPlansPage, mountPlansPage } from '@/blog/plans-page.js';
 import { toView } from '@/blog/plans-lib.js';
 import { enhance } from '@/blog/enhance.js';
-import { myPlans } from '@/app/actions';
-import { readMine, writeMine } from '@/lib/mine';
+import { loadMine, writeMine } from '@/lib/mine';
 
 type View = ReturnType<typeof toView>;
 
@@ -21,7 +20,7 @@ export default function PlansExplorer({ initial }: { initial: View[] }) {
     let off = mountPlansPage(root, { list: initial, navigate });
     let alive = true;
     // 브라우저 목록이 비어 있어도 묻는다: 서버 쿠키 백업에서 되살릴 수 있다
-    myPlans(readMine()).then(
+    loadMine().then(
       (rows) => {
         if (!alive) return;
         const found = new Set(rows.map((r) => r.bundle.plan.id));

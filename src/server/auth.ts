@@ -60,6 +60,7 @@ export async function setSavedMine(ids: string[]) {
     if (v.length + id.length + 1 > 3000) break; // 쿠키 한 개 4KB 안으로
     v = v ? `${v}.${id}` : id;
   }
+  if (v === (jar.get(MINE)?.value ?? '')) return; // 같으면 다시 쓰지 않는다
   if (v) jar.set(MINE, v, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: YEAR });
   else jar.delete(MINE);
 }
