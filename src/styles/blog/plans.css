@@ -838,7 +838,7 @@
   letter-spacing: -0.02em;
 }
 .tk-dday span,
-.tk-ready span {
+.tk-ready > span:not(.ready-ring) {
   font-size: 11.5px;
   color: rgb(255 255 255 / 0.75);
 }
@@ -1068,11 +1068,12 @@
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
-.count-ready b {
+/* 링 옆 "2/6 · 준비 완료"만. 예전엔 .count-ready b/span이 링 안 숫자까지 덮어서 가운데 정렬이 풀렸다 */
+.count-ready > div > b {
   display: block;
   font-size: 18px;
 }
-.count-ready span {
+.count-ready > div > span {
   font-size: 12.5px;
   color: var(--ink-3);
 }
