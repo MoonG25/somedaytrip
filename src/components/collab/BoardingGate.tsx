@@ -22,7 +22,7 @@ export default function BoardingGate({ plan, items, onCaptain }: { plan: Plan; i
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const ticketRef = useRef<HTMLDivElement>(null);
-  const html = useMemo(() => ticketHTML({ ...toView(plan, items), href: '' }, { preview: true }), [plan, items]);
+  const html = useMemo(() => ticketHTML({ ...toView(plan, items), href: '' }, { preview: true }).replace(' data-reveal', '').replace('loading="lazy"', 'loading="eager"'), [plan, items]);
 
   // 그리기 전에 확인해서, 탑승한 적 있으면 게이트가 번쩍 보이지 않게
   useLayoutEffect(() => {

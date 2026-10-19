@@ -37,7 +37,7 @@ export function ticketHTML(p, { big = false, fit = null, mine = false, preview =
   const tf = travelField(p);
   const chip = `${p.sample ? '예시 · ' : ''}${p.scope !== 'abroad' ? `${SCOPE[p.scope].ko} · ` : ''}${st.ko}`;
   const tk = ticketKind(p);
-  return `<article class="ticket tone-${p.status}${big ? ' ticket--big' : ''}${mine ? ' is-mine' : ''}" data-slug="${esc(p.id)}" data-reveal>
+  return `<article class="ticket tone-${p.status}${big ? ' ticket--big' : ''}${mine ? ' is-mine' : ''}" data-slug="${esc(p.id)}"${big ? '' : ' data-reveal'}>
     <a ${preview ? 'tabindex="-1" aria-hidden="true"' : `href="${esc(p.href)}"`} class="ticket-link" data-tilt="6" data-cursor="${big || preview ? '' : p.status === 'done' ? '추억' : '탑승'}" aria-label="${esc(p.title)} 계획 보기${p.status === 'done' ? ' (다녀옴)' : ''}">
       <div class="tk-main">
         ${guilloche(p.id)}

@@ -32,9 +32,17 @@ export default function PlansExplorer({ initial }: { initial: View[] }) {
         const open = Object.fromEntries(rows.filter((r) => r.owner && r.open).map((r) => [r.bundle.plan.id, r.open]));
         const list = [...mine, ...initial.filter((p) => !found.has(p.id))];
         off();
+        // 다시 그려도 이미 나타난 부분은 그대로: 화면에 보였던 영역은 등장 애니메이션 없이 바로 보이게
+        const seen = window.scrollY + window.innerHeight;
+        root.classList.add('no-reveal');
         root.innerHTML = renderPlansPage({ list, mine: mineIds, open });
+        root.querySelectorAll<HTMLElement>('[data-reveal], [data-split]').forEach((el) => {
+          if (el.getBoundingClientRect().top + window.scrollY < seen) el.classList.add('is-in');
+        });
         off = mountPlansPage(root, { list, mine: mineIds, navigate, open });
         enhance(root);
+        void root.offsetHeight; // 위 상태를 먼저 그린 뒤 애니메이션을 다시 켠다
+        root.classList.remove('no-reveal');
       },
       () => {}
     );

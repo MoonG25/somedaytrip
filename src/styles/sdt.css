@@ -2127,14 +2127,10 @@ html.gate-open {
   background:
     radial-gradient(1200px 600px at 50% -10%, var(--accent-soft), transparent 70%),
     var(--paper);
-  animation: bg-in 0.35s var(--ease-out, ease-out);
 }
 .boarding-gate.is-leaving {
   animation: bg-out 0.38s ease-in forwards;
   pointer-events: none;
-}
-@keyframes bg-in {
-  from { opacity: 0; }
 }
 @keyframes bg-out {
   to { opacity: 0; transform: scale(1.03); }
@@ -2243,7 +2239,6 @@ html.gate-open {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .boarding-gate,
   .boarding-gate.is-leaving,
   .boarding-gate.is-ready .tk-stub {
     animation: none;
@@ -2251,4 +2246,14 @@ html.gate-open {
 }
 :root[data-theme='dark'] .bg-role {
   background: color-mix(in oklab, var(--paper) 88%, #fff);
+}
+
+/* 홈을 다시 그리는 순간에는 등장 애니메이션을 끈다 (깜빡임 방지) */
+.no-reveal [data-reveal],
+.no-reveal .split-word > span {
+  transition: none !important;
+}
+/* 큰 제목은 글자를 쪼개기 전(서버 HTML)에 보였다가 쪼갠 뒤 다시 숨으며 깜빡인다 → 쪼갤 때까지 숨긴다 */
+[data-split]:not([data-split-done]) {
+  opacity: 0;
 }
