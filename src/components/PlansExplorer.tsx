@@ -16,6 +16,7 @@ export default function PlansExplorer({ initial }: { initial: View[] }) {
 
   useEffect(() => {
     const root = ref.current!;
+    root.innerHTML = html; // 이전 이벤트가 남지 않게 새로 깐다
     const navigate = (href: string) => window.__sdtNavigate?.(href);
     let off = mountPlansPage(root, { list: initial, navigate });
     let alive = true;

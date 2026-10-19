@@ -12,6 +12,7 @@ export default function LegacyBlock({ html, plan, owner = false }: { html: strin
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
   useEffect(() => {
+    ref.current!.innerHTML = html; // 이전 이벤트가 남지 않게 새로 깐다
     const off = mountPlanPage(ref.current!, plan, {
       owner,
       navigate: (href: string) => router.push(href),

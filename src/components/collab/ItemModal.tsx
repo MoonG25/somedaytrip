@@ -3,31 +3,45 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Item, Kind, Place, Plan } from '@/lib/types';
 import { KINDS } from '@/lib/proposals';
-import { geocode, reverse, nameOf, enOf } from '@/blog/geo.js';
+import { reverse, nameOf, enOf } from '@/blog/geo.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from '@/blog/leaflet.js';
 import Modal from './Modal';
 import { dayLabel, toast } from './util';
 
 type G = { lat: string; lon: string; display_name: string; name?: string; namedetails?: Record<string, string> };
+type Hit = { name: string; en?: string; address?: string; lat: number; lng: number; kind: string };
 
 function PlaceField({ value, onChange, near }: { value: Place | null; onChange: (p: Place | null) => void; near: [number, number] | null }) {
   const [q, setQ] = useState('');
-  const [res, setRes] = useState<G[] | null>(null);
+  const [res, setRes] = useState<Hit[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [pick, setPick] = useState(false);
   const mapEl = useRef<HTMLDivElement>(null);
 
-  const search = async () => {
-    if (!q.trim()) return;
+  // 서버가 카카오·Photon·OSM 결과를 합쳐 준다. 입력하는 동안 자동으로 찾는다
+  const search = async (text = q) => {
+    if (text.trim().length < 2) return setRes(null);
     setBusy(true);
     try {
-      setRes((await geocode(q.trim())) as G[]);
+      const u = new URLSearchParams({ q: text.trim(), mode: 'poi' });
+      if (near) {
+        u.set('lat', String(near[0]));
+        u.set('lng', String(near[1]));
+      }
+      const r = await fetch(`/api/places?${u}`);
+      const { hits } = (await r.json()) as { hits: Hit[] };
+      setRes(hits);
     } catch {
       toast('검색하지 못했어요. 잠시 뒤 다시 해 주세요', '!');
     } finally {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    const t = setTimeout(() => search(q), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
 
   useEffect(() => {
     if (!pick) return;
@@ -87,34 +101,36 @@ function PlaceField({ value, onChange, near }: { value: Place | null; onChange: 
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                 e.preventDefault();
-                search();
+                search(q);
               }
             }}
             placeholder="장소 찾기 (예: 후시미 이나리, 망원시장)"
             aria-label="장소 검색"
           />
         </label>
-        <button type="button" className="btn btn--sm" onClick={search} disabled={busy}>
+        <button type="button" className="btn btn--sm" onClick={() => search(q)} disabled={busy}>
           {busy ? '찾는 중…' : '찾기'}
         </button>
       </div>
       {res ? (
         <ul className="geo-results" role="listbox">
           {res.length ? (
-            res.map((g, i) => (
+            res.map((h, i) => (
               <li key={i}>
                 <button
                   type="button"
                   role="option"
                   aria-selected="false"
                   onClick={() => {
-                    onChange({ name: nameOf(g), en: enOf(g) || undefined, address: g.display_name.split(', ').slice(0, 4).join(', '), lat: +(+g.lat).toFixed(5), lng: +(+g.lon).toFixed(5) });
+                    onChange({ name: h.name, en: h.en || undefined, address: h.address, lat: +h.lat.toFixed(5), lng: +h.lng.toFixed(5) });
                     setRes(null);
                     setQ('');
                   }}
                 >
-                  <b>{nameOf(g)}</b>
-                  <span>{g.display_name}</span>
+                  <b>
+                    {h.kind === 'region' ? '🗺️' : '📍'} {h.name} {h.en && h.en !== h.name ? <span className="serif faint">{h.en}</span> : null}
+                  </b>
+                  <span>{h.address}</span>
                 </button>
               </li>
             ))

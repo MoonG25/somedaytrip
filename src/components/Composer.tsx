@@ -30,6 +30,8 @@ export default function Composer({ mode, initial, planId, copiedCount = 0 }: { m
   const router = useRouter();
   const html = useMemo(() => renderComposer({ mode, copiedCount }), [mode, copiedCount]);
   useEffect(() => {
+    // 붙일 때마다 HTML을 새로 깐다: 이전에 붙은 이벤트가 남아 작성기가 두 벌 돌지 않게 (StrictMode·다시 그리기)
+    ref.current!.innerHTML = html;
     return mountComposer(ref.current!, {
       mode,
       initial,
