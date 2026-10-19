@@ -1,9 +1,9 @@
 // 저장소. 화면(서버 컴포넌트·서버 액션)은 Repo 인터페이스만 안다.
-//  - BaseRepo: 업무 규칙(주인 확인, 제안·수락·충돌, 잠금, 횟수 제한)을 한곳에
+//  - BaseRepo: 업무 규칙(기장 확인, 제안·수락·충돌, 잠금, 횟수 제한)을 한곳에
 //  - FileRepo: 개발·테스트용 JSON 파일
 //  - PgRepo(pg-repo.ts): Supabase Postgres. DATABASE_URL이 있으면 이쪽을 쓴다
 //
-// 주인 판단은 "비밀번호를 아는가"뿐이다. 비밀번호를 맞히면 토큰을 주고(쿠키에 담김), 주인만 할 수 있는 일은 토큰으로 확인한다.
+// 기장 판단은 "비밀번호를 아는가"뿐이다. 비밀번호를 맞히면 토큰을 주고(쿠키에 담김), 기장만 할 수 있는 일은 토큰으로 확인한다.
 // 비밀번호 해시와 토큰은 Bundle에 넣지 않는다.
 import 'server-only';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
@@ -100,7 +100,7 @@ export abstract class BaseRepo implements Repo {
   }
 
   private owner(r: Row, token: string | null | undefined) {
-    if (!token || !r.tokens.includes(sha256(token))) throw new RepoError('주인 인증이 필요해요', 'forbidden');
+    if (!token || !r.tokens.includes(sha256(token))) throw new RepoError('기장 인증이 필요해요', 'forbidden');
   }
 
   private log(r: Row, kind: HistoryKind, actor: string, summary: string, proposalNo?: number) {
@@ -193,9 +193,9 @@ export abstract class BaseRepo implements Repo {
     await this.mutate(id, (r) => {
       this.owner(r, token);
       r.secret = secret;
-      // 비밀번호를 바꾸면 다른 기기의 주인 인증은 모두 풀린다
+      // 비밀번호를 바꾸면 다른 기기의 기장 인증은 모두 풀린다
       r.tokens = [sha256(token)];
-      this.log(r, 'meta', r.plan.ownerName, '주인 비밀번호를 바꿨어요');
+      this.log(r, 'meta', r.plan.ownerName, '기장 비밀번호를 바꿨어요');
       this.touch(r);
     });
   }
@@ -250,7 +250,7 @@ export abstract class BaseRepo implements Repo {
       const now = Date.now();
       const mine = (r.recent[p.authorId] || []).filter((t) => now - t < 600_000);
       if (mine.length >= 5) throw new RepoError('제안을 너무 자주 보냈어요. 잠시 뒤에 다시 보내 주세요', 'limited');
-      if (r.proposals.filter((x) => x.status === 'open').length >= 50) throw new RepoError('열린 제안이 너무 많아요. 주인이 정리한 뒤에 보내 주세요', 'limited');
+      if (r.proposals.filter((x) => x.status === 'open').length >= 50) throw new RepoError('열린 제안이 너무 많아요. 기장이 정리한 뒤에 보내 주세요', 'limited');
       // 오래된 기록은 버린다 (사람이 많아도 커지지 않게)
       for (const k of Object.keys(r.recent)) if (!r.recent[k].some((t) => now - t < 600_000)) delete r.recent[k];
       r.recent[p.authorId] = [...mine, now];
@@ -259,7 +259,7 @@ export abstract class BaseRepo implements Repo {
         id: uid(10),
         no,
         authorId: p.authorId,
-        authorName: p.authorName.trim().slice(0, 20) || '손님',
+        authorName: p.authorName.trim().slice(0, 20) || '승객',
         title: p.title.trim().slice(0, 80) || describeOps(ops, r.items),
         message: p.message.trim().slice(0, 1000),
         baseVersion: Number(p.baseVersion) || r.plan.version,
@@ -442,7 +442,7 @@ export class FileRepo extends BaseRepo {
   }
 }
 
-/** moon.log 예시 계획 → 전체 공개 예시 계획. 주인 비밀번호는 SDT_SAMPLE_PASSWORD(없으면 아무도 모르는 값) */
+/** moon.log 예시 계획 → 전체 공개 예시 계획. 기장 비밀번호는 SDT_SAMPLE_PASSWORD(없으면 아무도 모르는 값) */
 export async function sampleRows(): Promise<Row[]> {
   const secret = await makeSecret(process.env.SDT_SAMPLE_PASSWORD || uid(24));
   const now = Date.now();

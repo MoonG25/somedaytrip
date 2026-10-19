@@ -95,7 +95,7 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
         ['출발', '언젠가'],
         ['공유', '링크 하나로'],
         ['제안', '누구나'],
-        ['반영', '주인만'],
+        ['반영', '기장만'],
       ]
     : [
         ['출발', p.target ? dot(p.target) : '언젠가'],

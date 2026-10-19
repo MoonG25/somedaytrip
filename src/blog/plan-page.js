@@ -1,7 +1,7 @@
 // 계획 상세 (moon.log pages/plan.js에서 옮김). 문자열 함수는 서버에서 그리고, mountPlanPage가 브라우저에서 움직임을 붙인다.
 // 섬데트에서 바뀐 점
 //  - "가 볼 곳"은 React 협업 일정(Itinerary)이 맡는다
-//  - 체크리스트는 계획에 저장되고 주인만 체크한다 (모두에게 보임)
+//  - 체크리스트는 계획에 저장되고 기장만 체크한다 (모두에게 보임)
 //  - 여행 적금 병은 개인 것이라 이 브라우저에만 저장
 import { esc, fmtNum, fmtWon, fmtDot, clamp, lerp, reducedMotion } from './util.js';
 import { renderMarkdown } from './md.js';
@@ -156,7 +156,7 @@ export function renderPrep(p, { owner = false }) {
       </ul>`
           : `<p class="muted">아직 준비할 것이 없어요.${owner ? ` <a class="link-u" href="/p/${esc(p.id)}/edit#prep">추가하기 →</a>` : ''}</p>`
       }
-      <p class="faint check-note">${owner ? '체크하면 친구들에게도 보여요.' : '체크는 주인만 할 수 있어요.'}</p>
+      <p class="faint check-note">${owner ? '체크하면 친구들에게도 보여요.' : '체크는 기장만 할 수 있어요.'}</p>
     </div>
     <div class="prep-jar" data-reveal>
       <header class="sec-head"><div><p class="eyebrow">여행 적금</p><h2>Travel <em>fund</em></h2></div></header>
@@ -260,7 +260,7 @@ export function mountPlanPage(root, p, { owner = false, onCheck, navigate } = {}
       .catch(() => alive && (root.querySelector('[data-fx]').textContent = '—'));
   }
 
-  /* 체크리스트 (주인만) */
+  /* 체크리스트 (기장만) */
   const updateReady = (list) => {
     const done = list.filter(([, d]) => d).length;
     const pct = list.length ? Math.round((done / list.length) * 100) : 0;

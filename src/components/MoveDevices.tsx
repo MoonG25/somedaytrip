@@ -1,6 +1,6 @@
 'use client';
 // 다른 기기로 옮기기: 이 브라우저의 "내 계획" 목록을 링크·QR 하나로 옮긴다.
-// 주인 토큰은 담지 않는다 (링크가 새도 고칠 권한은 넘어가지 않게). 새 기기에서는 비밀번호로 주인 인증.
+// 기장 토큰은 담지 않는다 (링크가 새도 고칠 권한은 넘어가지 않게). 새 기기에서는 비밀번호로 기장 인증.
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import Modal from './collab/Modal';
@@ -57,7 +57,7 @@ export default function MoveDevices() {
               </button>
             </div>
             <ul className="pub-rules">
-              <li>👑 주인 인증은 옮겨지지 않아요. 새 기기에서 계획을 열고 <b>비밀번호</b>로 인증하세요.</li>
+              <li>🧑‍✈️ 기장 인증은 옮겨지지 않아요. 새 기기에서 계획을 열고 <b>비밀번호</b>로 인증하세요.</li>
               <li>🔒 이 링크로 계획을 <b>볼</b> 수는 있으니, 나만 쓰세요.</li>
             </ul>
           </div>

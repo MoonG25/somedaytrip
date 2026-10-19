@@ -1,6 +1,6 @@
 'use client';
-// 계획 화면의 협업 부분: 역할 표시줄(주인/손님) + 공유·인증·주인 메뉴 + 일정.
-// 주인은 "손님 화면 미리보기"로 친구가 보는 화면을 볼 수 있다 (이 탭에서만).
+// 계획 화면의 협업 부분: 역할 표시줄(기장/승객) + 공유·인증·기장 메뉴 + 일정.
+// 기장은 "승객 화면 미리보기"로 친구가 보는 화면을 볼 수 있다 (이 탭에서만).
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
@@ -9,6 +9,7 @@ import { changePassword, deletePlan, login, logout, rejectAll, rekeyPlan, update
 import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
 import PlanLinks from './PlanLinks';
+import BoardingGate from './BoardingGate';
 import Modal from './Modal';
 import { broadcast, toast } from './util';
 
@@ -20,12 +21,14 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
   const [welcome, setWelcome] = useState(false);
   const [modal, setModal] = useState<'share' | 'login' | 'password' | 'publish' | null>(null);
   const owner = isOwner && !preview;
+  // 탑승 수속은 처음 열 때의 역할로 정한다 (게이트 안에서 기장 인증해도 뜯을 때까지 남아 있게)
+  const [gate] = useState(!isOwner);
 
   useEffect(() => {
     try {
       setPreview(sessionStorage.getItem(previewKey(plan.id)) === '1');
     } catch {}
-    // 링크로 받은 계획과 내가 주인인 계획은 "내 계획"에 넣어 둔다
+    // 링크로 받은 계획과 내가 기장인 계획은 "내 계획"에 넣어 둔다
     if (isOwner || plan.visibility === 'link') rememberPlan(plan.id);
     if (new URLSearchParams(location.search).get('welcome')) {
       setWelcome(true);
@@ -74,15 +77,15 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
           <div className="role-text">
             {owner ? (
               <>
-                <span className="role-chip mono">OWNER</span> <b>주인</b>으로 보는 중이에요. 고치면 바로 반영돼요.
+                <span className="role-chip mono">CAPTAIN</span> <b>기장</b>으로 보는 중이에요. 고치면 바로 반영돼요.
               </>
             ) : isOwner ? (
               <>
-                <span className="role-chip mono">PREVIEW</span> 손님 화면을 미리 보는 중이에요.
+                <span className="role-chip mono">PREVIEW</span> 승객 화면을 미리 보는 중이에요.
               </>
             ) : (
               <>
-                <span className="role-chip mono">GUEST</span> 일정을 고치면 <b>제안</b>으로 모였다가, 주인(<b>{plan.ownerName}</b>)이 수락하면 반영돼요.
+                <span className="role-chip mono">PASSENGER</span> 일정을 고치면 <b>제안</b>으로 모였다가, 기장(<b>{plan.ownerName}</b>)이 수락하면 반영돼요.
               </>
             )}
           </div>
@@ -102,17 +105,17 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
             ) : null}
             {isOwner && preview ? (
               <button type="button" className="btn btn--sm btn--ghost" onClick={() => setPrev(false)}>
-                주인 화면으로
+                기장 화면으로
               </button>
             ) : null}
             {!isOwner ? (
               <button type="button" className="link-u faint" onClick={() => setModal('login')}>
-                주인이신가요?
+                기장이신가요?
               </button>
             ) : null}
             {owner ? (
               <details className="owner-menu">
-                <summary className="icon-btn" aria-label="주인 메뉴">
+                <summary className="icon-btn" aria-label="기장 메뉴">
                   ⋯
                 </summary>
                 <div className="owner-pop">
@@ -143,7 +146,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
                     </button>
                   ) : null}
                   <button type="button" onClick={(e) => (closeMenu(e), setPrev(true))}>
-                    👀 손님 화면 미리보기
+                    👀 승객 화면 미리보기
                   </button>
                   {!plan.sample ? (
                     <button
@@ -169,13 +172,13 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
                     type="button"
                     onClick={async (e) => {
                       closeMenu(e);
-                      if (!confirm('이 브라우저에서 주인 인증을 풀까요? 비밀번호를 넣으면 언제든 다시 주인이 될 수 있어요.')) return;
+                      if (!confirm('이 브라우저에서 기장 인증을 풀까요? 비밀번호를 넣으면 언제든 다시 기장이 될 수 있어요.')) return;
                       await logout(plan.id);
                       router.refresh();
-                      toast('주인 인증을 풀었어요', '🚪');
+                      toast('기장 인증을 풀었어요', '🚪');
                     }}
                   >
-                    🚪 주인 인증 풀기
+                    🚪 기장 인증 풀기
                   </button>
                   <hr />
                   <button
@@ -201,6 +204,17 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
         </div>
       </div>
 
+      {gate ? (
+        <BoardingGate
+          plan={plan}
+          items={items}
+          onCaptain={() => {
+            setPrev(false);
+            router.refresh();
+            toast('기장으로 인증됐어요', '🧑‍✈️');
+          }}
+        />
+      ) : null}
       <PlanLinks plan={plan} owner={owner} />
       {children}
       <Itinerary plan={plan} items={items} owner={owner} />
@@ -215,7 +229,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
           setPrev(false);
           rememberPlan(plan.id);
           router.refresh();
-          toast('주인으로 인증됐어요', '👑');
+          toast('기장으로 인증됐어요', '🧑‍✈️');
         }}
       />
       <PasswordModal open={modal === 'password'} plan={plan} onClose={() => setModal(null)} />
@@ -223,7 +237,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
         <div className="item-form">
           <ul className="pub-rules">
             <li>🌍 링크가 없는 사람도 <b>누구나</b> 볼 수 있고, 검색 결과(Google·네이버)에 나올 수 있어요.</li>
-            <li>📮 누구나 제안할 수 있지만, 반영은 여전히 <b>주인만</b> 할 수 있어요.</li>
+            <li>📮 누구나 제안할 수 있지만, 반영은 여전히 <b>기장만</b> 할 수 있어요.</li>
             <li>⏳ 나중에 공개를 꺼도 검색 결과에서 사라지기까지 며칠 걸릴 수 있어요.</li>
             <li>🏠 동네 여행이라면 집 주소처럼 알리고 싶지 않은 정보가 없는지 확인하세요.</li>
           </ul>
@@ -287,7 +301,7 @@ export function ShareModal({ open, plan, onClose, welcome }: { open: boolean; pl
           {welcome ? (
             <div className="keep-link">
               <b>📌 이 링크를 나에게 꼭 보내 두세요</b>
-              <p>가입이 없어서, 다른 기기나 브라우저 기록을 지운 뒤에는 <b>링크가 있어야</b> 계획을 다시 찾을 수 있어요. 주인 인증은 비밀번호로 해요.</p>
+              <p>가입이 없어서, 다른 기기나 브라우저 기록을 지운 뒤에는 <b>링크가 있어야</b> 계획을 다시 찾을 수 있어요. 기장 인증은 비밀번호로 해요.</p>
               <div className="keep-actions">
                 {typeof navigator !== 'undefined' && 'share' in navigator ? (
                   <button type="button" className="btn btn--sm btn--solid" onClick={() => navigator.share({ title: plan.title, text: `내 여행 계획 링크 (섬데트): ${plan.title}`, url }).catch(() => {})}>
@@ -296,7 +310,7 @@ export function ShareModal({ open, plan, onClose, welcome }: { open: boolean; pl
                 ) : null}
                 <a
                   className="btn btn--sm btn--ghost"
-                  href={`mailto:?subject=${encodeURIComponent(`[섬데트] ${plan.title}`)}&body=${encodeURIComponent(`내 여행 계획 링크\n${url}\n\n주인 비밀번호는 따로 기억해 두세요. (섬데트는 비밀번호를 되찾아 주지 못해요)`)}`}
+                  href={`mailto:?subject=${encodeURIComponent(`[섬데트] ${plan.title}`)}&body=${encodeURIComponent(`내 여행 계획 링크\n${url}\n\n기장 비밀번호는 따로 기억해 두세요. (섬데트는 비밀번호를 되찾아 주지 못해요)`)}`}
                 >
                   ✉️ 메일로 보내기
                 </a>
@@ -305,7 +319,7 @@ export function ShareModal({ open, plan, onClose, welcome }: { open: boolean; pl
           ) : null}
           <ul className="pub-rules">
             <li>🔗 링크를 받은 사람은 누구나 일정을 <b>제안</b>할 수 있어요.</li>
-            <li>👑 반영은 비밀번호를 아는 <b>주인</b>만 할 수 있어요.</li>
+            <li>🧑‍✈️ 반영은 비밀번호를 아는 <b>기장</b>만 할 수 있어요.</li>
             <li>{plan.visibility === 'public' ? '🌍 지금 전체 공개라서 검색으로도 찾을 수 있어요.' : '🙈 지금 링크 공개라서 검색에는 나오지 않아요.'}</li>
           </ul>
         </div>
@@ -320,7 +334,7 @@ function LoginModal({ open, plan, onClose, onDone }: { open: boolean; plan: Plan
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   return (
-    <Modal open={open} title="주인 인증" onClose={onClose}>
+    <Modal open={open} title="기장 인증" onClose={onClose}>
       <form
         className="item-form"
         onSubmit={async (e) => {
@@ -348,7 +362,7 @@ function LoginModal({ open, plan, onClose, onDone }: { open: boolean; plan: Plan
             {err}
           </p>
         ) : null}
-        <p className="hint">비밀번호를 잊었다면 되찾을 수 없어요. 그래도 손님으로 제안은 계속할 수 있어요.</p>
+        <p className="hint">비밀번호를 잊었다면 되찾을 수 없어요. 그래도 승객으로 제안은 계속할 수 있어요.</p>
         <div className="modal-actions">
           <button type="submit" className="btn btn--solid" disabled={busy}>
             인증하기
@@ -365,7 +379,7 @@ function PasswordModal({ open, plan, onClose }: { open: boolean; plan: Plan; onC
   const [next2, setNext2] = useState('');
   const [err, setErr] = useState('');
   return (
-    <Modal open={open} title="주인 비밀번호 바꾸기" onClose={onClose}>
+    <Modal open={open} title="기장 비밀번호 바꾸기" onClose={onClose}>
       <form
         className="item-form"
         onSubmit={async (e) => {
@@ -379,7 +393,7 @@ function PasswordModal({ open, plan, onClose }: { open: boolean; plan: Plan; onC
           setNext2('');
           setErr('');
           onClose();
-          toast('비밀번호를 바꿨어요. 다른 기기의 주인 인증은 풀렸어요', '🔑');
+          toast('비밀번호를 바꿨어요. 다른 기기의 기장 인증은 풀렸어요', '🔑');
         }}
       >
         <label className="lbl">

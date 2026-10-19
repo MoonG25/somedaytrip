@@ -135,7 +135,7 @@ export function cleanInfo(i: unknown): PlanInfo {
     budget,
     checklist,
     links,
-    ownerName: str(o.ownerName, 20) || '주인',
+    ownerName: str(o.ownerName, 20) || '기장',
     visibility: oneOf<Visibility>(o.visibility, ['link', 'public'], 'link'),
   };
 }

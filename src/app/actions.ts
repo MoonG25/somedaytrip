@@ -1,5 +1,5 @@
 'use server';
-// 서버 액션: 화면에서 부르는 모든 쓰기. 주인 확인과 비밀번호 검사는 여기(서버)에서만 한다.
+// 서버 액션: 화면에서 부르는 모든 쓰기. 기장 확인과 비밀번호 검사는 여기(서버)에서만 한다.
 import { revalidatePath } from 'next/cache';
 import type { Bundle, Item, Op, PlanInfo } from '@/lib/types';
 import { cleanItem } from '@/lib/clean';
@@ -29,7 +29,7 @@ const touch = (id: string) => {
 
 async function token(id: string) {
   const t = await ownerToken(id);
-  if (!t) throw new RepoError('주인 인증이 필요해요', 'forbidden');
+  if (!t) throw new RepoError('기장 인증이 필요해요', 'forbidden');
   return t;
 }
 
@@ -51,7 +51,7 @@ export async function createPlan(input: { info: PlanInfo; items: Item[]; passwor
 
 export async function login(id: string, password: string, remember: boolean) {
   return run(async () => {
-    // 같은 곳(IP)에서 10분에 8번까지. 누가 일부러 틀려도 주인의 다른 기기는 막히지 않게 IP 단위로 센다
+    // 같은 곳(IP)에서 10분에 8번까지. 누가 일부러 틀려도 기장의 다른 기기는 막히지 않게 IP 단위로 센다
     const ip = ((await headers()).get('x-forwarded-for') || 'local').split(',')[0].trim();
     if (!allow(`login:${ip}:${id}`, 8, 600_000)) throw new RepoError('비밀번호를 여러 번 틀렸어요. 10분 뒤에 다시 해 주세요', 'locked');
     const t = await repo().login(id, String(password ?? ''));
@@ -141,7 +141,7 @@ export async function deletePlan(id: string) {
   });
 }
 
-/** 링크 새로 만들기: 새 id로 옮기고, 주인 쿠키도 새 id로 옮긴다 */
+/** 링크 새로 만들기: 새 id로 옮기고, 기장 쿠키도 새 id로 옮긴다 */
 export async function rekeyPlan(id: string) {
   return run(async () => {
     const t = await token(id);

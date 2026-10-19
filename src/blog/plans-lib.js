@@ -144,7 +144,7 @@ export function optimizeRoute(stops) {
   return route;
 }
 
-/* ---------- 준비 상태 (체크리스트는 계획에 저장되고, 주인이 체크한다) ---------- */
+/* ---------- 준비 상태 (체크리스트는 계획에 저장되고, 기장이 체크한다) ---------- */
 export function readiness(p) {
   const list = p.checklist || [];
   const done = list.filter(([, d]) => d).length;

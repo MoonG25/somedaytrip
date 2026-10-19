@@ -1,5 +1,5 @@
 'use client';
-// 계획의 지도·참고 링크 (구글맵 리스트 공유 등). 누구나 열어 보고, 주인은 여기서 바로 붙이거나 지운다.
+// 계획의 지도·참고 링크 (구글맵 리스트 공유 등). 누구나 열어 보고, 기장은 여기서 바로 붙이거나 지운다.
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Plan } from '@/lib/types';

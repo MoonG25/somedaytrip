@@ -125,32 +125,12 @@ export function bindTickets(root, navigate) {
     e.stopPropagation();
     if (ticket.classList.contains('ticket--big') || !a.getAttribute('href')) return;
     const href = a.getAttribute('href');
-    const stub = ticket.querySelector('.tk-stub');
-    if (reducedMotion() || !stub.animate) return navigate(href);
-    // 스텁은 탑승권 안에서 움직이면 잘리고, 떠난 자리에 탑승권 바탕(흰색)이 남는다.
-    // 그래서 복제본을 맨 위 층에 띄워 날리고, 원래 자리는 비운다 (바탕·그림자도 본문까지만)
-    const r = stub.getBoundingClientRect();
-    const fly = document.createElement('div');
-    fly.className = `tk-tear tone-${[...ticket.classList].find((c) => c.startsWith('tone-'))?.slice(5) || 'dream'}`;
-    // 좁은 화면에선 탑승권이 세로라 스텁이 아래에 붙는다 → 아래쪽 모서리만 둥글게
-    const vertical = r.width > ticket.getBoundingClientRect().width * 0.8;
-    Object.assign(fly.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: vertical ? '0 0 22px 22px' : '0 22px 22px 0' });
-    fly.append(stub.cloneNode(true));
-    document.body.append(fly);
-    ticket.classList.add('tearing');
-    fly
-      .animate(
-        [
-          { transform: 'none', opacity: 1 },
-          { transform: 'translate(10px, 6px) rotate(4deg)', opacity: 1, offset: 0.35 },
-          { transform: 'translate(70px, 110px) rotate(20deg)', opacity: 0 },
-        ],
-        { duration: 460, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }
-      )
-      .finished.then(() => {
-        fly.remove();
-        if (ticket.isConnected) navigate(href);
-      });
+    // 홈에서 탑승권을 뜯고 들어가면 계획 화면의 탑승 수속(게이트)은 건너뛴다
+    try {
+      sessionStorage.setItem('sdt:tore', ticket.dataset.slug || '');
+    } catch {}
+    if (reducedMotion() || !Element.prototype.animate) return navigate(href);
+    tearStub(ticket).then(() => ticket.isConnected && navigate(href));
   };
   root.addEventListener('pointerover', over);
   root.addEventListener('pointerout', out);
@@ -159,6 +139,89 @@ export function bindTickets(root, navigate) {
     root.removeEventListener('pointerover', over);
     root.removeEventListener('pointerout', out);
     root.removeEventListener('click', click);
+  };
+}
+
+// 스텁은 탑승권 안에서 움직이면 잘리고, 떠난 자리에 탑승권 바탕(흰색)이 남는다.
+// 그래서 복제본을 맨 위 층에 띄워 움직이고, 원래 자리는 비운다 (바탕·그림자도 본문까지만)
+function liftStub(ticket) {
+  const stub = ticket.querySelector('.tk-stub');
+  const r = stub.getBoundingClientRect();
+  const fly = document.createElement('div');
+  fly.className = `tk-tear tone-${[...ticket.classList].find((c) => c.startsWith('tone-'))?.slice(5) || 'dream'}`;
+  // 좁은 화면에선 탑승권이 세로라 스텁이 아래에 붙는다 → 아래쪽 모서리만 둥글게
+  const vertical = r.width > ticket.getBoundingClientRect().width * 0.8;
+  Object.assign(fly.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: vertical ? '0 0 22px 22px' : '0 22px 22px 0' });
+  fly.append(stub.cloneNode(true));
+  document.body.append(fly);
+  ticket.classList.add('tearing');
+  return { fly, vertical };
+}
+
+/** 스텁을 뜯어 날린다. lifted가 있으면(잡아당기던 중) 그 자리에서 이어서 */
+export function tearStub(ticket, lifted = null, at = { x: 0, y: 0, r: 0 }) {
+  if (reducedMotion() || !Element.prototype.animate) {
+    ticket.classList.add('tearing');
+    lifted?.fly.remove();
+    return Promise.resolve();
+  }
+  const { fly } = lifted || liftStub(ticket);
+  const from = `translate(${at.x}px, ${at.y}px) rotate(${at.r}deg)`;
+  const dir = at.x || at.y ? Math.hypot(at.x, at.y) : 0;
+  const end = dir ? `translate(${(at.x / dir) * 260}px, ${(at.y / dir) * 260 + 80}px) rotate(${at.r * 2 + 12}deg)` : 'translate(70px, 110px) rotate(20deg)';
+  const frames = dir
+    ? [{ transform: from, opacity: 1 }, { transform: end, opacity: 0 }]
+    : [{ transform: 'none', opacity: 1 }, { transform: 'translate(10px, 6px) rotate(4deg)', opacity: 1, offset: 0.35 }, { transform: end, opacity: 0 }];
+  return fly
+    .animate(frames, { duration: dir ? 360 : 460, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' })
+    .finished.then(() => fly.remove());
+}
+
+/** 스텁을 손으로 잡아 뜯기. 충분히 당기면 날아가고 onTear, 덜 당기면 제자리로 */
+export function grabStub(ticket, onTear) {
+  const stub = ticket.querySelector('.tk-stub');
+  let g = null;
+  const down = (e) => {
+    if (e.button !== 0 || g) return;
+    e.preventDefault();
+    stub.setPointerCapture?.(e.pointerId);
+    g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, lifted: liftStub(ticket), at: { x: 0, y: 0, r: 0 } };
+    g.lifted.fly.classList.add('grabbing');
+  };
+  const move = (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    const x = e.clientX - g.x0;
+    const y = e.clientY - g.y0;
+    // 이음선(뜯는 쪽)에서 멀어질수록 비스듬히 기운다
+    g.at = { x, y, r: clamp((g.lifted.vertical ? -x : y) / 6, -18, 18) };
+    g.lifted.fly.style.transform = `translate(${x}px, ${y}px) rotate(${g.at.r}deg)`;
+  };
+  const up = (e) => {
+    if (!g || e.pointerId !== g.id) return;
+    const cur = g;
+    g = null;
+    const far = Math.hypot(cur.at.x, cur.at.y) > 70;
+    if (far) {
+      tearStub(ticket, cur.lifted, cur.at).then(onTear);
+      return;
+    }
+    // 덜 당겼으면 제자리로 붙인다
+    cur.lifted.fly.classList.remove('grabbing');
+    const back = cur.lifted.fly.animate([{ transform: cur.lifted.fly.style.transform || 'none' }, { transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.3,1.4,.5,1)' });
+    back.finished.then(() => {
+      cur.lifted.fly.remove();
+      ticket.classList.remove('tearing');
+    });
+  };
+  stub.addEventListener('pointerdown', down);
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+  return () => {
+    stub.removeEventListener('pointerdown', down);
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
   };
 }
 

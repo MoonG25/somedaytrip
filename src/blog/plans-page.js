@@ -59,7 +59,7 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
     <div>
       <p class="eyebrow" data-reveal>Departures · 떠날 곳</p>
       <h1 class="display" data-split>Someday, <em>soon.</em></h1>
-      <p class="lede" data-reveal>언젠가 갈 여행을 미리 짜 두고, 시간이 생기면 떠나요. 링크를 보내면 친구가 일정을 <b>제안</b>하고, 주인이 <b>수락</b>하면 반영돼요. 해외여행이 아니어도, 동네 한 바퀴도 좋아요.</p>
+      <p class="lede" data-reveal>언젠가 갈 여행을 미리 짜 두고, 시간이 생기면 떠나요. 링크를 보내면 친구가 일정을 <b>제안</b>하고, 기장이 <b>수락</b>하면 반영돼요. 해외여행이 아니어도, 동네 한 바퀴도 좋아요.</p>
       <div class="hero-cta" data-reveal><a class="btn btn--solid" href="/new" data-magnetic>+ 계획 쓰기</a><a class="btn btn--ghost" href="#how">어떻게 같이 짜나요?</a></div>
     </div>
     <dl class="plans-stats" data-stagger="70">
@@ -128,9 +128,9 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
 <section class="container how" id="how">
   <header class="sec-head" data-reveal><div><p class="eyebrow">How it works</p><h2>Plan it <em>together</em></h2></div></header>
   <ol class="how-steps" role="list" data-stagger="80">
-    <li data-reveal><span class="mono">01</span><b>계획 쓰기</b><p>어디로, 언제, 얼마나. 날짜가 없어도 괜찮아요. 만들 때 정한 <b>비밀번호</b>를 아는 사람이 주인이에요.</p></li>
+    <li data-reveal><span class="mono">01</span><b>계획 쓰기</b><p>어디로, 언제, 얼마나. 날짜가 없어도 괜찮아요. 만들 때 정한 <b>비밀번호</b>를 아는 사람이 기장이에요.</p></li>
     <li data-reveal><span class="mono">02</span><b>링크 보내기</b><p>링크를 받은 친구는 누구나 일정을 고칠 수 있어요. 바로 바뀌지 않고 <b>제안</b>으로 쌓여요.</p></li>
-    <li data-reveal><span class="mono">03</span><b>수락 · 거절</b><p>주인이 제안을 보고 골라서 반영해요. 겹치는 변경은 알려 줘요. 원하면 <b>전체 공개</b>로 누구나 보게 할 수도 있어요.</p></li>
+    <li data-reveal><span class="mono">03</span><b>수락 · 거절</b><p>기장이 제안을 보고 골라서 반영해요. 겹치는 변경은 알려 줘요. 원하면 <b>전체 공개</b>로 누구나 보게 할 수도 있어요.</p></li>
   </ol>
 </section>`;
 }

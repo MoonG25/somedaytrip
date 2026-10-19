@@ -6,9 +6,9 @@ import { FileRepo } from '../src/server/repo';
 import { cleanInfo, groupTotal } from '../src/lib/clean';
 import type { Item } from '../src/lib/types';
 
-const info = cleanInfo({ title: '테스트', place: '교토', placeEn: 'Kyoto', days: 2, ownerName: '주인', visibility: 'link' });
+const info = cleanInfo({ title: '테스트', place: '교토', placeEn: 'Kyoto', days: 2, ownerName: '기장', visibility: 'link' });
 const item = (id: string, day: number | null = 1): Item => ({ id, day, time: '', title: id, en: '', kind: 'see', place: null, memo: '', cost: null, order: 0 });
-const pr = (ops: any[], authorId = 'g') => ({ authorId, authorName: '손님', title: 't', message: '', baseVersion: 1, ops });
+const pr = (ops: any[], authorId = 'g') => ({ authorId, authorName: '승객', title: 't', message: '', baseVersion: 1, ops });
 
 describe('FileRepo', () => {
   let r: FileRepo;
@@ -39,7 +39,7 @@ describe('FileRepo', () => {
     expect((await r.listPublic()).some((b) => b.plan.id === bundle.plan.id)).toBe(false);
   });
 
-  it('비밀번호를 맞혀야 주인 토큰을 준다 · 계획 전체로 20번 틀리면 잠긴다', async () => {
+  it('비밀번호를 맞혀야 기장 토큰을 준다 · 계획 전체로 20번 틀리면 잠긴다', async () => {
     const { bundle } = await r.create(info, [], 'pass1234');
     const id = bundle.plan.id;
     await expect(r.login(id, 'nope')).rejects.toMatchObject({ code: 'forbidden' });
@@ -75,14 +75,14 @@ describe('FileRepo', () => {
     const id = bundle.plan.id;
     const p = await r.propose(id, pr([
       { type: 'update', id: 'a', before: { time: '' }, after: { time: '10:00' } },
-      { type: 'update', id: 'b', before: { memo: '' }, after: { memo: '손님 메모' } },
+      { type: 'update', id: 'b', before: { memo: '' }, after: { memo: '승객 메모' } },
     ]));
     await r.applyDirect(id, token, [{ type: 'update', id: 'a', before: { time: '' }, after: { time: '09:00' } }]);
     await expect(r.decide(id, token, p.no, 'accept', '')).rejects.toMatchObject({ code: 'conflict' });
     expect(await r.decide(id, token, p.no, 'accept', '', true)).toMatchObject({ status: 'partial', skipped: [0] });
     const b = (await r.get(id))!;
     expect(b.items.find((i) => i.id === 'a')!.time).toBe('09:00');
-    expect(b.items.find((i) => i.id === 'b')!.memo).toBe('손님 메모');
+    expect(b.items.find((i) => i.id === 'b')!.memo).toBe('승객 메모');
   });
 
   it('같은 사람이 10분에 5번 넘게 제안하면 막는다', async () => {
@@ -92,7 +92,7 @@ describe('FileRepo', () => {
     await expect(r.propose(bundle.plan.id, pr([{ type: 'add', item: item('y') }], 'other'))).resolves.toBeTruthy();
   });
 
-  it('제안한 사람만 철회 · 주인은 열린 제안을 한꺼번에 거절', async () => {
+  it('제안한 사람만 철회 · 기장은 열린 제안을 한꺼번에 거절', async () => {
     const { bundle, token } = await r.create(info, [], 'pass1234');
     const id = bundle.plan.id;
     const p = await r.propose(id, pr([{ type: 'add', item: item('a') }]));
@@ -112,7 +112,7 @@ describe('FileRepo', () => {
     expect(await r.checkToken(id, token)).toBe(true);
   });
 
-  it('기간을 줄이면 넘치는 일정은 날짜 미정으로 · 체크는 주인만', async () => {
+  it('기간을 줄이면 넘치는 일정은 날짜 미정으로 · 체크는 기장만', async () => {
     const { bundle, token } = await r.create({ ...info, checklist: [['여권', false]] }, [item('a', 1), item('b', 2)], 'pass1234');
     const id = bundle.plan.id;
     await r.updateInfo(id, token, { ...info, days: 1, checklist: [['여권', false]] });
@@ -185,7 +185,7 @@ describe('지도 링크', () => {
 });
 
 describe('링크 새로 만들기', () => {
-  it('새 id로 옮기고 예전 id는 사라진다 · 제안·일정·주인 토큰은 그대로', async () => {
+  it('새 id로 옮기고 예전 id는 사라진다 · 제안·일정·기장 토큰은 그대로', async () => {
     const r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
     const { bundle, token } = await r.create(info, [item('a')], 'pass1234');
     await r.propose(bundle.plan.id, pr([{ type: 'add', item: item('b') }]));

@@ -1652,7 +1652,7 @@ body:has(.basket) .toasts {
   font-size: 15px;
 }
 
-/* 공개 · 주인 */
+/* 공개 · 기장 */
 .owner-box .half {
   max-width: calc(50% - 6px);
 }
@@ -2112,4 +2112,143 @@ body:has(.basket) .toasts {
   font-weight: 800;
   color: #fff;
   background: var(--accent);
+}
+
+/* ---------- 탑승 수속 (링크로 처음 들어올 때) ---------- */
+html.gate-open {
+  overflow: hidden;
+}
+.boarding-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, var(--accent-soft), transparent 70%),
+    var(--paper);
+  animation: bg-in 0.35s var(--ease-out, ease-out);
+}
+.boarding-gate.is-leaving {
+  animation: bg-out 0.38s ease-in forwards;
+  pointer-events: none;
+}
+@keyframes bg-in {
+  from { opacity: 0; }
+}
+@keyframes bg-out {
+  to { opacity: 0; transform: scale(1.03); }
+}
+.bg-inner {
+  width: min(880px, 100%);
+  min-height: 100%;
+  margin: 0 auto;
+  padding: clamp(28px, 7vh, 72px) 16px 40px;
+  display: grid;
+  align-content: center;
+  gap: 26px;
+}
+.bg-head {
+  text-align: center;
+}
+.bg-head h2 {
+  margin: 6px 0 0;
+  font-size: clamp(22px, 3.4vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.bg-ticket {
+  position: relative;
+  width: min(720px, 100%);
+  justify-self: center;
+}
+.bg-ticket .ticket-link {
+  cursor: default;
+}
+/* 수속이 끝나면 스텁이 "잡아 당겨" 달라고 살짝 들썩인다 */
+.boarding-gate.is-ready .tk-stub {
+  cursor: grab;
+  touch-action: none;
+  animation: stub-nudge 1.6s ease-in-out 0.4s infinite;
+}
+@keyframes stub-nudge {
+  0%, 70%, 100% { transform: none; }
+  80% { transform: translate(5px, 2px) rotate(1.4deg); }
+  90% { transform: translate(-1px, 0) rotate(-0.4deg); }
+}
+.tk-tear.grabbing {
+  cursor: grabbing;
+  box-shadow: 0 24px 50px -16px rgb(20 15 5 / 0.45);
+}
+.bg-pass {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--ink-3);
+}
+.bg-pass b {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.bg-roles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: min(720px, 100%);
+  justify-self: center;
+}
+.bg-role {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in oklab, var(--paper) 70%, #fff);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.bg-role.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.bg-role b {
+  font-size: 18px;
+}
+.bg-role p {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+.bg-role .btn {
+  justify-self: start;
+}
+.bg-ico {
+  font-size: 26px;
+  line-height: 1;
+}
+.bg-tear {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.bg-hint {
+  margin: 0;
+  color: var(--ink-2);
+}
+@media (max-width: 640px) {
+  .bg-roles {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boarding-gate,
+  .boarding-gate.is-leaving,
+  .boarding-gate.is-ready .tk-stub {
+    animation: none;
+  }
+}
+:root[data-theme='dark'] .bg-role {
+  background: color-mix(in oklab, var(--paper) 88%, #fff);
 }

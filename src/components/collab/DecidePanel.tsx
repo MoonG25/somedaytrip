@@ -1,5 +1,5 @@
 'use client';
-// 제안 검토: 주인은 수락·거절(겹치면 겹치지 않는 것만 수락), 제안한 사람은 철회
+// 제안 검토: 기장은 수락·거절(겹치면 겹치지 않는 것만 수락), 제안한 사람은 철회
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { decide, login, withdraw } from '@/app/actions';
@@ -64,7 +64,7 @@ export default function DecidePanel({ planId, no, owner, mine, open, total, conf
   return (
     <div className="decide">
       <p className="muted">
-        주인(<b>{ownerName}</b>)이 검토하면 결과가 여기에 보여요.
+        기장(<b>{ownerName}</b>)이 검토하면 결과가 여기에 보여요.
       </p>
       {mine ? (
         <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => confirm('이 제안을 거둘까요?') && act(() => withdraw(planId, no), '철회했어요', '↩')}>
@@ -78,18 +78,18 @@ export default function DecidePanel({ planId, no, owner, mine, open, total, conf
             e.preventDefault();
             const r = await login(planId, pw, true);
             if (!r.ok) return toast(r.error, '!');
-            toast('주인으로 인증됐어요', '👑');
+            toast('기장으로 인증됐어요', '🧑‍✈️');
             router.refresh();
           }}
         >
-          <input className="inp" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="주인 비밀번호" autoFocus autoComplete="current-password" />
+          <input className="inp" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="기장 비밀번호" autoFocus autoComplete="current-password" />
           <button type="submit" className="btn btn--sm btn--solid">
             인증하고 검토
           </button>
         </form>
       ) : (
         <button type="button" className="link-u faint" onClick={() => setShowLogin(true)}>
-          주인이신가요? 인증하고 검토 →
+          기장이신가요? 인증하고 검토 →
         </button>
       )}
     </div>

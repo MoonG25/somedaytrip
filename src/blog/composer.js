@@ -7,7 +7,7 @@
 //  04 가 볼 곳 (새로 쓸 때만) 자동완성 검색 + 지도에 찍기
 //  05 준비할 것
 //  06 소개     한 줄 소개(탑승권·계획 첫머리에 크게) + 더 하고 싶은 이야기 + 태그
-//  07 공개·주인
+//  07 공개·기장
 import { esc, fmtWon, reducedMotion, isoDate, addDaysIso, daysBetween, seoulToday } from './util.js';
 import { scene } from './art.js';
 import { STATUS, flagOf, nights } from './plans-lib.js';
@@ -95,8 +95,8 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
   <h1 class="display" data-split>Plan a <em>trip</em></h1>
   <p class="lede" data-reveal>${
     editing
-      ? '주인만 고칠 수 있어요. 가 볼 곳과 일정은 계획 화면에서 바로 고쳐요.'
-      : '다 쓰면 링크가 생겨요. 링크를 받은 친구는 일정을 <b>제안</b>하고, 비밀번호를 아는 <b>주인</b>이 수락해요.'
+      ? '기장만 고칠 수 있어요. 가 볼 곳과 일정은 계획 화면에서 바로 고쳐요.'
+      : '다 쓰면 링크가 생겨요. 링크를 받은 친구는 일정을 <b>제안</b>하고, 비밀번호를 아는 <b>기장</b>이 수락해요.'
   }</p>
 </section>
 
@@ -242,24 +242,24 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     </fieldset>
 
     <fieldset class="cstep" data-step="share">
-      <legend><span class="step-no mono">${n(7)}</span>${editing ? '공개 범위' : '공개 · 주인 정하기'}<span class="step-done" aria-hidden="true">✓</span></legend>
+      <legend><span class="step-no mono">${n(7)}</span>${editing ? '공개 범위' : '공개 · 기장 정하기'}<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="choice-cards two vis-pick" role="radiogroup" aria-label="공개 범위">
         <button type="button" role="radio" aria-checked="false" class="choice" data-vis="link"><span class="choice-ico">🔗</span><b>링크 공개</b><small>링크를 받은 친구만 볼 수 있어요. 검색에는 안 나와요.</small></button>
         <button type="button" role="radio" aria-checked="false" class="choice" data-vis="public"><span class="choice-ico">🌍</span><b>전체 공개</b><small>누구나 볼 수 있고 Google·네이버 검색에도 나와요.</small></button>
       </div>
-      <p class="faint step-note">어느 쪽이든 누구나 일정을 <b>제안</b>할 수 있지만, 반영은 <b>주인만</b> 할 수 있어요.</p>
+      <p class="faint step-note">어느 쪽이든 누구나 일정을 <b>제안</b>할 수 있지만, 반영은 <b>기장만</b> 할 수 있어요.</p>
       ${
         editing
           ? ''
           : `<div class="owner-box">
-        <p class="owner-lede"><b>🔑 비밀번호를 아는 사람이 이 계획의 주인이에요.</b> 제안 수락·거절, 직접 수정, 삭제를 할 수 있어요. 다른 기기에서도 비밀번호만 넣으면 주인으로 돌아와요. <b>잊으면 되찾을 수 없어요.</b></p>
-        <label class="field-block half">${lbl('주인 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 문" autocomplete="nickname"></label>
+        <p class="owner-lede"><b>🔑 비밀번호를 아는 사람이 이 계획의 기장이에요.</b> 제안 수락·거절, 직접 수정, 삭제를 할 수 있어요. 다른 기기에서도 비밀번호만 넣으면 기장으로 돌아와요. <b>잊으면 되찾을 수 없어요.</b></p>
+        <label class="field-block half">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 문" autocomplete="nickname"></label>
         <div class="grid2">
           <label class="field-block">${lbl('비밀번호', '4자 이상')}<input class="inp" type="password" name="pw" autocomplete="new-password"></label>
           <label class="field-block">${lbl('비밀번호 확인')}<input class="inp" type="password" name="pw2" autocomplete="new-password"></label>
         </div>
         <div class="pw-meter" data-s="-1"><i></i><span>친구들과 같이 쓰는 비밀번호는 피하세요</span></div>
-        <label class="switch"><input type="checkbox" name="remember" checked><span class="switch-ui" aria-hidden="true"></span>이 브라우저에서 주인으로 기억하기 <span class="faint">(공용 PC라면 끄세요)</span></label>
+        <label class="switch"><input type="checkbox" name="remember" checked><span class="switch-ui" aria-hidden="true"></span>이 브라우저에서 기장으로 기억하기 <span class="faint">(공용 PC라면 끄세요)</span></label>
       </div>`
       }
     </fieldset>
@@ -562,7 +562,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     ...(mode !== 'new' ? [] : [['places', '가 볼 곳', () => d.stops.length > 0]]),
     ['prep', '준비', () => d.checklist.length > 0],
     ['why', '소개', () => !!d.why],
-    ['share', editing ? '공개' : '주인', () => editing || (d.ownerName && form.pw.value.length >= 4 && form.pw.value === form.pw2.value)],
+    ['share', editing ? '공개' : '기장', () => editing || (d.ownerName && form.pw.value.length >= 4 && form.pw.value === form.pw2.value)],
   ];
   let queued = false;
   const update = () => {
@@ -1297,7 +1297,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (!whenMode) return fail('날짜를 정했는지, 아직 모르는지 골라 주세요', '[data-step="when"]');
     if (whenMode === 'date' && !d.target) return fail('달력에서 가는 날을 골라 주세요', '.cal');
     if (!editing) {
-      if (!d.ownerName) return fail('주인 이름을 적어 주세요', 'ownerName');
+      if (!d.ownerName) return fail('기장 이름을 적어 주세요', 'ownerName');
       if (form.pw.value.length < 4) return fail('비밀번호는 4자 이상이어야 해요', 'pw');
       if (form.pw.value !== form.pw2.value) return fail('비밀번호 두 개가 서로 달라요', 'pw2');
     }

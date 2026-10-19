@@ -5,3 +5,5 @@ export function readyRing(pct: number, size?: number): string;
 export function bindTickets(root: HTMLElement, navigate: (href: string) => void): () => void;
 export function donut(budget: Record<string, number>): string;
 export function bindDonut(root: ParentNode): void;
+export function tearStub(ticket: HTMLElement): Promise<void>;
+export function grabStub(ticket: HTMLElement, onTear: () => void): () => void;

@@ -1,4 +1,4 @@
-// 쿠키: 계획별 주인 토큰(sdt_o_<id>)과 이 브라우저의 손님 id(sdt_uid). 둘 다 httpOnly라 페이지 스크립트가 읽을 수 없다.
+// 쿠키: 계획별 기장 토큰(sdt_o_<id>)과 이 브라우저의 승객 id(sdt_uid). 둘 다 httpOnly라 페이지 스크립트가 읽을 수 없다.
 import 'server-only';
 import { cookies } from 'next/headers';
 import { repo } from './index';
@@ -25,7 +25,7 @@ export async function clearOwnerToken(id: string) {
   (await cookies()).delete(ownerKey(id));
 }
 
-/** 이 브라우저의 손님 id. 제안 철회 같은 "내가 보낸 것" 확인에 쓴다 */
+/** 이 브라우저의 승객 id. 제안 철회 같은 "내가 보낸 것" 확인에 쓴다 */
 export async function visitorId(create = false) {
   const jar = await cookies();
   let v = jar.get('sdt_uid')?.value;
@@ -41,7 +41,7 @@ export async function visitorId(create = false) {
 const MINE = 'sdt_mine';
 const okId = (s: string) => /^[a-z0-9-]{1,60}$/i.test(s);
 
-/** 쿠키에 남은 "내 계획" id들 + 주인 쿠키(sdt_o_<id>)가 있는 계획 id들 */
+/** 쿠키에 남은 "내 계획" id들 + 기장 쿠키(sdt_o_<id>)가 있는 계획 id들 */
 export async function savedMine() {
   const jar = await cookies();
   const fromList = (jar.get(MINE)?.value ?? '').split('.').filter(okId);

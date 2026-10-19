@@ -38,7 +38,7 @@ export interface BudgetItem {
   per: 'person' | 'group';
 }
 
-/** 주인이 작성 화면에서 고치는 계획 정보 */
+/** 기장이 작성 화면에서 고치는 계획 정보 */
 export interface PlanInfo {
   title: string;
   place: string;

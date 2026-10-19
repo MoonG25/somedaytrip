@@ -17,9 +17,9 @@ describe('findConflicts / applyOps', () => {
 
   it('겹치지 않으면 충돌 없음, 다른 칸 변경은 합쳐진다', () => {
     const op: Op = { type: 'update', id: 'a', before: { time: '10:00' }, after: { time: '11:00' } };
-    const now = [{ ...base[0], memo: '주인이 바꿈' }, base[1]];
+    const now = [{ ...base[0], memo: '기장이 바꿈' }, base[1]];
     expect(findConflicts(now, [op])).toEqual([]);
-    expect(applyOps(now, [op])[0]).toMatchObject({ time: '11:00', memo: '주인이 바꿈' });
+    expect(applyOps(now, [op])[0]).toMatchObject({ time: '11:00', memo: '기장이 바꿈' });
   });
 
   it('같은 칸을 다른 값으로 바꿨으면 충돌', () => {

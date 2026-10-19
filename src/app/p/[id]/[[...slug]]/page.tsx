@@ -95,7 +95,7 @@ export default async function PlanPage({ params }: Props) {
               Pull <em>requests</em>
             </h2>
           </div>
-          <p className="muted collab-note">링크를 받은 사람이 일정을 고치면 여기에 쌓이고, 주인이 수락하면 반영돼요.</p>
+          <p className="muted collab-note">링크를 받은 사람이 일정을 고치면 여기에 쌓이고, 기장이 수락하면 반영돼요.</p>
         </header>
         {b.proposals.length ? (
           <ol className="pr-list" role="list">
@@ -150,7 +150,7 @@ export default async function PlanPage({ params }: Props) {
             같이 가는 사람에게 <em>링크</em>를
           </h2>
           <p className="muted">
-            링크를 받은 친구는 가 볼 곳을 더하거나 시간을 바꾸자고 <b>제안</b>할 수 있어요. 반영은 비밀번호를 아는 주인이 골라서 해요. 상태: {STATUS[p.status].ko}.
+            링크를 받은 친구는 가 볼 곳을 더하거나 시간을 바꾸자고 <b>제안</b>할 수 있어요. 반영은 비밀번호를 아는 기장이 골라서 해요. 상태: {STATUS[p.status].ko}.
           </p>
         </div>
         <a className="btn btn--solid" href="#itinerary">

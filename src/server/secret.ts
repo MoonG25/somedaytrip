@@ -1,4 +1,4 @@
-// 주인 비밀번호: 원문은 저장하지 않고 PBKDF2-SHA256(15만 회) 해시와 솔트만 남긴다. 서버에서만 쓴다.
+// 기장 비밀번호: 원문은 저장하지 않고 PBKDF2-SHA256(15만 회) 해시와 솔트만 남긴다. 서버에서만 쓴다.
 import 'server-only';
 import { createHash, pbkdf2, randomBytes, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';

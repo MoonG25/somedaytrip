@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 // 모든 응답에 붙이는 보안 헤더
 const SECURITY = [
-  // 다른 사이트가 섬데트를 iframe으로 몰래 띄우지 못하게 (주인 버튼을 속여 누르게 하는 공격 방지)
+  // 다른 사이트가 섬데트를 iframe으로 몰래 띄우지 못하게 (기장 버튼을 속여 누르게 하는 공격 방지)
   { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },

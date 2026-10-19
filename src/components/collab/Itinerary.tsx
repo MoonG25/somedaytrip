@@ -1,7 +1,7 @@
 'use client';
 // 일정 · 가 볼 곳. moon.log 계획 상세의 "Places to see"(번호 목록 + 지도) 모양에 협업을 얹었다.
-//  - 주인: 고치면 바로 반영 (서버 액션)
-//  - 손님: 고친 내용이 "제안 바구니"(이 브라우저)에 모였다가, 제목을 붙여 한 번에 제안
+//  - 기장: 고치면 바로 반영 (서버 액션)
+//  - 승객: 고친 내용이 "제안 바구니"(이 브라우저)에 모였다가, 제목을 붙여 한 번에 제안
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Item, Op, Plan } from '@/lib/types';
@@ -197,7 +197,7 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
     saveDraft(plan.id, d);
   };
 
-  /* 동선 최적화: 날마다 가장 짧은 순서로 → 주인은 바로, 손님은 바구니로 */
+  /* 동선 최적화: 날마다 가장 짧은 순서로 → 기장은 바로, 승객은 바구니로 */
   const optimize = () => {
     const ops: Op[] = [];
     let before = 0;
@@ -448,7 +448,7 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
           saveDraft(plan.id, null);
           rememberPlan(plan.id);
           broadcast(plan.id);
-          toast('제안을 보냈어요. 주인이 수락하면 반영돼요', '📮');
+          toast('제안을 보냈어요. 기장이 수락하면 반영돼요', '📮');
           router.push(`/p/${plan.id}/pr/${no}`);
         }}
       />
@@ -481,7 +481,7 @@ function SendModal({ open, plan, items, draft, onClose, onSent }: { open: boolea
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
-          const r = await propose(plan.id, { authorName: myName() || '손님', title, message, baseVersion: draft.baseVersion, ops: draft.ops });
+          const r = await propose(plan.id, { authorName: myName() || '승객', title, message, baseVersion: draft.baseVersion, ops: draft.ops });
           setBusy(false);
           if (!r.ok) return toast(r.error, '!');
           onSent(r.data.no);
@@ -493,7 +493,7 @@ function SendModal({ open, plan, items, draft, onClose, onSent }: { open: boolea
         </label>
         <label className="lbl">
           하고 싶은 말 <span className="faint">(선택)</span>
-          <textarea className="textarea" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} maxLength={1000} placeholder="왜 이렇게 바꾸면 좋을지 적어 주면 주인이 판단하기 쉬워요" />
+          <textarea className="textarea" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} maxLength={1000} placeholder="왜 이렇게 바꾸면 좋을지 적어 주면 기장이 판단하기 쉬워요" />
         </label>
         <p className="lbl-title">변경 {draft.ops.length}개</p>
         <div className="opcards">
@@ -501,7 +501,7 @@ function SendModal({ open, plan, items, draft, onClose, onSent }: { open: boolea
             <OpCard key={i} op={op} plan={plan} items={items} conflict={conflicts.find((c) => c.op === i)} />
           ))}
         </div>
-        <p className="hint">보낸 뒤에는 주인이 수락해야 반영돼요. 그 전까지는 철회할 수 있어요.</p>
+        <p className="hint">보낸 뒤에는 기장이 수락해야 반영돼요. 그 전까지는 철회할 수 있어요.</p>
         <div className="modal-actions">
           <button type="submit" className="btn btn--solid" disabled={busy}>
             📮 {plan.ownerName}님에게 제안
@@ -528,7 +528,7 @@ function NameModal({ open, onClose }: { open: boolean; onClose: (name: string) =
           onClose(n);
         }}
       >
-        <p className="muted">제안에 이름이 붙어요. 주인이 누가 낸 제안인지 알 수 있게요.</p>
+        <p className="muted">제안에 이름이 붙어요. 기장이 누가 낸 제안인지 알 수 있게요.</p>
         <input className="inp" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 준호" autoFocus maxLength={20} />
         <div className="modal-actions">
           <button type="submit" className="btn btn--solid">

@@ -28,6 +28,8 @@ export const viewport: Viewport = {
 };
 
 // 첫 페인트 전에 테마와 포인트 색을 적용해 깜빡임을 막는다 (moon.log index.html과 같음)
+// 탑승 수속을 마친 계획 id (그리기 전에 게이트를 숨기려고)
+const BOARDED_SCRIPT = `(function(){try{var b=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf('sdt:boarded:')===0)b.push(k.slice(12))}var t=sessionStorage.getItem('sdt:tore');if(t)b.push(t);document.documentElement.dataset.boarded=b.join(' ')}catch(e){}})();`;
 const THEME_SCRIPT = `(function(){try{var g=function(k){var v=localStorage.getItem('sdt:'+k);return v?JSON.parse(v):null};var t=g('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';var h=g('hue');if(h!=null)document.documentElement.style.setProperty('--hue',h)}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -35,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko" data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: BOARDED_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
@@ -139,7 +142,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="faint">링크를 받은 사람은 누구나 일정을 제안</span>
                 </li>
                 <li>
-                  <span className="faint">반영은 비밀번호를 아는 주인만</span>
+                  <span className="faint">반영은 비밀번호를 아는 기장만</span>
                 </li>
               </ul>
             </div>

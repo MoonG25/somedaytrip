@@ -80,7 +80,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
             </div>
             {pr.note ? (
               <blockquote className="pr-msg owner">
-                <b>👑 {b.plan.ownerName}</b>
+                <b>🧑‍✈️ {b.plan.ownerName}</b>
                 <p>{pr.note}</p>
               </blockquote>
             ) : null}
