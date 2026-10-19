@@ -1742,3 +1742,33 @@ body:has(.basket) .toasts {
 .ac {
   z-index: 50;
 }
+
+/* 탑승권 찢기: 스텁 복제본이 맨 위 층에서 날아가고, 원래 자리는 비운다 */
+.tk-tear {
+  position: fixed;
+  z-index: 3000;
+  display: grid;
+  pointer-events: none;
+  border-radius: 0 22px 22px 0;
+  overflow: hidden;
+  transform-origin: 0 0;
+  box-shadow: 0 18px 30px rgb(40 28 5 / 0.25);
+}
+.tk-tear .tk-stub {
+  height: 100%;
+}
+/* 바탕을 본문에만 두면 가로형(스텁 오른쪽)·세로형(스텁 아래) 모두 스텁 자리가 빈다 */
+.ticket.tearing .ticket-link {
+  background: transparent;
+}
+.ticket.tearing .tk-main {
+  background: var(--ticket);
+}
+.ticket.tearing .tk-stub,
+.ticket.tearing .tk-holo,
+.ticket.tearing .glare {
+  visibility: hidden;
+}
+.ticket.tearing::before {
+  opacity: 0;
+}

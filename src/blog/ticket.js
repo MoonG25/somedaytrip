@@ -126,17 +126,30 @@ export function bindTickets(root, navigate) {
     const href = a.getAttribute('href');
     const stub = ticket.querySelector('.tk-stub');
     if (reducedMotion() || !stub.animate) return navigate(href);
+    // 스텁은 탑승권 안에서 움직이면 잘리고, 떠난 자리에 탑승권 바탕(흰색)이 남는다.
+    // 그래서 복제본을 맨 위 층에 띄워 날리고, 원래 자리는 비운다 (바탕·그림자도 본문까지만)
+    const r = stub.getBoundingClientRect();
+    const fly = document.createElement('div');
+    fly.className = `tk-tear tone-${[...ticket.classList].find((c) => c.startsWith('tone-'))?.slice(5) || 'dream'}`;
+    // 좁은 화면에선 탑승권이 세로라 스텁이 아래에 붙는다 → 아래쪽 모서리만 둥글게
+    const vertical = r.width > ticket.getBoundingClientRect().width * 0.8;
+    Object.assign(fly.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: vertical ? '0 0 22px 22px' : '0 22px 22px 0' });
+    fly.append(stub.cloneNode(true));
+    document.body.append(fly);
     ticket.classList.add('tearing');
-    stub
+    fly
       .animate(
         [
           { transform: 'none', opacity: 1 },
-          { transform: 'translate(10px, 6px) rotate(4deg)', opacity: 1, offset: 0.4 },
-          { transform: 'translate(60px, 70px) rotate(18deg)', opacity: 0 },
+          { transform: 'translate(10px, 6px) rotate(4deg)', opacity: 1, offset: 0.35 },
+          { transform: 'translate(70px, 110px) rotate(20deg)', opacity: 0 },
         ],
-        { duration: 420, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }
+        { duration: 460, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }
       )
-      .finished.then(() => ticket.isConnected && navigate(href));
+      .finished.then(() => {
+        fly.remove();
+        if (ticket.isConnected) navigate(href);
+      });
   };
   root.addEventListener('pointerover', over);
   root.addEventListener('pointerout', out);
