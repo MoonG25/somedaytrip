@@ -3,7 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { FileRepo } from '../src/server/repo';
-import { cleanInfo } from '../src/lib/clean';
+import { cleanInfo, groupTotal } from '../src/lib/clean';
 import type { Item } from '../src/lib/types';
 
 const info = cleanInfo({ title: '테스트', place: '교토', placeEn: 'Kyoto', days: 2, ownerName: '주인', visibility: 'link' });
@@ -147,5 +147,19 @@ describe('추가 id 겹침', () => {
     const b = (await r.get(id))!;
     expect(b.items.map((i) => i.title).sort()).toEqual(['a', '새 일정']);
     expect(new Set(b.items.map((i) => i.id)).size).toBe(2);
+  });
+});
+
+describe('인원 · 예산', () => {
+  it('"다 같이" 항목은 인원으로 나눠 1인 예산을 만든다', () => {
+    const i = cleanInfo({ title: 't', place: 'p', travelers: 2, budgetItems: [{ name: '항공', amount: 400000, per: 'person' }, { name: '숙소', amount: 600000, per: 'group' }] });
+    expect(i.travelers).toBe(2);
+    expect(i.budget).toEqual({ 항공: 400000, 숙소: 300000 });
+    expect(groupTotal(i.budgetItems, i.travelers)).toBe(1400000);
+  });
+  it('예전 데이터(budget만)는 1인당 항목으로 읽는다', () => {
+    const i = cleanInfo({ title: 't', place: 'p', budget: { 항공: 380000 } });
+    expect(i.travelers).toBe(1);
+    expect(i.budgetItems).toEqual([{ name: '항공', amount: 380000, per: 'person' }]);
   });
 });

@@ -4,6 +4,7 @@ import 'server-only';
 import postgres from 'postgres';
 import type { HistoryEntry, Plan, PlanInfo, Proposal } from '@/lib/types';
 import { BaseRepo, RepoError, sampleRows, type Row } from './repo';
+import { cleanInfo } from '@/lib/clean';
 
 type Sql = postgres.Sql | postgres.TransactionSql;
 type R = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -16,8 +17,9 @@ const infoOf = (p: Plan): PlanInfo => {
 };
 const ms = (v: unknown) => (v ? new Date(v as string).getTime() : 0);
 
+// 예전에 저장된 계획에 새 칸(인원 등)이 없어도 기본값이 채워지게 읽을 때도 다듬는다
 const toPlan = (p: R): Plan => ({
-  ...(p.info as PlanInfo),
+  ...cleanInfo(p.info),
   id: p.id,
   slug: p.slug,
   visibility: p.visibility,

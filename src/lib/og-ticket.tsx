@@ -97,15 +97,15 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
       ]
     : [
         ['출발', p.target ? dot(p.target) : '언젠가'],
-        ['기간', nights(p.days)],
-        ['예산', totalBudget(p) ? won(totalBudget(p)) : '₩0'],
+        [(p.travelers || 1) > 1 ? `기간 · ${p.travelers}명` : '기간', nights(p.days)],
+        [(p.travelers || 1) > 1 ? '예산 · 1인' : '예산', totalBudget(p) ? won(totalBudget(p)) : '₩0'],
         [tf.dt, tf.dd],
       ];
   // ∞·✓는 세리프 글꼴에 없어서 고딕으로
   const ddFont = /^[∞✓]$/.test(dd.big) ? 'Sans' : 'Serif';
   const now = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', month: 'numeric' }).format(new Date()));
 
-  const sans = `∞✓SEL서울${p.place}${p.title}${chip}${fields.flat().join('')}준비출발까지시간 나면다녀왔어요다녀왔나요?오늘 출발!예약 완료도착 · 다녀옴섬데트`;
+  const sans = `∞✓SEL서울명인·${p.place}${p.title}${chip}${fields.flat().join('')}준비출발까지시간 나면다녀왔어요다녀왔나요?오늘 출발!예약 완료도착 · 다녀옴섬데트`;
   const mono = `SOMEDAY AIR · BOARDING PASS GATE CONFIRMED ARRIVED ${code} JFMASOND 0123456789%·`;
   const big = `SEL${code}0123456789`;
   const [s5, s7, s8, m4, m7, sf] = await Promise.all([

@@ -1437,7 +1437,7 @@ body:has(.basket) .toasts {
 }
 .b-row {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 170px 92px 40px 32px;
+  grid-template-columns: 34px minmax(0, 1fr) 78px 160px 96px 38px 32px;
   align-items: center;
   gap: 10px;
   padding: 8px 4px;
@@ -1531,7 +1531,7 @@ body:has(.basket) .toasts {
 }
 .budget-add {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 170px auto;
+  grid-template-columns: 34px minmax(0, 1fr) 78px 160px auto;
   align-items: center;
   gap: 10px;
   padding: 6px 4px;
@@ -1771,4 +1771,80 @@ body:has(.basket) .toasts {
 }
 .ticket.tearing::before {
   opacity: 0;
+}
+
+/* 인원 · 1인당/다 같이 */
+.budget-group {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+}
+.budget-group b {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+.b-per {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.b-per:hover {
+  border-color: var(--ink);
+}
+.b-per[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+/* 혼자 가면 1인당/다 같이 구분이 필요 없다 */
+.budget.solo .b-per {
+  visibility: hidden;
+}
+.budget.solo .b-row,
+.budget.solo .budget-add {
+  grid-template-columns: 34px minmax(0, 1fr) 0 160px 96px 38px 32px;
+}
+.budget.solo .budget-add {
+  grid-template-columns: 34px minmax(0, 1fr) 0 160px auto;
+}
+.quick-ppl .chip {
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13.5px;
+}
+@media (max-width: 640px) {
+  .b-row,
+  .budget.solo .b-row {
+    grid-template-columns: 34px minmax(0, 1fr) auto 32px;
+    grid-template-areas: 'ico name per del' 'amt amt amt amt';
+  }
+  .b-row .b-per { grid-area: per; }
+  .budget-add,
+  .budget.solo .budget-add {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
+  }
+  .budget-add .money {
+    grid-column: 2 / -1;
+  }
+  .budget-group {
+    text-align: left;
+  }
+}
+.group-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+}
+.group-total b {
+  font-size: 18px;
 }

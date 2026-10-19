@@ -5,7 +5,7 @@
 //  - 여행 적금 병은 개인 것이라 이 브라우저에만 저장
 import { esc, fmtNum, fmtWon, fmtDot, clamp, lerp, reducedMotion } from './util.js';
 import { renderMarkdown } from './md.js';
-import { STATUS, SCOPE, totalBudget, flight, daysUntil, nights, planCenter, readiness, hasPlace } from './plans-lib.js';
+import { STATUS, SCOPE, totalBudget, groupBudget, flight, daysUntil, nights, planCenter, readiness, hasPlace } from './plans-lib.js';
 import { weatherAt, krwPer, fxLabel, tzOffsetHours } from './live.js';
 import { createFlapEngine } from './splitflap.js';
 import { ticketHTML, bindTickets, monthsStrip, readyRing, donut, bindDonut } from './ticket.js';
@@ -113,9 +113,9 @@ export function renderPlanStory(p, { nowMonth }) {
         <p class="fact-note">${!hasPlace(p) ? '목적지를 정하면 계산해요' : p.scope === 'abroad' ? `비행 ${fl.label} (직항 기준 추정)` : p.scope === 'domestic' ? '직선거리' : '동네 여행'}</p>
       </div>
       <div class="fact" data-reveal>
-        <p class="eyebrow">기간 · 예산</p>
+        <p class="eyebrow">기간 · 예산${(p.travelers || 1) > 1 ? ` · ${p.travelers}명` : ''}</p>
         <b class="fact-big">${nights(p.days)}</b>
-        <p class="fact-note num">${fmtWon(total)}${total ? ` · 하루 ${fmtWon(Math.round(total / p.days / 1000) * 1000)}` : ''}</p>
+        <p class="fact-note num">${(p.travelers || 1) > 1 ? `1인 ${fmtWon(total)} · ${p.travelers}명 전체 ${fmtWon(groupBudget(p))}` : `${fmtWon(total)}${total ? ` · 하루 ${fmtWon(Math.round(total / p.days / 1000) * 1000)}` : ''}`}</p>
       </div>
     </div>
   </section>`;
@@ -173,6 +173,7 @@ export function renderPrep(p, { owner = false }) {
     <div class="prep-budget" data-reveal>
       <header class="sec-head"><div><p class="eyebrow">예상 경비 · 1인</p><h2><em>Budget</em></h2></div></header>
       ${donut(p.budget || {})}
+      ${(p.travelers || 1) > 1 && total ? `<p class="group-total"><span class="eyebrow">${p.travelers}명 전체</span><b class="num">${fmtWon(groupBudget(p))}</b></p>` : ''}
     </div>
   </section>`;
 }

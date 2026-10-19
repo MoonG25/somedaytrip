@@ -59,8 +59,8 @@ export function ticketHTML(p, { big = false, fit = null, mine = false, preview =
         <h3 class="tk-title"><span class="tk-flag">${p.scope === 'abroad' || p.countryCode ? flagOf(p.countryCode) : SCOPE[p.scope].icon}</span>${esc(p.title)}</h3>
         <dl class="tk-fields">
           <div><dt>출발</dt><dd>${p.target ? fmtDot(p.target) : '언젠가'}</dd></div>
-          <div><dt>기간</dt><dd>${nights(p.days)}</dd></div>
-          <div><dt>예산</dt><dd class="num">${fmtWon(totalBudget(p))}</dd></div>
+          <div><dt>기간${(p.travelers || 1) > 1 ? ` · ${p.travelers}명` : ''}</dt><dd>${nights(p.days)}</dd></div>
+          <div><dt>예산${(p.travelers || 1) > 1 ? ' · 1인' : ''}</dt><dd class="num">${fmtWon(totalBudget(p))}</dd></div>
           <div><dt>${tf.dt}</dt><dd>${tf.dd}</dd></div>
         </dl>
         ${monthsStrip(p.months)}

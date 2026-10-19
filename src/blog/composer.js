@@ -72,6 +72,8 @@ export const blankPlan = () => ({
   intro: '',
   coords: null,
   stops: [],
+  travelers: 1,
+  budgetItems: [],
   budget: {},
   checklist: [],
   ownerName: '',
@@ -164,17 +166,26 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     </fieldset>
 
     <fieldset class="cstep" data-step="how">
-      <legend><span class="step-no mono">03</span>예산<span class="step-done" aria-hidden="true">✓</span></legend>
+      <legend><span class="step-no mono">03</span>누구랑 · 얼마나?<span class="step-done" aria-hidden="true">✓</span></legend>
+      <div class="field-block">
+        ${lbl('몇 명이서 가요?', '예산을 1인당·다 같이로 나눠 계산해요')}
+        <div class="days-pick ppl-pick">
+          <div class="stepper"><button type="button" data-ppl="-1" aria-label="한 명 줄이기">−</button><output name="pplOut">1명</output><button type="button" data-ppl="1" aria-label="한 명 늘리기">+</button></div>
+          <div class="chips quick-ppl">${[1, 2, 3, 4, 6].map((n) => `<button type="button" class="chip" data-qppl="${n}">${n === 1 ? '혼자' : `${n}명`}</button>`).join('')}</div>
+        </div>
+      </div>
       <div class="budget">
         <div class="budget-head">
           <div><span class="eyebrow">합계 · 1인</span><b class="h-serif num" data-total>₩0</b></div>
-          <p class="budget-per faint"></p>
+          <div class="budget-group"><span class="eyebrow" data-group-label>전체</span><b class="num" data-group>₩0</b></div>
         </div>
+        <p class="budget-per faint"></p>
         <div class="budget-bar" aria-hidden="true"></div>
         <ul class="budget-list" role="list"></ul>
         <div class="budget-add">
           <span class="ba-ico" aria-hidden="true">+</span>
           <input class="ba-name" name="bName" placeholder="항목 추가 (예: 항공)" maxlength="20" aria-label="새 예산 항목 이름">
+          <button type="button" class="b-per" data-baper aria-pressed="false">1인당</button>
           <span class="money"><input class="ba-amt num" name="bAmt" inputmode="numeric" placeholder="0" aria-label="새 예산 금액"><span>원</span></span>
           <button type="button" class="btn btn--sm btn--solid" data-badd>추가</button>
         </div>
@@ -484,17 +495,36 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   // DB(jsonb)는 키 순서를 바꾸므로, 자주 쓰는 항목 순서대로 다시 세운다
   const ORDER = ['항공', '숙소', '식비', '카페', '교통', '렌터카', '입장료', '쇼핑', '통신', '보험'];
   const rank = (n) => (ORDER.indexOf(n) < 0 ? 99 : ORDER.indexOf(n));
-  let budget = Object.entries(d.budget || {})
-    .filter(([, v]) => Number(v) > 0)
-    .map(([name, amount]) => ({ name, amount: Number(amount) }))
-    .sort((x, y) => rank(x.name) - rank(y.name));
+  // 항목마다 1인당(person) / 다 같이(group). 숙소·렌터카는 보통 다 같이 낸다
+  const GROUP_DEFAULT = /숙소|호텔|료칸|에어비앤비|게스트|렌터카|주유|캠핑/;
+  const perOf = (name) => (GROUP_DEFAULT.test(name) ? 'group' : 'person');
+  let budget = (Array.isArray(d.budgetItems) && d.budgetItems.length
+    ? d.budgetItems.map((b) => ({ name: b.name, amount: Number(b.amount) || 0, per: b.per === 'group' ? 'group' : 'person' }))
+    : Object.entries(d.budget || {})
+        .filter(([, v]) => Number(v) > 0)
+        .map(([name, amount]) => ({ name, amount: Number(amount), per: 'person' }))
+        .sort((x, y) => rank(x.name) - rank(y.name))
+  );
+  d.travelers = Math.max(1, Number(d.travelers) || 1);
+  let newPer = 'person';
+  const ppl = () => Math.max(1, d.travelers);
+  /** 1인 몫 */
+  const share = (b) => (b.per === 'group' ? Math.round(b.amount / ppl()) : b.amount);
+  const perTotal = () => budget.reduce((s, b) => s + share(b), 0);
+  const groupTotalOf = () => budget.reduce((s, b) => s + (b.per === 'group' ? b.amount : b.amount * ppl()), 0);
   const saveWip = () => {
     if (!WIP) return;
     try {
-      localStorage.setItem(WIP, JSON.stringify({ ...d, budget: Object.fromEntries(budget.map((b) => [b.name, b.amount])) }));
+      syncBudget();
+      localStorage.setItem(WIP, JSON.stringify(d));
     } catch {}
   };
-  const syncBudget = () => (d.budget = Object.fromEntries(budget.filter((b) => b.name).map((b) => [b.name, b.amount])));
+  function syncBudget() {
+    const items = budget.filter((b) => b.name.trim());
+    d.budgetItems = items.map((b) => ({ name: b.name.trim(), amount: b.amount, per: b.per }));
+    d.budget = {};
+    for (const b of items) if (share(b) > 0) d.budget[b.name.trim()] = (d.budget[b.name.trim()] || 0) + share(b);
+  }
 
   /* ---------- 폼 ↔ 상태 ---------- */
   const fill = () => {
@@ -530,9 +560,18 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
       const p = { ...d, id: 'preview-' + mode, href: '', title: d.title || '새 여행 계획', place: d.place || '어딘가', months: d.months || [] };
       preview.innerHTML = ticketHTML(p, { preview: true });
       preview.querySelector('.ticket')?.classList.add('is-in');
-      const total = budget.reduce((s, b) => s + b.amount, 0);
+      const total = perTotal();
+      const group = groupTotalOf();
       root.querySelector('[data-total]').textContent = fmtWon(total);
-      root.querySelector('.budget-per').textContent = total ? `${manwon(total)}${d.days > 1 ? ` · 하루 약 ${manwon(Math.round(total / d.days / 1000) * 1000)}` : ''}` : '항목을 더하면 합계를 계산해요';
+      root.querySelector('[data-group]').textContent = fmtWon(group);
+      root.querySelector('[data-group-label]').textContent = `전체 · ${ppl()}명`;
+      root.querySelector('.budget-group').hidden = ppl() < 2;
+      root.querySelector('.budget').classList.toggle('solo', ppl() < 2);
+      form.pplOut.value = `${ppl()}명`;
+      root.querySelectorAll('[data-qppl]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.qppl) === ppl())));
+      root.querySelector('.budget-per').textContent = total
+        ? `1인 ${manwon(total)}${d.days > 1 ? ` · 하루 약 ${manwon(Math.round(total / d.days / 1000) * 1000)}` : ''}${ppl() > 1 ? ` · ${ppl()}명 전체 ${manwon(group)}` : ''}`
+        : '항목을 더하면 합계를 계산해요';
       root.querySelector('.flag-preview').textContent = d.countryCode.length === 2 ? flagOf(d.countryCode) : '';
       root.querySelector('.adv-sum').textContent = `SEL → ${d.iata || (d.scope === 'abroad' ? '???' : '—')}${d.countryCode ? ` · ${flagOf(d.countryCode)} ${d.country || d.countryCode}` : ''}`;
       form.daysOut.value = nights(d.days);
@@ -766,22 +805,35 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   /* ---------- 03 예산 (할 일 목록처럼) ---------- */
   const bList = root.querySelector('.budget-list');
   const bBar = root.querySelector('.budget-bar');
+  const perLabel = (per) => (per === 'group' ? '다 같이' : '1인당');
+  /** 금액 옆 안내: 다 같이 내는 항목은 1인 몫도 보여 준다 */
+  const manOf = (b) => (b.per === 'group' && ppl() > 1 && b.amount ? `1인 ${manwon(share(b))}` : manwon(b.amount));
+  const paintShares = () => {
+    const total = perTotal();
+    bList.querySelectorAll('.b-row').forEach((row, i) => {
+      const b = budget[i];
+      if (!b) return;
+      row.querySelector('.b-man').textContent = manOf(b);
+      row.querySelector('.b-pct').textContent = total && share(b) ? Math.round((share(b) / total) * 100) + '%' : '';
+    });
+    bBar.innerHTML = total ? budget.map((b, i) => (share(b) ? `<i style="flex:${share(b)};background:var(--c${(i % 5) + 1})" title="${esc(b.name)}"></i>` : '')).join('') : '';
+    bBar.hidden = !total;
+  };
   const drawBudget = (focusIdx) => {
-    const total = budget.reduce((s, b) => s + b.amount, 0);
     bList.innerHTML = budget
       .map(
         (b, i) => `<li class="b-row" data-i="${i}" style="--c:var(--c${(i % 5) + 1})">
         <span class="b-ico" aria-hidden="true">${iconOf(b.name)}</span>
         <input class="b-name" value="${esc(b.name)}" maxlength="20" aria-label="항목 이름">
-        <span class="money"><input class="b-amt num" value="${fmtMoney(b.amount)}" inputmode="numeric" placeholder="0" aria-label="${esc(b.name)} 금액"><span>원</span></span>
-        <span class="b-man faint">${manwon(b.amount)}</span>
-        <span class="b-pct mono faint">${total && b.amount ? Math.round((b.amount / total) * 100) + '%' : ''}</span>
+        <button type="button" class="b-per" data-per aria-pressed="${b.per === 'group'}" title="1인당 금액인지, 다 같이 내는 전체 금액인지">${perLabel(b.per)}</button>
+        <span class="money"><input class="b-amt num" value="${fmtMoney(b.amount)}" inputmode="numeric" placeholder="0" aria-label="${esc(b.name)} 금액 (${perLabel(b.per)})"><span>원</span></span>
+        <span class="b-man faint"></span>
+        <span class="b-pct mono faint"></span>
         <button type="button" class="b-del" data-bdel aria-label="${esc(b.name)} 지우기">✕</button>
       </li>`
       )
       .join('');
-    bBar.innerHTML = total ? budget.map((b, i) => (b.amount ? `<i style="flex:${b.amount};background:var(--c${(i % 5) + 1})" title="${esc(b.name)}"></i>` : '')).join('') : '';
-    bBar.hidden = !total;
+    paintShares();
     drawSuggests();
     if (focusIdx != null) bList.querySelector(`[data-i="${focusIdx}"] .b-amt`)?.focus();
   };
@@ -793,7 +845,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
       if (amount) budget[ex].amount += amount;
       drawBudget(focus ? ex : null);
     } else {
-      budget.push({ name, amount });
+      budget.push({ name, amount, per: perOf(name) });
       drawBudget(focus ? budget.length - 1 : null);
       if (!reducedMotion()) bList.lastElementChild?.animate([{ opacity: 0, transform: 'translateY(-6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, easing: 'cubic-bezier(.16,1,.3,1)' });
     }
@@ -810,11 +862,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
       // 쉼표를 붙여 다시 쓰되, 커서는 끝에 둔다
       b.amount = parseMoney(e.target.value);
       e.target.value = fmtMoney(b.amount);
-      li.querySelector('.b-man').textContent = manwon(b.amount);
-      const total = budget.reduce((s, x) => s + x.amount, 0);
-      bList.querySelectorAll('.b-row').forEach((row, i) => (row.querySelector('.b-pct').textContent = total && budget[i].amount ? Math.round((budget[i].amount / total) * 100) + '%' : ''));
-      bBar.innerHTML = total ? budget.map((x, i) => (x.amount ? `<i style="flex:${x.amount};background:var(--c${(i % 5) + 1})"></i>` : '')).join('') : '';
-      bBar.hidden = !total;
+      paintShares();
     }
     update();
   });
@@ -835,6 +883,16 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     }
   });
   bList.addEventListener('click', (e) => {
+    const per = e.target.closest('[data-per]');
+    if (per) {
+      const b = budget[Number(per.closest('.b-row').dataset.i)];
+      b.per = b.per === 'group' ? 'person' : 'group';
+      per.textContent = perLabel(b.per);
+      per.setAttribute('aria-pressed', String(b.per === 'group'));
+      paintShares();
+      update();
+      return;
+    }
     const del = e.target.closest('[data-bdel]');
     if (!del) return;
     const i = Number(del.closest('.b-row').dataset.i);
@@ -847,10 +905,33 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (reducedMotion()) return done();
     li.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateX(12px)' }], { duration: 180 }).finished.then(done);
   });
+  // 새 항목 칸의 1인당/다 같이: 이름을 치면 기본값을 맞춰 주고, 눌러서 바꿀 수 있다
+  const baPer = root.querySelector('[data-baper]');
+  const syncBaPer = () => {
+    baPer.textContent = perLabel(newPer);
+    baPer.setAttribute('aria-pressed', String(newPer === 'group'));
+  };
+  form.bName.addEventListener('input', () => {
+    if (!baPer.dataset.touched) {
+      newPer = perOf(form.bName.value);
+      syncBaPer();
+    }
+  });
+  baPer.addEventListener('click', () => {
+    newPer = newPer === 'group' ? 'person' : 'group';
+    baPer.dataset.touched = '1';
+    syncBaPer();
+  });
   const addFromInputs = () => {
     const name = form.bName.value.trim();
     if (!name) return form.bName.focus();
+    const ex = budget.findIndex((b) => b.name === name);
     addBudget(name, parseMoney(form.bAmt.value), false);
+    if (ex < 0) budget[budget.length - 1].per = newPer;
+    drawBudget();
+    newPer = 'person';
+    delete baPer.dataset.touched;
+    syncBaPer();
     form.bName.value = '';
     form.bAmt.value = '';
     form.bName.focus();
@@ -865,6 +946,16 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
         else addFromInputs();
       }
     });
+  root.querySelector('.ppl-pick').addEventListener('click', (e) => {
+    const s = e.target.closest('[data-ppl]');
+    const q = e.target.closest('[data-qppl]');
+    if (s) d.travelers = Math.min(50, Math.max(1, ppl() + Number(s.dataset.ppl)));
+    if (q) d.travelers = Number(q.dataset.qppl);
+    if (s || q) {
+      paintShares();
+      update();
+    }
+  });
   const bSuggest = root.querySelector('.budget-suggest');
   bSuggest.addEventListener('click', (e) => {
     const b = e.target.closest('[data-bsug]');

@@ -35,6 +35,13 @@ export function toView(plan, items = []) {
 
 export const totalBudget = (p) => Object.values(p.budget || {}).reduce((s, v) => s + Number(v || 0), 0);
 
+/** 인원 모두의 전체 예산 (다 같이 내는 항목은 그대로, 1인당 항목은 인원만큼) */
+export function groupBudget(p) {
+  const n = Math.max(1, p.travelers || 1);
+  if (!Array.isArray(p.budgetItems) || !p.budgetItems.length) return totalBudget(p) * n;
+  return p.budgetItems.reduce((s, b) => s + (b.per === 'group' ? b.amount : b.amount * n), 0);
+}
+
 export function planCenter(p) {
   if (p.coords) return p.coords;
   if (!p.stops?.length) return HOME.coords;

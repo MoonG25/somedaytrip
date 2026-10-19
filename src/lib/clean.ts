@@ -1,5 +1,5 @@
 // 브라우저에서 온 값은 믿지 않는다. 서버가 저장하기 전에 모양과 길이를 맞춘다.
-import type { Item, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
+import type { BudgetItem, Item, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim().slice(0, max);
 const num = (v: unknown, min: number, max: number, fallback: number) => {
@@ -72,13 +72,24 @@ export function cleanOps(ops: unknown): Op[] {
 export function cleanInfo(i: unknown): PlanInfo {
   const o = (i && typeof i === 'object' ? i : {}) as Record<string, unknown>;
   const cover = (o.cover && typeof o.cover === 'object' ? o.cover : {}) as Record<string, unknown>;
-  const budget: Record<string, number> = {};
-  if (o.budget && typeof o.budget === 'object') {
-    for (const [k, v] of Object.entries(o.budget as object).slice(0, 12)) {
-      const key = str(k, 20);
-      if (key) budget[key] = num(v, 0, 1e10, 0);
-    }
+  const travelers = num(o.travelers, 1, 50, 1);
+  // 예산: 입력한 항목(budgetItems)이 원본. 예전 데이터처럼 budget만 있으면 1인당 항목으로 본다
+  let budgetItems: BudgetItem[] = [];
+  if (Array.isArray(o.budgetItems)) {
+    budgetItems = o.budgetItems
+      .slice(0, 20)
+      .map((b): BudgetItem => {
+        const x = (b && typeof b === 'object' ? b : {}) as Record<string, unknown>;
+        return { name: str(x.name, 20), amount: num(x.amount, 0, 1e10, 0), per: x.per === 'group' ? 'group' : 'person' };
+      })
+      .filter((b) => b.name);
+  } else if (o.budget && typeof o.budget === 'object') {
+    budgetItems = Object.entries(o.budget as object)
+      .slice(0, 20)
+      .map(([k, v]): BudgetItem => ({ name: str(k, 20), amount: num(v, 0, 1e10, 0), per: 'person' }))
+      .filter((b) => b.name);
   }
+  const budget = perPersonBudget(budgetItems, travelers);
   const checklist = Array.isArray(o.checklist)
     ? o.checklist
         .slice(0, 60)
@@ -107,12 +118,27 @@ export function cleanInfo(i: unknown): PlanInfo {
     tags: Array.isArray(o.tags) ? o.tags.map((t) => str(t, 20)).filter(Boolean).slice(0, 10) : [],
     intro: str(o.intro, 6000),
     coords,
+    travelers,
+    budgetItems,
     budget,
     checklist,
     ownerName: str(o.ownerName, 20) || '주인',
     visibility: oneOf<Visibility>(o.visibility, ['link', 'public'], 'link'),
   };
 }
+
+/** 1인 기준 예산: "다 같이" 항목은 인원으로 나눈다 */
+export function perPersonBudget(items: BudgetItem[], travelers: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const b of items) {
+    const v = b.per === 'group' ? Math.round(b.amount / Math.max(1, travelers)) : b.amount;
+    if (v > 0) out[b.name] = (out[b.name] || 0) + v;
+  }
+  return out;
+}
+
+/** 전체(인원 모두) 예산 합계 */
+export const groupTotal = (items: BudgetItem[], travelers: number) => items.reduce((s, b) => s + (b.per === 'group' ? b.amount : b.amount * Math.max(1, travelers)), 0);
 
 /** 주소용 이름: kyoto-5days. 영문 이름이 없으면 trip */
 export function planSlug(p: Pick<PlanInfo, 'placeEn' | 'iata' | 'days' | 'scope'>) {

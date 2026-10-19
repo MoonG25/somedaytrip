@@ -224,7 +224,7 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
         </div>
         <div className="grid2">
           <label className="lbl">
-            예상 비용 <span className="faint">(원, 선택)</span>
+            예상 비용 <span className="faint">(1인 기준, 원, 선택)</span>
             <span className="won">
               <input className="inp num" type="number" min={0} step={1000} value={d.cost ?? ''} onChange={(e) => set({ cost: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })} />
               <span>원</span>

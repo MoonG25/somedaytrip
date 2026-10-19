@@ -31,6 +31,13 @@ export interface Item {
 
 export type ItemField = Exclude<keyof Item, 'id'>;
 
+/** 예산 항목: 1인당 금액(person)인지, 다 같이 내는 전체 금액(group)인지 */
+export interface BudgetItem {
+  name: string;
+  amount: number;
+  per: 'person' | 'group';
+}
+
 /** 주인이 작성 화면에서 고치는 계획 정보 */
 export interface PlanInfo {
   title: string;
@@ -52,6 +59,11 @@ export interface PlanInfo {
   tags: string[];
   intro: string;
   coords: [number, number] | null;
+  /** 몇 명이서 가는지 */
+  travelers: number;
+  /** 입력한 그대로의 예산 항목 */
+  budgetItems: BudgetItem[];
+  /** 1인 기준 예산 (budgetItems에서 서버가 계산한다. 탑승권·"시간 났다!"·도넛이 쓴다) */
   budget: Record<string, number>;
   checklist: [string, boolean][];
   ownerName: string;
