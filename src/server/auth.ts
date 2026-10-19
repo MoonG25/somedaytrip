@@ -1,7 +1,7 @@
 // 쿠키: 계획별 주인 토큰(sdt_o_<id>)과 이 브라우저의 손님 id(sdt_uid). 둘 다 httpOnly라 페이지 스크립트가 읽을 수 없다.
 import 'server-only';
 import { cookies } from 'next/headers';
-import { repo } from './repo';
+import { repo } from './index';
 import { uid } from './secret';
 
 const YEAR = 60 * 60 * 24 * 365;

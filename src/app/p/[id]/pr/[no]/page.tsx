@@ -1,7 +1,7 @@
 // 제안 한 건 (PR 화면)
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 import { isOwner, visitorId } from '@/server/auth';
 import { findConflicts } from '@/lib/proposals';
 import OpCard from '@/components/collab/OpCard';

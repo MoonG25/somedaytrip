@@ -133,3 +133,19 @@ describe('FileRepo', () => {
     expect(p.iata).toBe('AB');
   });
 });
+
+describe('추가 id 겹침', () => {
+  it('제안의 추가 일정 id가 기존 일정과 겹쳐도 수락하면 추가된다', async () => {
+    const r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
+    const { bundle, token } = await r.create(info, [item('a')], 'pass1234');
+    const id = bundle.plan.id;
+    const p = await r.propose(id, pr([
+      { type: 'update', id: 'a', before: { time: '' }, after: { time: '09:00' } },
+      { type: 'add', item: { ...item('a'), title: '새 일정', time: '15:00' } },
+    ]));
+    await r.decide(id, token, p.no, 'accept', '');
+    const b = (await r.get(id))!;
+    expect(b.items.map((i) => i.title).sort()).toEqual(['a', '새 일정']);
+    expect(new Set(b.items.map((i) => i.id)).size).toBe(2);
+  });
+});

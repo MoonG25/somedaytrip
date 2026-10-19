@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Composer from '@/components/Composer';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 import { isOwner } from '@/server/auth';
 
 export const dynamic = 'force-dynamic';

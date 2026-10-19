@@ -1,5 +1,5 @@
 import PlansExplorer from '@/components/PlansExplorer';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 import { toView } from '@/blog/plans-lib.js';
 import { SITE } from '@/lib/site';
 

@@ -8,3 +8,4 @@ out
 next-env.d.ts
 *.tsbuildinfo
 AGENTS.md
+supabase/.temp

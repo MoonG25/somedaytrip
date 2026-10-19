@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Composer from '@/components/Composer';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 
 export const metadata: Metadata = {
   title: '계획 쓰기',

@@ -1,5 +1,7 @@
-// 저장소. 화면(서버 컴포넌트·서버 액션)은 Repo 인터페이스만 알고, 지금은 JSON 파일 구현(FileRepo)을 쓴다.
-// 2단계에서 같은 인터페이스로 SupabaseRepo를 만들어 갈아 끼운다.
+// 저장소. 화면(서버 컴포넌트·서버 액션)은 Repo 인터페이스만 안다.
+//  - BaseRepo: 업무 규칙(주인 확인, 제안·수락·충돌, 잠금, 횟수 제한)을 한곳에
+//  - FileRepo: 개발·테스트용 JSON 파일
+//  - PgRepo(pg-repo.ts): Supabase Postgres. DATABASE_URL이 있으면 이쪽을 쓴다
 //
 // 주인 판단은 "비밀번호를 아는가"뿐이다. 비밀번호를 맞히면 토큰을 주고(쿠키에 담김), 주인만 할 수 있는 일은 토큰으로 확인한다.
 // 비밀번호 해시와 토큰은 Bundle에 넣지 않는다.
@@ -18,8 +20,12 @@ export class RepoError extends Error {
     public code: 'not_found' | 'forbidden' | 'locked' | 'conflict' | 'invalid' | 'limited'
   ) {
     super(message);
+    this.name = 'RepoError';
   }
 }
+
+/** instanceof 대신 이름으로 (개발 서버가 모듈을 다시 불러오면 클래스가 둘이 된다) */
+export const isRepoError = (e: unknown): e is RepoError => e instanceof Error && e.name === 'RepoError' && 'code' in e;
 
 export interface ProposalInput {
   authorId: string;
@@ -49,7 +55,8 @@ export interface Repo {
   remove(id: string, token: string): Promise<void>;
 }
 
-interface Row extends Bundle {
+/** 저장소 안에서 다루는 계획 한 건 (비밀 포함) */
+export interface Row extends Bundle {
   secret: Secret;
   tokens: string[];
   fails: { count: number; until: number };
@@ -57,71 +64,46 @@ interface Row extends Bundle {
   recent: Record<string, number[]>;
 }
 
-interface DB {
-  rows: Record<string, Row>;
+export const strip = (r: Row): Bundle => ({ plan: r.plan, items: sortItems(r.items), proposals: r.proposals, history: r.history });
+const HISTORY_MAX = 300;
+
+/** 추가하는 일정의 id가 이미 있는 일정이나 다른 추가와 겹치면 새 id를 준다 (겹치면 수락할 때 추가가 빠진다) */
+export function freshAddIds(ops: Op[], items: Item[]): Op[] {
+  const taken = new Set(items.map((i) => i.id));
+  return ops.map((op) => {
+    if (op.type !== 'add') return op;
+    let id = op.item.id;
+    while (taken.has(id)) id = uid(8);
+    taken.add(id);
+    return id === op.item.id ? op : { ...op, item: { ...op.item, id } };
+  });
 }
 
-const strip = (r: Row): Bundle => ({ plan: r.plan, items: sortItems(r.items), proposals: r.proposals, history: r.history });
+/** 업무 규칙. 저장 방식은 아래 다섯 가지만 구현하면 된다 */
+export abstract class BaseRepo implements Repo {
+  /** 잠그지 않고 읽기 */
+  protected abstract read(id: string): Promise<Row | null>;
+  /** 잠그고 읽고-고치고-저장 (fn이 던지면 아무것도 저장하지 않는다) */
+  protected abstract mutate<T>(id: string, fn: (r: Row) => T | Promise<T>): Promise<T>;
+  protected abstract insert(r: Row): Promise<void>;
+  protected abstract delete(id: string): Promise<void>;
+  protected abstract readMany(ids: string[]): Promise<Row[]>;
+  protected abstract readPublic(limit: number): Promise<Row[]>;
 
-/** 개발용 JSON 파일 저장소. 쓰기는 한 줄로 세워서 한 번에 하나씩 한다 */
-export class FileRepo implements Repo {
-  private file: string;
-  private db: DB | null = null;
-  private chain: Promise<unknown> = Promise.resolve();
-
-  constructor(dir = path.join(process.cwd(), '.data')) {
-    this.file = path.join(dir, 'db.json');
-  }
-
-  private loading: Promise<DB> | null = null;
-  private load(): Promise<DB> {
-    if (this.db) return Promise.resolve(this.db);
-    this.loading ??= (async () => {
-      try {
-        this.db = JSON.parse(await readFile(this.file, 'utf8')) as DB;
-      } catch {
-        // 처음 실행: 예시 계획을 넣어 둔다
-        this.db = { rows: await sampleRows() };
-        await this.save();
-      }
-      return this.db!;
-    })();
-    return this.loading;
-  }
-
-  private async save() {
-    await mkdir(path.dirname(this.file), { recursive: true });
-    const tmp = this.file + '.tmp';
-    await writeFile(tmp, JSON.stringify(this.db));
-    await rename(tmp, this.file);
-  }
-
-  /** 읽고-고치고-저장을 한 줄로 */
-  private tx<T>(fn: (db: DB) => Promise<T> | T): Promise<T> {
-    const run = this.chain.then(async () => {
-      const db = await this.load();
-      const out = await fn(db);
-      await this.save();
-      return out;
-    });
-    this.chain = run.catch(() => {});
-    return run;
-  }
-
-  private must(db: DB, id: string) {
-    const r = db.rows[id];
+  private async must(id: string) {
+    const r = await this.read(id);
     if (!r) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
     return r;
   }
 
-  private async owner(r: Row, token: string | null | undefined) {
+  private owner(r: Row, token: string | null | undefined) {
     if (!token || !r.tokens.includes(sha256(token))) throw new RepoError('주인 인증이 필요해요', 'forbidden');
   }
 
   private log(r: Row, kind: HistoryKind, actor: string, summary: string, proposalNo?: number) {
     const e: HistoryEntry = { id: uid(8), at: Date.now(), kind, actor, summary, proposalNo, version: r.plan.version };
     r.history.unshift(e);
-    if (r.history.length > 300) r.history.length = 300;
+    if (r.history.length > HISTORY_MAX) r.history.length = HISTORY_MAX;
   }
 
   private touch(r: Row) {
@@ -129,23 +111,16 @@ export class FileRepo implements Repo {
   }
 
   async get(id: string) {
-    const db = await this.load();
-    const r = db.rows[id];
+    const r = await this.read(id);
     return r ? strip(r) : null;
   }
 
   async getMany(ids: string[]) {
-    const db = await this.load();
-    return ids.map((id) => db.rows[id]).filter(Boolean).map(strip);
+    return (await this.readMany(ids)).map(strip);
   }
 
   async listPublic(limit = 60) {
-    const db = await this.load();
-    return Object.values(db.rows)
-      .filter((r) => r.plan.visibility === 'public')
-      .sort((a, b) => b.plan.updatedAt - a.plan.updatedAt)
-      .slice(0, limit)
-      .map(strip);
+    return (await this.readPublic(limit)).map(strip);
   }
 
   async create(info: PlanInfo, items: Item[], password: string, extra: Pick<Plan, 'sample' | 'copiedFrom'> = {}) {
@@ -153,37 +128,31 @@ export class FileRepo implements Repo {
     const clean = cleanInfo(info);
     const secret = await makeSecret(password);
     const token = uid(24);
-    return this.tx((db) => {
-      let id = uid(10);
-      while (db.rows[id]) id = uid(10);
-      const now = Date.now();
-      const plan: Plan = { ...clean, id, slug: planSlug(clean), version: 1, createdAt: now, updatedAt: now, ...extra };
-      const r: Row = {
-        plan,
-        items: sortItems(items.slice(0, 200).map(cleanItem)),
-        proposals: [],
-        history: [],
-        secret,
-        tokens: [sha256(token)],
-        fails: { count: 0, until: 0 },
-        recent: {},
-      };
-      this.log(r, 'created', clean.ownerName, extra.copiedFrom ? `다른 계획을 복사해서 '${clean.title}'을(를) 만들었어요` : `'${clean.title}' 계획을 만들었어요`);
-      db.rows[id] = r;
-      return { bundle: strip(r), token };
-    });
+    const now = Date.now();
+    const plan: Plan = { ...clean, id: uid(10), slug: planSlug(clean), version: 1, createdAt: now, updatedAt: now, ...extra };
+    const r: Row = {
+      plan,
+      items: sortItems(items.slice(0, 200).map(cleanItem)),
+      proposals: [],
+      history: [],
+      secret,
+      tokens: [sha256(token)],
+      fails: { count: 0, until: 0 },
+      recent: {},
+    };
+    this.log(r, 'created', clean.ownerName, extra.copiedFrom ? `다른 계획을 복사해서 '${clean.title}'을(를) 만들었어요` : `'${clean.title}' 계획을 만들었어요`);
+    await this.insert(r);
+    return { bundle: strip(r), token };
   }
 
   async login(id: string, password: string) {
-    const db = await this.load();
-    const r = this.must(db, id);
+    const r = await this.must(id);
     if (r.fails.until > Date.now()) {
       throw new RepoError(`비밀번호를 여러 번 틀렸어요. ${Math.ceil((r.fails.until - Date.now()) / 1000)}초 뒤에 다시 해 주세요`, 'locked');
     }
     const ok = await checkSecret(password, r.secret);
     // 틀린 횟수도 저장해야 하므로 트랜잭션 안에서는 던지지 않고, 저장이 끝난 뒤에 던진다
-    const token = await this.tx((db2) => {
-      const row = this.must(db2, id);
+    const token = await this.mutate(id, (row) => {
       if (!ok) {
         row.fails.count++;
         // 5번 틀리면 30초, 그 뒤로는 틀릴 때마다 두 배
@@ -201,27 +170,25 @@ export class FileRepo implements Repo {
 
   async checkToken(id: string, token: string | null | undefined) {
     if (!token) return false;
-    const db = await this.load();
-    const r = db.rows[id];
+    const r = await this.read(id);
     return !!r && r.tokens.includes(sha256(token));
   }
 
   async logout(id: string, token: string) {
-    await this.tx((db) => {
-      const r = db.rows[id];
-      if (r) r.tokens = r.tokens.filter((t) => t !== sha256(token));
+    if (!(await this.read(id))) return;
+    await this.mutate(id, (r) => {
+      r.tokens = r.tokens.filter((t) => t !== sha256(token));
     });
   }
 
   async changePassword(id: string, token: string, current: string, next: string) {
-    const db = await this.load();
-    const r0 = this.must(db, id);
-    await this.owner(r0, token);
+    const r0 = await this.must(id);
+    this.owner(r0, token);
     if (!(await checkSecret(current, r0.secret))) throw new RepoError('지금 비밀번호가 맞지 않아요', 'forbidden');
     if (next.length < 4) throw new RepoError('새 비밀번호는 4자 이상이어야 해요', 'invalid');
     const secret = await makeSecret(next);
-    await this.tx((db2) => {
-      const r = this.must(db2, id);
+    await this.mutate(id, (r) => {
+      this.owner(r, token);
       r.secret = secret;
       // 비밀번호를 바꾸면 다른 기기의 주인 인증은 모두 풀린다
       r.tokens = [sha256(token)];
@@ -231,11 +198,9 @@ export class FileRepo implements Repo {
   }
 
   async updateInfo(id: string, token: string, info: PlanInfo) {
-    const db = await this.load();
-    await this.owner(this.must(db, id), token);
     const clean = cleanInfo(info);
-    return this.tx((db2) => {
-      const r = this.must(db2, id);
+    return this.mutate(id, (r) => {
+      this.owner(r, token);
       const was = r.plan.visibility;
       r.plan = { ...r.plan, ...clean, slug: planSlug(clean) };
       // 기간이 줄면 넘치는 날의 일정은 "날짜 미정"으로
@@ -250,10 +215,8 @@ export class FileRepo implements Repo {
   }
 
   async setCheck(id: string, token: string, index: number, done: boolean) {
-    const db = await this.load();
-    await this.owner(this.must(db, id), token);
-    await this.tx((db2) => {
-      const r = this.must(db2, id);
+    await this.mutate(id, (r) => {
+      this.owner(r, token);
       const c = r.plan.checklist[index];
       if (!c) throw new RepoError('없는 항목이에요', 'invalid');
       c[1] = !!done;
@@ -262,12 +225,11 @@ export class FileRepo implements Repo {
   }
 
   async applyDirect(id: string, token: string, ops: Op[]) {
-    const clean = cleanOps(ops);
-    if (!clean.length) return;
-    const db = await this.load();
-    await this.owner(this.must(db, id), token);
-    await this.tx((db2) => {
-      const r = this.must(db2, id);
+    const cleaned = cleanOps(ops);
+    if (!cleaned.length) return;
+    await this.mutate(id, (r) => {
+      this.owner(r, token);
+      const clean = freshAddIds(cleaned, r.items);
       const summary = describeOps(clean, r.items);
       r.items = applyOps(r.items, clean);
       r.plan.version++;
@@ -277,17 +239,18 @@ export class FileRepo implements Repo {
   }
 
   async propose(id: string, p: ProposalInput) {
-    const ops = cleanOps(p.ops);
-    if (!ops.length) throw new RepoError('제안할 변경이 없어요', 'invalid');
-    return this.tx((db) => {
-      const r = this.must(db, id);
+    const cleaned = cleanOps(p.ops);
+    if (!cleaned.length) throw new RepoError('제안할 변경이 없어요', 'invalid');
+    return this.mutate(id, (r) => {
+      const ops = freshAddIds(cleaned, r.items);
       // 같은 사람이 10분에 5번 넘게 보내면 잠깐 막는다 (공개 계획 도배 방지)
       const now = Date.now();
       const mine = (r.recent[p.authorId] || []).filter((t) => now - t < 600_000);
       if (mine.length >= 5) throw new RepoError('제안을 너무 자주 보냈어요. 잠시 뒤에 다시 보내 주세요', 'limited');
+      if (r.proposals.filter((x) => x.status === 'open').length >= 50) throw new RepoError('열린 제안이 너무 많아요. 주인이 정리한 뒤에 보내 주세요', 'limited');
+      // 오래된 기록은 버린다 (사람이 많아도 커지지 않게)
+      for (const k of Object.keys(r.recent)) if (!r.recent[k].some((t) => now - t < 600_000)) delete r.recent[k];
       r.recent[p.authorId] = [...mine, now];
-      const open = r.proposals.filter((x) => x.status === 'open').length;
-      if (open >= 50) throw new RepoError('열린 제안이 너무 많아요. 주인이 정리한 뒤에 보내 주세요', 'limited');
       const no = r.proposals.reduce((m, x) => Math.max(m, x.no), 0) + 1;
       const pr: Proposal = {
         id: uid(10),
@@ -309,10 +272,8 @@ export class FileRepo implements Repo {
   }
 
   async decide(id: string, token: string, no: number, decision: 'accept' | 'reject', note: string, skipConflicts = false) {
-    const db = await this.load();
-    await this.owner(this.must(db, id), token);
-    return this.tx((db2) => {
-      const r = this.must(db2, id);
+    return this.mutate(id, (r) => {
+      this.owner(r, token);
       const pr = r.proposals.find((x) => x.no === no);
       if (!pr) throw new RepoError('제안을 찾을 수 없어요', 'not_found');
       if (pr.status !== 'open') throw new RepoError('이미 처리된 제안이에요', 'invalid');
@@ -336,10 +297,8 @@ export class FileRepo implements Repo {
   }
 
   async rejectAllOpen(id: string, token: string, note: string) {
-    const db = await this.load();
-    await this.owner(this.must(db, id), token);
-    return this.tx((db2) => {
-      const r = this.must(db2, id);
+    return this.mutate(id, (r) => {
+      this.owner(r, token);
       const open = r.proposals.filter((x) => x.status === 'open');
       for (const pr of open) {
         pr.status = 'rejected';
@@ -353,8 +312,7 @@ export class FileRepo implements Repo {
   }
 
   async withdraw(id: string, no: number, authorId: string) {
-    await this.tx((db) => {
-      const r = this.must(db, id);
+    await this.mutate(id, (r) => {
       const pr = r.proposals.find((x) => x.no === no);
       if (!pr || pr.status !== 'open') throw new RepoError('철회할 수 없는 제안이에요', 'invalid');
       if (pr.authorId !== authorId) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
@@ -366,40 +324,119 @@ export class FileRepo implements Repo {
   }
 
   async remove(id: string, token: string) {
-    const db = await this.load();
-    await this.owner(this.must(db, id), token);
-    await this.tx((db2) => {
-      delete db2.rows[id];
+    this.owner(await this.must(id), token);
+    await this.delete(id);
+  }
+}
+
+/** 개발·테스트용 JSON 파일 저장소. 쓰기는 한 줄로 세워서 한 번에 하나씩 한다 */
+export class FileRepo extends BaseRepo {
+  private file: string;
+  private db: { rows: Record<string, Row> } | null = null;
+  private chain: Promise<unknown> = Promise.resolve();
+  private loading: Promise<{ rows: Record<string, Row> }> | null = null;
+
+  constructor(dir = path.join(process.cwd(), '.data')) {
+    super();
+    this.file = path.join(dir, 'db.json');
+  }
+
+  private load() {
+    if (this.db) return Promise.resolve(this.db);
+    this.loading ??= (async () => {
+      try {
+        this.db = JSON.parse(await readFile(this.file, 'utf8'));
+      } catch {
+        // 처음 실행: 예시 계획을 넣어 둔다
+        this.db = { rows: Object.fromEntries((await sampleRows()).map((r) => [r.plan.id, r])) };
+        await this.save();
+      }
+      return this.db!;
+    })();
+    return this.loading;
+  }
+
+  private async save() {
+    await mkdir(path.dirname(this.file), { recursive: true });
+    const tmp = this.file + '.tmp';
+    await writeFile(tmp, JSON.stringify(this.db));
+    await rename(tmp, this.file);
+  }
+
+  private queue<T>(fn: () => Promise<T>) {
+    const run = this.chain.then(fn);
+    this.chain = run.catch(() => {});
+    return run;
+  }
+
+  protected async read(id: string) {
+    const r = (await this.load()).rows[id];
+    return r ? (structuredClone(r) as Row) : null;
+  }
+
+  protected mutate<T>(id: string, fn: (r: Row) => T | Promise<T>) {
+    return this.queue(async () => {
+      const db = await this.load();
+      if (!db.rows[id]) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
+      const r = structuredClone(db.rows[id]) as Row;
+      const out = await fn(r);
+      db.rows[id] = r;
+      await this.save();
+      return out;
     });
+  }
+
+  protected insert(r: Row) {
+    return this.queue(async () => {
+      (await this.load()).rows[r.plan.id] = r;
+      await this.save();
+    });
+  }
+
+  protected delete(id: string) {
+    return this.queue(async () => {
+      delete (await this.load()).rows[id];
+      await this.save();
+    });
+  }
+
+  protected async readMany(ids: string[]) {
+    const db = await this.load();
+    return ids.map((id) => db.rows[id]).filter(Boolean);
+  }
+
+  protected async readPublic(limit: number) {
+    const db = await this.load();
+    return Object.values(db.rows)
+      .filter((r) => r.plan.visibility === 'public')
+      .sort((a, b) => b.plan.updatedAt - a.plan.updatedAt)
+      .slice(0, limit);
   }
 }
 
 /** moon.log 예시 계획 → 전체 공개 예시 계획. 주인 비밀번호는 SDT_SAMPLE_PASSWORD(없으면 아무도 모르는 값) */
-async function sampleRows(): Promise<Record<string, Row>> {
+export async function sampleRows(): Promise<Row[]> {
   const secret = await makeSecret(process.env.SDT_SAMPLE_PASSWORD || uid(24));
-  const rows: Record<string, Row> = {};
   const now = Date.now();
-  (SAMPLES as Record<string, unknown>[]).forEach((raw, n) => {
-    const s = raw as { slug: string; stops?: { name: string; en?: string; coords: [number, number]; note?: string }[]; days: number; addedAt?: string };
+  return (SAMPLES as Record<string, unknown>[]).map((raw, n) => {
+    const s = raw as { slug: string; stops?: { name: string; en?: string; coords: [number, number]; note?: string }[]; addedAt?: string };
     const info = cleanInfo({ ...raw, scope: 'abroad', ownerName: '섬데트', visibility: 'public' });
     const stops = s.stops || [];
     const items: Item[] = stops.map((st, i) =>
       cleanItem({
         id: `${s.slug.slice(0, 6)}${i}`,
         day: Math.min(info.days, Math.floor((i * info.days) / Math.max(stops.length, 1)) + 1),
-        time: '',
         title: st.name,
         en: st.en || '',
         kind: 'see',
         place: { name: st.name, en: st.en, lat: st.coords[0], lng: st.coords[1] },
         memo: st.note || '',
-        cost: null,
         order: i,
       })
     );
     const at = s.addedAt ? Date.parse(s.addedAt) : now - n * 86400000;
     const plan: Plan = { ...info, id: s.slug, slug: planSlug(info), version: 1, createdAt: at, updatedAt: at, sample: true };
-    rows[s.slug] = {
+    return {
       plan,
       items,
       proposals: [],
@@ -410,15 +447,4 @@ async function sampleRows(): Promise<Record<string, Row>> {
       recent: {},
     };
   });
-  return rows;
-}
-
-declare global {
-  var __sdtRepo: Repo | undefined;
-}
-
-/** 개발 서버가 모듈을 다시 불러와도 같은 저장소를 쓰도록 전역에 하나만 */
-export function repo(): Repo {
-  globalThis.__sdtRepo ??= new FileRepo(process.env.SDT_DATA_DIR || undefined);
-  return globalThis.__sdtRepo;
 }

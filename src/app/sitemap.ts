@@ -1,6 +1,6 @@
 // 사이트맵: 전체 공개 계획만. 링크 공개 계획은 넣지 않는다 (noindex)
 import type { MetadataRoute } from 'next';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 import { SITE } from '@/lib/site';
 
 export const dynamic = 'force-dynamic';

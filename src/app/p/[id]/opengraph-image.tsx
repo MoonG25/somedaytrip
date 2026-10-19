@@ -1,6 +1,6 @@
 // 링크 미리보기 그림 (카톡·슬랙·X): 탑승권 모양. 한글 글꼴은 그림에 쓰는 글자만 Google Fonts에서 받아 온다
 import { ImageResponse } from 'next/og';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 import { STATUS, flagOf, nights, totalBudget } from '@/blog/plans-lib.js';
 
 export const size = { width: 1200, height: 630 };

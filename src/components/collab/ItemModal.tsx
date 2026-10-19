@@ -162,7 +162,8 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
         onSubmit={(e) => {
           e.preventDefault();
           if (!d.title.trim()) return toast('무엇을 할지 적어 주세요', '!');
-          const out = { ...d, title: d.title.trim(), en: d.en.trim(), memo: d.memo.trim() };
+          // 새 일정은 저장하는 순간 새 id를 받는다 (직전에 고친 일정의 id가 남아 있으면 안 된다)
+          const out = { ...d, id: item ? item.id : Math.random().toString(36).slice(2, 10), title: d.title.trim(), en: d.en.trim(), memo: d.memo.trim() };
           if (item && item.day !== out.day) out.order = nextOrder(out.day);
           onSave(out);
         }}

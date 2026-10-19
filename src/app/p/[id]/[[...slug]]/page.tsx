@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
-import { repo } from '@/server/repo';
+import { repo } from '@/server';
 import { isOwner } from '@/server/auth';
 import { toView, STATUS, totalBudget, nights } from '@/blog/plans-lib.js';
 import { renderPlanHero, renderPlanStory, renderPrep } from '@/blog/plan-page.js';

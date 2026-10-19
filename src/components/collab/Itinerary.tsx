@@ -46,7 +46,9 @@ type Row = { item: Item; mark: Mark; fields: string[] };
 export default function Itinerary({ plan, items, owner }: { plan: Plan; items: Item[]; owner: boolean }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [edit, setEdit] = useState<{ item: Item | null; day: number | null } | null>(null);
+  const [edit, setEditState] = useState<{ item: Item | null; day: number | null; key: number } | null>(null);
+  // 열 때마다 새 key → 일정 창을 처음부터 다시 그린다 (이전 내용이 남지 않게)
+  const setEdit = (v: { item: Item | null; day: number | null } | null) => setEditState(v ? { ...v, key: Date.now() } : null);
   const [sending, setSending] = useState(false);
   const [askName, setAskName] = useState<null | ((n: string) => void)>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -385,6 +387,7 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
       ) : null}
 
       <ItemModal
+        key={edit?.key ?? 0}
         open={!!edit}
         plan={plan}
         item={edit?.item ?? null}

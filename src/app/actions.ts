@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import type { Bundle, Item, Op, PlanInfo } from '@/lib/types';
 import { cleanItem } from '@/lib/clean';
-import { repo, RepoError } from '@/server/repo';
+import { repo, RepoError, isRepoError } from '@/server';
 import { clearOwnerToken, ownerToken, setOwnerToken, visitorId } from '@/server/auth';
 import { uid } from '@/server/secret';
 
@@ -13,7 +13,7 @@ async function run<T>(fn: () => Promise<T>): Promise<Result<T>> {
   try {
     return { ok: true, data: await fn() };
   } catch (e) {
-    if (e instanceof RepoError) return { ok: false, error: e.message, code: e.code };
+    if (isRepoError(e)) return { ok: false, error: e.message, code: e.code };
     console.error(e);
     return { ok: false, error: '처리하지 못했어요. 잠시 뒤 다시 해 주세요' };
   }
