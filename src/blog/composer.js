@@ -8,11 +8,15 @@
 //  05 준비할 것
 //  06 소개     한 줄 소개(탑승권·계획 첫머리에 크게) + 더 하고 싶은 이야기 + 태그
 //  07 공개·기장
+//
+// 새로 쓰기·복사는 "발권 먼저": 01 어디로(종류·이름 자동) · 02 언제 · 03 몇 명만 묻고,
+// 발권 카드에서 기장 이름·비밀번호를 정하면 스텁을 뜯고 계획 화면으로 들어간다.
+// 예산·가 볼 곳·준비물·소개는 계획 화면의 "탑승 준비"에서 친구들과 같이 채운다. 고치기는 전체 단계 그대로.
 import { esc, fmtWon, reducedMotion, isoDate, addDaysIso, daysBetween, seoulToday } from './util.js';
 import { scene } from './art.js';
 import { STATUS, flagOf, nights } from './plans-lib.js';
 import { weatherAt } from './live.js';
-import { ticketHTML } from './ticket.js';
+import { ticketHTML, tearStub } from './ticket.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from './leaflet.js';
 import { toast } from './toast.js';
 import { reverse, nameOf, enOf, geoPending, geoIdle, CURRENCY, SCENES, SCENE_KO, TIMES } from './geo.js';
@@ -86,8 +90,10 @@ const lbl = (text, hint = '') => `<span class="lbl-text">${text}${hint ? ` <em>$
 
 export function renderComposer({ mode = 'new', copiedCount = 0 }) {
   const editing = mode === 'edit';
+  const quick = !editing;
   const noPlaces = mode !== 'new';
   const n = (i) => String(noPlaces && i >= 5 ? i - 1 : i).padStart(2, '0');
+  const off = quick ? ' hidden' : '';
   return `
 <section class="container page-head composer-head">
   <a href="/" class="back-link link-u">← 떠날 곳</a>
@@ -96,7 +102,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
   <p class="lede" data-reveal>${
     editing
       ? '기장만 고칠 수 있어요. 가 볼 곳과 일정은 계획 화면에서 바로 고쳐요.'
-      : '다 쓰면 링크가 생겨요. 링크를 받은 친구는 일정을 <b>제안</b>하고, 비밀번호를 아는 <b>기장</b>이 수락해요.'
+      : '어디로, 언제, 몇 명만 정하면 탑승권이 나와요. 가 볼 곳·예산·준비물은 발권한 뒤 링크를 받은 친구들과 <b>같이</b> 채워요.'
   }</p>
 </section>
 
@@ -104,7 +110,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
   <form class="composer-form" novalidate autocomplete="off">
     <fieldset class="cstep" data-step="where">
       <legend><span class="step-no mono">01</span>어디로?<span class="step-done" aria-hidden="true">✓</span></legend>
-      <div class="choice-cards three" role="radiogroup" aria-label="여행 종류">
+      <div class="choice-cards three" role="radiogroup" aria-label="여행 종류"${off}>
         ${Object.entries(SCOPES)
           .map(([k, s]) => `<button type="button" role="radio" aria-checked="false" class="choice" data-scope="${k}"><span class="choice-ico">${s.icon}</span><b>${s.ko}</b><small>${s.hint}</small></button>`)
           .join('')}
@@ -128,11 +134,13 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
           <label class="field-block">${lbl('<span class="iata-label">공항 코드</span>')}<input class="inp mono" name="iata" maxlength="3" placeholder="CTS"></label>
         </div>
       </details>
+      ${quick ? '<details class="adv scene-adv"><summary><span>탑승권 그림 바꾸기</span><span class="adv-sum faint">자동으로 골라 뒀어요</span></summary>' : ''}
       <div class="field-block">
         ${lbl('탑승권 그림')}
         <div class="scene-grid" role="radiogroup" aria-label="풍경"></div>
         <div class="chips time-chips" role="radiogroup" aria-label="시간대">${Object.entries(TIMES).map(([k, v]) => `<button type="button" class="chip" role="radio" aria-checked="false" data-time="${k}">${v}</button>`).join('')}</div>
       </div>
+      ${quick ? '</details>' : ''}
     </fieldset>
 
     <fieldset class="cstep" data-step="when">
@@ -144,7 +152,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
       <div class="when-pane" data-pane="date" hidden>
         <div class="cal" aria-label="여행 날짜 고르기"></div>
         <div class="cal-sum"></div>
-        <div class="field-block">
+        <div class="field-block"${off}>
           ${lbl('어디까지 준비했나요?')}
           <div class="segmented status-seg" role="radiogroup" aria-label="준비 상태">
             ${['planning', 'preparing', 'booked', ...(editing ? ['done'] : [])].map((k) => `<button type="button" role="radio" aria-checked="false" data-status="${k}">${STATUS[k].ko}</button>`).join('')}
@@ -168,7 +176,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     </fieldset>
 
     <fieldset class="cstep" data-step="how">
-      <legend><span class="step-no mono">03</span>누구랑 · 얼마나?<span class="step-done" aria-hidden="true">✓</span></legend>
+      <legend><span class="step-no mono">03</span>${quick ? '몇 명이서?' : '누구랑 · 얼마나?'}<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="field-block">
         ${lbl('몇 명이서 가요?', '예산을 1인당·다 같이로 나눠 계산해요')}
         <div class="days-pick ppl-pick">
@@ -176,7 +184,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
           <div class="chips quick-ppl">${[1, 2, 3, 4, 6].map((n) => `<button type="button" class="chip" data-qppl="${n}">${n === 1 ? '혼자' : `${n}명`}</button>`).join('')}</div>
         </div>
       </div>
-      <div class="budget">
+      <div class="budget"${off}>
         <div class="budget-head">
           <div><span class="eyebrow">합계 · 1인</span><b class="h-serif num" data-total>₩0</b></div>
           <div class="budget-group"><span class="eyebrow" data-group-label>전체</span><b class="num" data-group>₩0</b></div>
@@ -200,7 +208,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
         ? mode === 'copy'
           ? `<p class="copy-note">원래 계획의 가 볼 곳 <b>${copiedCount}곳</b>과 일정은 그대로 복사돼요. 만든 뒤 계획 화면에서 고치면 돼요.</p>`
           : ''
-        : `<fieldset class="cstep" data-step="places">
+        : `<fieldset class="cstep" data-step="places"${off}>
       <legend><span class="step-no mono">04</span>어디를 볼까?<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="ac" data-ac="stop">
         <label class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="sq" placeholder="가 볼 곳 찾기 (예: 오타루 운하, 망원시장)" aria-label="장소 검색" role="combobox" aria-expanded="false" aria-controls="ac-stop" aria-autocomplete="list"></label>
@@ -212,7 +220,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
     </fieldset>`
     }
 
-    <fieldset class="cstep" data-step="prep" id="prep">
+    <fieldset class="cstep" data-step="prep" id="prep"${off}>
       <legend><span class="step-no mono">${n(5)}</span>준비할 것<span class="step-done" aria-hidden="true">✓</span></legend>
       <ul class="todo-list check-edit" role="list"></ul>
       <div class="todo-add">
@@ -222,7 +230,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
       <div class="chips suggest"></div>
     </fieldset>
 
-    <fieldset class="cstep" data-step="why">
+    <fieldset class="cstep" data-step="why"${off}>
       <legend><span class="step-no mono">${n(6)}</span>소개 · 링크<span class="step-done" aria-hidden="true">✓</span></legend>
       <label class="field-block">${lbl('한 줄 소개', '계획 첫머리에 큰 글씨로 나와요')}<input class="inp" name="why" placeholder="눈 쌓인 밤길을 걷다가 노천온천에 들어가고 싶다." maxlength="200"></label>
       <label class="field-block">${lbl('더 하고 싶은 이야기', '선택 · **굵게**, - 목록')}<textarea class="textarea" name="intro" rows="5" placeholder="누구랑, 왜, 어떤 여행이 되면 좋을지." maxlength="6000"></textarea></label>
@@ -241,28 +249,37 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
       </div>
     </fieldset>
 
-    <fieldset class="cstep" data-step="share">
+    <fieldset class="cstep" data-step="share"${off}>
       <legend><span class="step-no mono">${n(7)}</span>${editing ? '공개 범위' : '공개 · 기장 정하기'}<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="choice-cards two vis-pick" role="radiogroup" aria-label="공개 범위">
         <button type="button" role="radio" aria-checked="false" class="choice" data-vis="link"><span class="choice-ico">🔗</span><b>링크 공개</b><small>링크를 받은 친구만 볼 수 있어요. 검색에는 안 나와요.</small></button>
         <button type="button" role="radio" aria-checked="false" class="choice" data-vis="public"><span class="choice-ico">🌍</span><b>전체 공개</b><small>누구나 볼 수 있고 Google·네이버 검색에도 나와요.</small></button>
       </div>
       <p class="faint step-note">어느 쪽이든 누구나 일정을 <b>제안</b>할 수 있지만, 반영은 <b>기장만</b> 할 수 있어요.</p>
-      ${
-        editing
-          ? ''
-          : `<div class="owner-box">
-        <p class="owner-lede"><b>🔑 비밀번호를 아는 사람이 이 계획의 기장이에요.</b> 제안 수락·거절, 직접 수정, 삭제를 할 수 있어요. 다른 기기에서도 비밀번호만 넣으면 기장으로 돌아와요. <b>잊으면 되찾을 수 없어요.</b></p>
-        <label class="field-block half">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 문" autocomplete="nickname"></label>
-        <div class="grid2">
-          <label class="field-block">${lbl('비밀번호', '4자 이상')}<input class="inp" type="password" name="pw" autocomplete="new-password"></label>
-          <label class="field-block">${lbl('비밀번호 확인')}<input class="inp" type="password" name="pw2" autocomplete="new-password"></label>
-        </div>
-        <div class="pw-meter" data-s="-1"><i></i><span>친구들과 같이 쓰는 비밀번호는 피하세요</span></div>
-        <label class="switch"><input type="checkbox" name="remember" checked><span class="switch-ui" aria-hidden="true"></span>이 브라우저에서 기장으로 기억하기 <span class="faint">(공용 PC라면 끄세요)</span></label>
-      </div>`
-      }
     </fieldset>
+    ${
+      quick
+        ? `<p class="quick-later faint">💡 가 볼 곳 · 예산 · 준비물 · 소개는 발권한 뒤 계획 화면에서 채워요. 친구들이 가 볼 곳을 <b>제안</b>할 수도 있어요.</p>
+    <dialog class="sdt-modal wide issue-modal" aria-label="탑승권 발권">
+      <div class="sdt-modal-box">
+        <header class="sdt-modal-head"><h2>탑승권 발권</h2><button type="button" class="icon-btn" data-issue-close aria-label="닫기">✕</button></header>
+        <div class="sdt-modal-body">
+          <div class="issue-ticket"></div>
+          <div class="owner-box">
+            <p class="owner-lede"><b>🔑 비밀번호를 아는 사람이 이 계획의 기장이에요.</b> 제안 수락·거절, 직접 수정, 삭제를 할 수 있어요. 다른 기기에서도 비밀번호만 넣으면 기장으로 돌아와요. <b>잊으면 되찾을 수 없어요.</b></p>
+            <div class="grid2">
+              <label class="field-block">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 문" autocomplete="nickname"></label>
+              <label class="field-block">${lbl('비밀번호', '4자 이상')}<span class="pw-wrap"><input class="inp" type="password" name="pw" autocomplete="new-password"><button type="button" class="pw-show" data-pw-show aria-pressed="false">보기</button></span></label>
+            </div>
+            <div class="pw-meter" data-s="-1"><i></i><span>친구들과 같이 쓰는 비밀번호는 피하세요</span></div>
+            <label class="switch"><input type="checkbox" name="remember" checked><span class="switch-ui" aria-hidden="true"></span>이 브라우저에서 기장으로 기억하기 <span class="faint">(공용 PC라면 끄세요)</span></label>
+          </div>
+          <div class="modal-actions"><button type="button" class="btn btn--solid" data-issue>✂ 발권하고 탑승하기</button></div>
+        </div>
+      </div>
+    </dialog>`
+        : ''
+    }
   </form>
 
   <div class="composer-side">
@@ -271,13 +288,13 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
       <div class="preview-ticket"></div>
       <ol class="step-progress" role="list" aria-label="작성 진행"></ol>
       <div class="composer-actions">
-        <button type="button" class="btn btn--solid" data-save>${editing ? '고친 내용 저장' : '계획 만들기'}</button>
+        <button type="button" class="btn btn--solid" data-save>${editing ? '고친 내용 저장' : '탑승권 발권하기 →'}</button>
         ${editing ? '' : '<button type="button" class="link-u faint" data-clear>새로 쓰기</button>'}
       </div>
     </div>
   </div>
 </section>
-<div class="composer-mbar"><span class="mbar-ticket mono"></span><button type="button" class="btn btn--solid btn--sm" data-save>${editing ? '저장' : '계획 만들기'}</button></div>`;
+<div class="composer-mbar"><span class="mbar-ticket mono"></span><button type="button" class="btn btn--solid btn--sm" data-save>${editing ? '저장' : '발권하기 →'}</button></div>`;
 }
 
 const strength = (pw) => {
@@ -488,6 +505,7 @@ const fmtDay = (iso) => {
 export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) {
   const cleanups = [];
   const editing = mode === 'edit';
+  const quick = !editing;
   const form = root.querySelector('.composer-form');
   const WIP = mode === 'new' ? 'sdt:composer:v2' : null;
   const wip = (() => {
@@ -505,6 +523,9 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   }
   // 날짜 방식: 날짜가 있으면 '정했어요', 고치기·복사면 '언젠가', 새로 쓰기면 고른 적이 있을 때만
   let whenMode = d.target ? 'date' : initial ? 'someday' : wip?._when || null;
+  // 발권 흐름: 여행 이름은 "삿포로 4박 5일"처럼 자동으로 지어 두고, 직접 고치면 그때부터 그대로 둔다
+  let autoTitle = quick && (!d.title || !!wip?._autoTitle);
+  const makeTitle = () => (d.scope === 'local' ? `${d.place} 한 바퀴` : `${d.place} ${nights(d.days)}`);
   // 예산: 순서를 지키려고 화면에서는 목록으로 다룬다
   // DB(jsonb)는 키 순서를 바꾸므로, 자주 쓰는 항목 순서대로 다시 세운다
   const ORDER = ['항공', '숙소', '식비', '카페', '교통', '렌터카', '입장료', '쇼핑', '통신', '보험'];
@@ -530,7 +551,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (!WIP) return;
     try {
       syncBudget();
-      localStorage.setItem(WIP, JSON.stringify({ ...d, _when: whenMode }));
+      localStorage.setItem(WIP, JSON.stringify({ ...d, _when: whenMode, _autoTitle: autoTitle }));
     } catch {}
   };
   function syncBudget() {
@@ -558,11 +579,15 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   const STEPS = [
     ['where', '어디로', () => d.title && d.place],
     ['when', '언제', () => whenMode === 'date' ? !!d.target : whenMode === 'someday' && d.months.length > 0],
-    ['how', '예산', () => budget.some((b) => b.amount > 0)],
-    ...(mode !== 'new' ? [] : [['places', '가 볼 곳', () => d.stops.length > 0]]),
-    ['prep', '준비', () => d.checklist.length > 0],
-    ['why', '소개', () => !!d.why],
-    ['share', editing ? '공개' : '기장', () => editing || (d.ownerName && form.pw.value.length >= 4 && form.pw.value === form.pw2.value)],
+    ...(quick
+      ? [['how', '몇 명', () => !!whenMode]]
+      : [
+          ['how', '예산', () => budget.some((b) => b.amount > 0)],
+          ...(mode !== 'new' ? [] : [['places', '가 볼 곳', () => d.stops.length > 0]]),
+          ['prep', '준비', () => d.checklist.length > 0],
+          ['why', '소개', () => !!d.why],
+          ['share', '공개', () => true],
+        ]),
   ];
   let queued = false;
   const update = () => {
@@ -571,6 +596,10 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     requestAnimationFrame(() => {
       queued = false;
       syncBudget();
+      if (autoTitle && d.place && d.title !== makeTitle()) {
+        d.title = makeTitle();
+        if (document.activeElement !== form.title) form.title.value = d.title;
+      }
       const p = { ...d, id: 'preview-' + mode, href: '', title: d.title || '새 여행 계획', place: d.place || '어딘가', months: d.months || [] };
       preview.innerHTML = ticketHTML(p, { preview: true });
       preview.querySelector('.ticket')?.classList.add('is-in');
@@ -598,6 +627,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   };
   form.addEventListener('input', (e) => {
     if (['q', 'sq', 'newCheck', 'bName', 'bAmt', 'tagIn', 'linkIn'].includes(e.target.name) || e.target.closest('.budget-list') || e.target.closest('.link-edit')) return;
+    if (e.target.name === 'title') autoTitle = !e.target.value.trim(); // 직접 고치면 자동 이름은 멈춘다 (다 지우면 다시 자동)
     if (e.target.name === 'pw') {
       const m = root.querySelector('.pw-meter');
       const s = strength(form.pw.value);
@@ -634,9 +664,22 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (!d.place) return;
     destCard.innerHTML = `<span class="dc-flag">${d.countryCode ? flagOf(d.countryCode) : SCOPES[d.scope].icon}</span>
       <span class="dc-txt"><b>${esc(d.place)}</b> ${d.placeEn ? `<span class="serif faint">${esc(d.placeEn)}</span>` : ''}<small>${esc([d.country, d.iata && `✈ ${d.iata}`, d.coords && `${d.coords[0].toFixed(2)}, ${d.coords[1].toFixed(2)}`].filter(Boolean).join(' · '))}</small></span>
-      <button type="button" class="link-u faint" data-dest-clear>바꾸기</button>`;
+      <button type="button" class="link-u faint" data-dest-clear>바꾸기</button>
+      ${
+        quick && d.scope !== 'abroad'
+          ? `<span class="dc-scope chips" role="radiogroup" aria-label="여행 종류">${['domestic', 'local'].map((k) => `<button type="button" class="chip" role="radio" aria-checked="${d.scope === k}" data-scope2="${k}">${SCOPES[k].icon} ${SCOPES[k].ko} 여행</button>`).join('')}</span>`
+          : ''
+      }`;
   };
   destCard.addEventListener('click', (e) => {
+    const sc = e.target.closest('[data-scope2]');
+    if (sc) {
+      d.scope = sc.dataset.scope2;
+      syncScope();
+      drawDest();
+      update();
+      return;
+    }
     if (!e.target.closest('[data-dest-clear]')) return;
     d.place = '';
     d.placeEn = '';
@@ -664,7 +707,8 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     }
     d.iata = iataFor(h.name, h.en, h.city, d.placeEn) || (d.scope === 'abroad' ? (d.placeEn || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() : '');
     if (CURRENCY[d.countryCode]) d.currency = CURRENCY[d.countryCode];
-    if (!d.title) d.title = d.scope === 'local' ? `${h.name} 한 바퀴` : `${h.name}, `;
+    if (autoTitle) d.title = makeTitle();
+    else if (!d.title) d.title = d.scope === 'local' ? `${h.name} 한 바퀴` : `${h.name}, `;
     fill();
     drawDest();
     drawMap(true);
@@ -675,8 +719,13 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
         update();
       })
       .catch(() => {});
-    form.title.focus();
-    form.title.setSelectionRange(form.title.value.length, form.title.value.length);
+    if (quick) {
+      // 발권 흐름: 이름은 자동이라 다음 질문(언제)으로 바로 넘어간다
+      root.querySelector('[data-step="when"]').scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    } else {
+      form.title.focus();
+      form.title.setSelectionRange(form.title.value.length, form.title.value.length);
+    }
   };
   autocomplete(root.querySelector('[data-ac="dest"]'), { mode: 'dest', onPick: pickDest });
 
@@ -1105,6 +1154,8 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     });
 
     (async () => {
+      // 발권 흐름에선 "가 볼 곳" 단계를 숨겨 둔다: 크기 없는 지도는 만들지 않는다
+      if (root.querySelector('[data-step="places"]')?.hidden) return;
       try {
         L = await loadLeaflet();
       } catch {
@@ -1296,16 +1347,45 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     if (!d.title) return fail('여행 이름을 적어 주세요', 'title');
     if (!whenMode) return fail('날짜를 정했는지, 아직 모르는지 골라 주세요', '[data-step="when"]');
     if (whenMode === 'date' && !d.target) return fail('달력에서 가는 날을 골라 주세요', '.cal');
-    if (!editing) {
-      if (!d.ownerName) return fail('기장 이름을 적어 주세요', 'ownerName');
-      if (form.pw.value.length < 4) return fail('비밀번호는 4자 이상이어야 해요', 'pw');
-      if (form.pw.value !== form.pw2.value) return fail('비밀번호 두 개가 서로 달라요', 'pw2');
-    }
     return true;
   };
-  const saveBtns = root.querySelectorAll('[data-save]');
+  /* ---------- 발권 카드: 기장 이름 · 비밀번호 ---------- */
+  const issue = root.querySelector('.issue-modal');
+  const issueTicket = root.querySelector('.issue-ticket');
+  const openIssue = () => {
+    syncBudget();
+    issueTicket.innerHTML = ticketHTML({ ...d, id: 'issue', href: '' }, { preview: true }).replace(' data-reveal', '');
+    if (!issue.open) issue.showModal();
+    setTimeout(() => (d.ownerName ? form.pw : form.ownerName).focus(), 30);
+  };
+  issue?.querySelector('[data-issue-close]').addEventListener('click', () => issue.close());
+  issue?.addEventListener('mousedown', (e) => e.target === issue && issue.close());
+  issue?.querySelector('[data-pw-show]').addEventListener('click', (e) => {
+    const on = form.pw.type === 'password';
+    form.pw.type = on ? 'text' : 'password';
+    e.currentTarget.textContent = on ? '숨기기' : '보기';
+    e.currentTarget.setAttribute('aria-pressed', String(on));
+  });
+  issue?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) {
+      e.preventDefault();
+      issue.querySelector('[data-issue]').click();
+    }
+  });
+  const ownerOk = () => {
+    read();
+    const bad = !d.ownerName ? ['기장 이름을 적어 주세요', 'ownerName'] : form.pw.value.length < 4 ? ['비밀번호는 4자 이상이어야 해요', 'pw'] : null;
+    if (bad) {
+      toast(bad[0], '!');
+      form[bad[1]].focus();
+    }
+    return !bad;
+  };
+  const saveBtns = root.querySelectorAll('[data-save], [data-issue]');
   const save = async () => {
     if (!validate()) return;
+    if (quick && !issue.open) return openIssue();
+    if (quick && !ownerOk()) return;
     saveBtns.forEach((b) => (b.disabled = true));
     if (geoPending()) await Promise.race([geoIdle(), new Promise((r) => setTimeout(r, 4000))]);
     if (!alive) return;
@@ -1313,7 +1393,12 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     const { stops, ...info } = d;
     if (whenMode === 'someday') info.target = null;
     if (!info.months.length && info.target) info.months = [Number(info.target.slice(5, 7))];
-    const err = await onSubmit({ info, stops }, editing ? {} : { password: form.pw.value, remember: form.remember.checked });
+    // 발권되면 카드의 탑승권 스텁을 뜯고 들어간다
+    const tear = () => {
+      const t = issueTicket?.querySelector('.ticket');
+      return t ? tearStub(t) : Promise.resolve();
+    };
+    const err = await onSubmit({ info, stops }, editing ? {} : { password: form.pw.value, remember: form.remember.checked, tear });
     if (!alive) return;
     saveBtns.forEach((b) => (b.disabled = false));
     if (err) return toast(err, '!');
@@ -1325,12 +1410,14 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     }
   };
   saveBtns.forEach((b) => b.addEventListener('click', save));
+  cleanups.push(() => issue?.open && issue.close());
   root.querySelector('[data-clear]')?.addEventListener('click', () => {
     if (!confirm('지금 쓰던 내용을 비우고 새로 쓸까요?')) return;
     d = blankPlan();
     budget = [];
     d.links = [];
     whenMode = null;
+    autoTitle = quick;
     try {
       localStorage.removeItem(WIP);
     } catch {}

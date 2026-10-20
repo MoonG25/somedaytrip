@@ -2257,3 +2257,209 @@ html.gate-open {
 [data-split]:not([data-split-done]) {
   opacity: 0;
 }
+
+/* ---------- 발권 흐름 (새로 쓰기) ---------- */
+.quick-later {
+  margin: 4px 0 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  font-size: var(--fs-sm);
+}
+.dc-scope {
+  flex-basis: 100%;
+  margin-top: 8px;
+}
+.scene-adv {
+  margin-top: 4px;
+}
+.issue-modal .sdt-modal-body {
+  display: grid;
+  gap: 18px;
+}
+.issue-ticket .ticket-link {
+  cursor: default;
+}
+.pw-wrap {
+  position: relative;
+  display: block;
+}
+.pw-wrap .inp {
+  width: 100%;
+  padding-right: 64px;
+}
+.pw-show {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+.dest-card {
+  flex-wrap: wrap;
+}
+/* main은 view-transition-name 때문에 따로 층을 이룬다. 그 안의 고정 바(작성 화면 저장 바 등)가
+   뒤에 오는 푸터 밑으로 깔리지 않게 main 층을 푸터보다 위에 둔다 */
+main {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 640px) {
+  .issue-modal .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 탑승 준비 (기장) ---------- */
+.prep-board {
+  margin-top: 14px;
+}
+.pf-card {
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in oklab, var(--paper) 70%, #fff);
+}
+.pf-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.pf-head b {
+  font-size: 18px;
+}
+.pf-bar {
+  flex: 0 1 220px;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--paper-3);
+  overflow: hidden;
+}
+.pf-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.6s var(--ease-out, ease-out);
+}
+.pf-tasks {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-task {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.pf-task:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.pf-task.done {
+  border-style: solid;
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+.pf-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--paper-2);
+  font-size: 16px;
+}
+.pf-task.done .pf-ico {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 800;
+}
+.pf-txt {
+  display: grid;
+  min-width: 0;
+}
+.pf-txt b {
+  font-size: 14px;
+}
+.pf-txt small {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.pf-form .days-pick output {
+  min-width: 64px;
+  font-size: 20px;
+}
+.pf-ppl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pf-rows,
+.pf-checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 150px) auto;
+  align-items: center;
+  gap: 8px;
+}
+.pf-row .money input {
+  height: 44px;
+}
+.pf-checks li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 4px 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.pf-total {
+  margin: 0;
+  color: var(--ink-2);
+}
+@media (max-width: 900px) {
+  .pf-tasks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .pf-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .pf-row .money {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

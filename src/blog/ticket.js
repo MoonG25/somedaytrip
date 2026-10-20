@@ -153,7 +153,8 @@ function liftStub(ticket) {
   const vertical = r.width > ticket.getBoundingClientRect().width * 0.8;
   Object.assign(fly.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, borderRadius: vertical ? '0 0 22px 22px' : '0 22px 22px 0' });
   fly.append(stub.cloneNode(true));
-  document.body.append(fly);
+  // 모달(dialog) 안의 탑승권이면 모달 층 안에 띄운다 (body에 두면 모달 뒤로 숨는다)
+  (ticket.closest('dialog[open]') || document.body).append(fly);
   ticket.classList.add('tearing');
   return { fly, vertical };
 }

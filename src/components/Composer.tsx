@@ -35,7 +35,7 @@ export default function Composer({ mode, initial, planId, copiedCount = 0 }: { m
     return mountComposer(ref.current!, {
       mode,
       initial,
-      onSubmit: async ({ info, stops }: { info: PlanInfo; stops: Stop[] }, extra: { password?: string; remember?: boolean }) => {
+      onSubmit: async ({ info, stops }: { info: PlanInfo; stops: Stop[] }, extra: { password?: string; remember?: boolean; tear?: () => Promise<void> }) => {
         if (mode === 'edit') {
           const r = await updatePlan(planId!, info);
           if (!r.ok) return r.error;
@@ -46,6 +46,7 @@ export default function Composer({ mode, initial, planId, copiedCount = 0 }: { m
         const r = await createPlan({ info, items: stopsToItems(stops || [], info.days), password: extra.password || '', remember: !!extra.remember, copyFrom: mode === 'copy' ? planId : undefined });
         if (!r.ok) return r.error;
         rememberPlan(r.data.id);
+        await extra.tear?.().catch(() => {});
         router.push(`/p/${r.data.id}/${r.data.slug}?welcome=1`);
         return null;
       },

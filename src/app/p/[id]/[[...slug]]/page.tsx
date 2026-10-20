@@ -82,7 +82,7 @@ export default async function PlanPage({ params }: Props) {
     <article className={`plan tone-${p.status}`}>
       {p.visibility === 'public' ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} /> : null}
       <LegacyBlock html={renderPlanHero(p, { owner, nowMonth })} plan={p} owner={owner} />
-      <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length}>
+      <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length} proposals={b.proposals.length}>
         <LegacyBlock html={renderPlanStory(p, { nowMonth })} plan={p} owner={owner} />
       </PlanShell>
       <LegacyBlock html={renderPrep(p, { owner })} plan={p} owner={owner} />

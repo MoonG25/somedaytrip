@@ -10,12 +10,13 @@ import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
 import PlanLinks from './PlanLinks';
 import BoardingGate from './BoardingGate';
+import PrepBoard, { infoOf } from './PrepBoard';
 import Modal from './Modal';
 import { broadcast, toast } from './util';
 
 const previewKey = (id: string) => `sdt:preview:${id}`;
 
-export default function PlanShell({ plan, items, owner: isOwner, open, children }: { plan: Plan; items: Item[]; owner: boolean; open: number; children?: React.ReactNode }) {
+export default function PlanShell({ plan, items, owner: isOwner, open, proposals = 0, children }: { plan: Plan; items: Item[]; owner: boolean; open: number; proposals?: number; children?: React.ReactNode }) {
   const router = useRouter();
   const [preview, setPreview] = useState(false);
   const [welcome, setWelcome] = useState(false);
@@ -62,8 +63,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
   const closeMenu = (e: React.MouseEvent) => (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open');
 
   const setVisibility = async (v: Plan['visibility']) => {
-    const { id: _i, slug: _s, version: _v, createdAt: _c, updatedAt: _u, sample: _x, copiedFrom: _f, ...info } = plan;
-    const r = await updatePlan(plan.id, { ...info, visibility: v });
+    const r = await updatePlan(plan.id, { ...infoOf(plan), visibility: v });
     if (!r.ok) return toast(r.error, '!');
     broadcast(plan.id);
     toast(v === 'public' ? '전체 공개로 바꿨어요. 이제 누구나 볼 수 있어요' : '링크 공개로 바꿨어요. 검색에서 빠져요', '✓');
@@ -215,6 +215,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, children 
           }}
         />
       ) : null}
+      {owner ? <PrepBoard plan={plan} items={items} proposals={proposals} onShare={() => setModal('share')} /> : null}
       <PlanLinks plan={plan} owner={owner} />
       {children}
       <Itinerary plan={plan} items={items} owner={owner} />
