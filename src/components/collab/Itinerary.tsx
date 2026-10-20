@@ -4,8 +4,8 @@
 //  - 승객: 고친 내용이 "제안 바구니"(이 브라우저)에 모였다가, 제목을 붙여 한 번에 제안
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Item, Op, Plan } from '@/lib/types';
-import { diffItem, describeOps, findConflicts, KINDS, opCounts, stage, stagedView, type Mark } from '@/lib/proposals';
+import type { Item, Op, Plan, Proposal } from '@/lib/types';
+import { diffItem, describeOps, findConflicts, KINDS, opCounts, pendingGroups, stage, stagedView, type Mark, type PendingGroup } from '@/lib/proposals';
 import { optimizeRoute, routeKm } from '@/blog/plans-lib.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from '@/blog/leaflet.js';
 import { applyDirect, propose } from '@/app/actions';
@@ -14,6 +14,7 @@ import { googleMapsAt } from '@/lib/links';
 import ItemModal from './ItemModal';
 import Modal from './Modal';
 import OpCard from './OpCard';
+import { GhostRow, SuggQueue, SuggStrips, useDecide } from './Suggestions';
 import { broadcast, dayColor, dayLabel, distanceLabel, km, toast, won } from './util';
 
 interface Draft {
@@ -44,8 +45,47 @@ const myName = () => {
 
 type Row = { item: Item; mark: Mark; fields: string[] };
 
-export default function Itinerary({ plan, items, owner }: { plan: Plan; items: Item[]; owner: boolean }) {
+const SHOW_KEY = 'sdt:sugg';
+
+export default function Itinerary({ plan, items, owner, pending = [], mine = [] }: { plan: Plan; items: Item[]; owner: boolean; pending?: Proposal[]; mine?: number[] }) {
   const router = useRouter();
+  // 대기 중인 제안: 우선순위대로 묶어서 일정 위에 보여 준다
+  const groups = useMemo(() => pendingGroups(items, pending), [items, pending]);
+  const mineSet = useMemo(() => new Set(mine), [mine]);
+  const ctl = useDecide(plan);
+  const [showSugg, setShowSuggState] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SHOW_KEY) === '0') setShowSuggState(false);
+    } catch {}
+  }, []);
+  const setShowSugg = (v: boolean) => {
+    setShowSuggState(v);
+    try {
+      localStorage.setItem(SHOW_KEY, v ? '1' : '0');
+    } catch {}
+  };
+  const ghostsByDay = useMemo(() => {
+    const m = new Map<number | null, PendingGroup[]>();
+    for (const g of groups) if (g.type === 'add') m.set(g.day, [...(m.get(g.day) || []), g]);
+    return m;
+  }, [groups]);
+  const stripsByItem = useMemo(() => {
+    const m = new Map<string, PendingGroup[]>();
+    for (const g of groups) if (g.type !== 'add') m.set(g.target, [...(m.get(g.target) || []), g]);
+    return m;
+  }, [groups]);
+  const jump = (g: PendingGroup) => {
+    if (!showSugg) setShowSugg(true);
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-sugg="${CSS.escape(g.key)}"]`);
+      if (!el) return toast('일정에서 찾을 수 없는 제안이에요', '·');
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.remove('flash');
+      void el.offsetWidth;
+      el.classList.add('flash');
+    });
+  };
   const [draft, setDraft] = useState<Draft | null>(null);
   const [edit, setEditState] = useState<{ item: Item | null; day: number | null; key: number } | null>(null);
   // 열 때마다 새 key → 일정 창을 처음부터 다시 그린다 (이전 내용이 남지 않게)
@@ -124,6 +164,17 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
         }
       });
       if (day != null && line.length > 1) L.polyline(line, { className: 'route-plan', weight: 2.5, interactive: false, color: dayColor(day) }).addTo(layer);
+      // 추가 제안은 반투명 핀
+      if (showSugg)
+        for (const g of ghostsByDay.get(day) || []) {
+          const it = g.primary.op.type === 'add' ? g.primary.op.item : null;
+          if (!it?.place) continue;
+          const mk = L.marker([it.place.lat, it.place.lng], { icon: pinIcon(L, { label: '+', kind: 'is-plan is-ghost' }), title: `제안: ${it.title}` })
+            .addTo(layer)
+            .bindTooltip(`제안 · ${KINDS[it.kind].icon} ${it.title}`, { direction: 'top', offset: [0, -14] })
+            .on('click', () => jump(g));
+          mk.getElement()?.style.setProperty('--dc', dayColor(day));
+        }
     }
     if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: plan.scope === 'local' ? 16 : 14, animate: false });
   };
@@ -131,7 +182,7 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
   useEffect(() => {
     drawRef.current?.(!fittedRef.current);
     if (mapRef.current && withPlace.length) fittedRef.current = true;
-  }, [rows, focus, withPlace.length]);
+  }, [rows, focus, withPlace.length, groups, showSugg]);
 
   const focusItem = (id: string) => {
     setFocus(id);
@@ -277,13 +328,17 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
           </div>
         </header>
       </div>
+      <div className="container">
+        <SuggQueue groups={groups} items={items} plan={plan} owner={owner} mine={mineSet} ctl={ctl} show={showSugg} setShow={setShowSugg} jump={jump} />
+      </div>
       <div className="route-grid container">
         <div className="itin">
           {days.map((day) => {
             const list = rows.filter((r) => r.item.day === day);
             const dl = dayLabel(plan, day);
             const cost = list.filter((r) => r.mark !== 'remove').reduce((s, r) => s + (r.item.cost ?? 0), 0);
-            if (day == null && !list.length)
+            const ghosts = showSugg ? ghostsByDay.get(day) || [] : [];
+            if (day == null && !list.length && !ghosts.length)
               return (
                 <div key="someday" className="itin-day cand">
                   <button type="button" className="itin-add" onClick={() => setEdit({ item: null, day: null })}>
@@ -309,7 +364,18 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
                   ) : null}
                 </h3>
                 <ol className="route-list" role="list">
-                  {list.map((r, i) => {
+                  {(() => {
+                    // 시간이 있는 추가 제안은 그 시간 자리에, 나머지는 그날 끝에 (우선순위 순)
+                    const at = new Map<number, PendingGroup[]>();
+                    const tail: PendingGroup[] = [];
+                    for (const g of ghosts) {
+                      const t = g.primary.op.type === 'add' ? g.primary.op.item.time : '';
+                      const pos = t ? list.findIndex((r) => r.item.time && r.item.time > t) : -1;
+                      if (pos < 0) tail.push(g);
+                      else at.set(pos, [...(at.get(pos) || []), g]);
+                    }
+                    const ghost = (g: PendingGroup) => <GhostRow key={g.key} g={g} owner={owner} mine={mineSet} ctl={ctl} onFocus={() => setFocus(null)} />;
+                    const rowOf = (r: Row, i: number) => {
                     const it = r.item;
                     const gap = prev?.place && it.place && r.mark !== 'remove' ? km(prev.place, it.place) : null;
                     if (r.mark !== 'remove') prev = it;
@@ -370,7 +436,19 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
                         </div>
                       </li>
                     );
-                  })}
+                    };
+                    return [
+                      ...list.flatMap((r, i) => {
+                        const strips = showSugg ? stripsByItem.get(r.item.id) : undefined;
+                        return [
+                          ...(at.get(i) || []).map(ghost),
+                          rowOf(r, i),
+                          ...(strips?.length ? [<SuggStrips key={`s-${r.item.id}`} groups={strips} items={items} owner={owner} mine={mineSet} ctl={ctl} />] : []),
+                        ];
+                      }),
+                      ...tail.map(ghost),
+                    ];
+                  })()}
                 </ol>
                 <button type="button" className="itin-add" onClick={() => setEdit({ item: null, day })}>
                   + {day == null ? '후보 추가' : `${dl.code}에 일정 추가`}
@@ -448,8 +526,9 @@ export default function Itinerary({ plan, items, owner }: { plan: Plan; items: I
           saveDraft(plan.id, null);
           rememberPlan(plan.id);
           broadcast(plan.id);
-          toast('제안을 보냈어요. 기장이 수락하면 반영돼요', '📮');
-          router.push(`/p/${plan.id}/pr/${no}`);
+          toast(`제안 #${no}을 보냈어요. 일정 위에 반투명하게 보여요`, '📮');
+          router.refresh();
+          requestAnimationFrame(() => document.getElementById('itinerary')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
         }}
       />
 

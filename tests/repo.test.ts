@@ -200,3 +200,40 @@ describe('링크 새로 만들기', () => {
     expect(await r.checkToken(next, token)).toBe(true);
   });
 });
+
+describe('일정 위에서 하나씩 결정', () => {
+  let r: FileRepo;
+  beforeEach(() => {
+    r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
+  });
+  it('변경 하나씩 반영·거절 · 모두 결정되면 제안 상태가 정해진다 · 같은 걸 원한 제안은 정리', async () => {
+    const { bundle, token } = await r.create(info, [item('a')], 'pass1234');
+    const id = bundle.plan.id;
+    const p1 = await r.propose(id, pr([{ type: 'add', item: item('n1') }, { type: 'update', id: 'a', before: { memo: '' }, after: { memo: '우산' } }], 'x'));
+    const p2 = await r.propose(id, pr([{ type: 'add', item: item('n2') }], 'y'));
+    expect(await r.decideOps(id, token, [{ no: p1.no, index: 0, decision: 'accept' }, { no: p2.no, index: 0, decision: 'supersede' }])).toEqual({ accepted: 1, rejected: 0 });
+    let b = (await r.get(id))!;
+    expect(b.items.map((i) => i.id).sort()).toEqual(['a', 'n1']);
+    expect(b.proposals.find((x) => x.no === p1.no)!.status).toBe('open');
+    expect(b.proposals.find((x) => x.no === p2.no)!.status).toBe('accepted');
+    await r.decideOps(id, token, [{ no: p1.no, index: 1, decision: 'reject' }]);
+    b = (await r.get(id))!;
+    const done = b.proposals.find((x) => x.no === p1.no)!;
+    expect(done.status).toBe('partial');
+    expect(done.ops.map((o) => o.state)).toEqual(['accepted', 'rejected']);
+    expect(b.items.find((i) => i.id === 'a')!.memo).toBe('');
+    await expect(r.decideOps(id, 'nope', [{ no: p1.no, index: 0, decision: 'accept' }])).rejects.toThrow();
+  });
+  it('그 사이 바뀐 칸은 막고, force면 덮어쓴다 · 승객은 자기 변경만 철회', async () => {
+    const { bundle, token } = await r.create(info, [item('a')], 'pass1234');
+    const id = bundle.plan.id;
+    const p = await r.propose(id, pr([{ type: 'update', id: 'a', before: { time: '' }, after: { time: '11:00' } }, { type: 'add', item: item('n') }], 'x'));
+    await r.applyDirect(id, token, [{ type: 'update', id: 'a', before: { time: '' }, after: { time: '09:00' } }]);
+    await expect(r.decideOps(id, token, [{ no: p.no, index: 0, decision: 'accept' }])).rejects.toThrow(/겹치는/);
+    await r.decideOps(id, token, [{ no: p.no, index: 0, decision: 'accept' }], true);
+    expect((await r.get(id))!.items.find((i) => i.id === 'a')!.time).toBe('11:00');
+    await expect(r.withdrawOp(id, p.no, 1, 'someone-else')).rejects.toThrow();
+    await r.withdrawOp(id, p.no, 1, 'x');
+    expect((await r.get(id))!.proposals[0].status).toBe('partial');
+  });
+});

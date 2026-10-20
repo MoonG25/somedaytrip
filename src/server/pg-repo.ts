@@ -120,7 +120,7 @@ export class PgRepo extends BaseRepo {
   private upsertProposal(tx: Sql, planId: string, x: Proposal) {
     return tx`insert into proposals (id, plan_id, no, author_id, author_name, title, message, base_version, ops, status, created_at, decided_at, note, skipped)
       values (${x.id}, ${planId}, ${x.no}, ${x.authorId}, ${x.authorName}, ${x.title}, ${x.message}, ${x.baseVersion}, ${tx.json(x.ops as never)}, ${x.status}, ${new Date(x.createdAt)}, ${x.decidedAt ? new Date(x.decidedAt) : null}, ${x.note ?? null}, ${x.skipped ?? null})
-      on conflict (id) do update set status = excluded.status, decided_at = excluded.decided_at, note = excluded.note, skipped = excluded.skipped`;
+      on conflict (id) do update set ops = excluded.ops, status = excluded.status, decided_at = excluded.decided_at, note = excluded.note, skipped = excluded.skipped`;
   }
 
   protected async read(id: string) {

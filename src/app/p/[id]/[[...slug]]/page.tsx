@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
 import { repo } from '@/server';
-import { isOwner } from '@/server/auth';
+import { isOwner, visitorId } from '@/server/auth';
+import { sha256 } from '@/server/secret';
 import { toView, STATUS, totalBudget, nights } from '@/blog/plans-lib.js';
 import { renderPlanHero, renderPlanStory, renderPrep } from '@/blog/plan-page.js';
 import { seoulMonth } from '@/blog/util.js';
@@ -55,6 +56,10 @@ export default async function PlanPage({ params }: Props) {
   // 주소 이름이 다르면(계획 이름이 바뀌었거나 생략) 정식 주소로
   if ((slug?.[0] ?? '') !== b.plan.slug) permanentRedirect(`/p/${id}/${b.plan.slug}`);
   const owner = await isOwner(id);
+  const me = await visitorId();
+  // 일정 위에 보여 줄 열린 제안. 승객 쿠키 값(authorId)은 철회 권한이라 그대로 내보내지 않고, 같은 사람인지만 알 수 있게 바꾼다
+  const pending = b.proposals.filter((x) => x.status === 'open').map((x) => ({ ...x, authorId: sha256(`sdt:${x.authorId}`).slice(0, 12) }));
+  const mine = me ? b.proposals.filter((x) => x.status === 'open' && x.authorId === me).map((x) => x.no) : [];
   const p = toView(b.plan, b.items);
   const nowMonth = seoulMonth();
   const open = b.proposals.filter((x) => x.status === 'open');
@@ -82,7 +87,7 @@ export default async function PlanPage({ params }: Props) {
     <article className={`plan tone-${p.status}`}>
       {p.visibility === 'public' ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} /> : null}
       <LegacyBlock html={renderPlanHero(p, { owner, nowMonth })} plan={p} owner={owner} />
-      <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length} proposals={b.proposals.length}>
+      <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length} proposals={b.proposals.length} pending={pending} mine={mine}>
         <LegacyBlock html={renderPlanStory(p, { nowMonth })} plan={p} owner={owner} />
       </PlanShell>
       <LegacyBlock html={renderPrep(p, { owner })} plan={p} owner={owner} />
@@ -95,7 +100,7 @@ export default async function PlanPage({ params }: Props) {
               Pull <em>requests</em>
             </h2>
           </div>
-          <p className="muted collab-note">링크를 받은 사람이 일정을 고치면 여기에 쌓이고, 기장이 수락하면 반영돼요.</p>
+          <p className="muted collab-note">대기 중인 제안은 위 일정에 반투명하게 보이고, 기장이 하나씩 반영해요. 여기는 제안 기록이에요.</p>
         </header>
         {b.proposals.length ? (
           <ol className="pr-list" role="list">

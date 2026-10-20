@@ -34,6 +34,23 @@ describe.skipIf(!url)('PgRepo (Supabase)', () => {
     expect(b.proposals.every((p) => p.status === 'accepted')).toBe(true);
   });
 
+  it('변경 하나씩 결정한 상태가 DB에 남는다 (ops jsonb)', async () => {
+    const { bundle, token } = await r.create(cleanInfo({ title: '하나씩', place: '테스트', ownerName: 't' }), [], 'pass1234');
+    made.push({ id: bundle.plan.id, token });
+    const id = bundle.plan.id;
+    const p = await r.propose(id, { authorId: 'q', authorName: 'q', title: 't', message: '', baseVersion: 1, ops: [{ type: 'add', item: item('s1') }, { type: 'add', item: item('s2') }] });
+    await r.decideOps(id, token, [{ no: p.no, index: 0, decision: 'accept' }]);
+    let pr = (await r.get(id))!.proposals[0];
+    expect(pr.status).toBe('open');
+    expect(pr.ops.map((o) => o.state ?? null)).toEqual(['accepted', null]);
+    await r.decideOps(id, token, [{ no: p.no, index: 1, decision: 'reject' }]);
+    const b = (await r.get(id))!;
+    pr = b.proposals[0];
+    expect(pr.status).toBe('partial');
+    expect(pr.ops.map((o) => o.state)).toEqual(['accepted', 'rejected']);
+    expect(b.items.map((i) => i.id)).toEqual(['s1']);
+  });
+
   it('링크 새로 만들기: 제안·기록·비밀이 새 id로 따라간다 (ON UPDATE CASCADE)', async () => {
     const { bundle, token } = await r.create(cleanInfo({ title: '링크 교체', place: '테스트', ownerName: 't' }), [item('k1')], 'pass1234');
     await r.propose(bundle.plan.id, { authorId: 'z', authorName: 'z', title: 't', message: '', baseVersion: 1, ops: [{ type: 'add', item: item('k2') }] });
@@ -52,5 +69,5 @@ describe.skipIf(!url)('PgRepo (Supabase)', () => {
     expect(JSON.stringify(await r.get(bundle.plan.id))).not.toMatch(/salt|"hash"|tokens/);
     for (let i = 0; i < 20; i++) await r.login(bundle.plan.id, 'x').catch(() => {});
     await expect(r.login(bundle.plan.id, 'pass1234')).rejects.toMatchObject({ code: 'locked' });
-  });
+  }, 30_000); // 비밀번호 확인(PBKDF2) 20번 + DB 왕복이라 오래 걸린다
 });

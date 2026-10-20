@@ -2463,3 +2463,241 @@ main {
     grid-row: 2;
   }
 }
+
+/* ---------- 일정 위 제안 ---------- */
+.sugg-queue {
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in oklab, var(--accent) 35%, var(--line));
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in oklab, var(--accent) 5%, var(--paper));
+}
+.sq-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.sq-head > div {
+  display: grid;
+  gap: 2px;
+}
+.sq-head small {
+  font-size: 12.5px;
+}
+.sq-toggle {
+  flex: none;
+  font-size: 13px;
+}
+.sq-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sq-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.sq-text {
+  display: flex;
+  flex: 1 1 260px;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sq-text:hover b {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sq-sum {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.sq-sum > b {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sq-ico {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+}
+.sq-ico.add {
+  background: color-mix(in oklab, var(--under) 18%, transparent);
+  color: var(--under);
+}
+.sq-ico.update {
+  background: color-mix(in oklab, var(--tone-preparing) 20%, transparent);
+  color: var(--tone-preparing);
+}
+.sq-ico.remove {
+  background: color-mix(in oklab, var(--over) 16%, transparent);
+  color: var(--over);
+}
+.sq-all {
+  flex-basis: 100%;
+  padding-left: 34px;
+  font-size: 12.5px;
+  text-align: left;
+}
+.sq-more {
+  margin-top: 6px;
+  font-size: 13px;
+}
+.sg-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.sg-support {
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+.sg-warn {
+  color: var(--over);
+  font-weight: 700;
+}
+.sg-msg {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.sg-acts {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.sg-ok,
+.sg-no {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 99px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sg-ok {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+.sg-no {
+  width: 32px;
+  padding: 0;
+}
+.sg-ok:disabled,
+.sg-no:disabled {
+  opacity: 0.5;
+}
+.sg-wait {
+  margin-left: auto;
+  font-size: 12px;
+}
+/* 추가 제안: 반투명 + 점선 (색이 아니어도 구분되게 "추가 제안" 글자와 ＋) */
+.route-item.is-ghost {
+  border: 1.5px dashed color-mix(in oklab, var(--under) 55%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--under) 5%, transparent);
+  margin: 6px 0;
+}
+.route-item.is-ghost .ri-body > :not(.sg-who):not(.sg-msg) {
+  opacity: 0.62;
+}
+.route-item.is-ghost .route-no {
+  color: var(--under);
+}
+.itinerary .route-item.is-ghost .ri-actions,
+.itinerary .ri-suggs .sg-acts {
+  opacity: 1;
+}
+.ri-suggs {
+  margin: -4px 0 6px 50px;
+  padding: 0;
+  list-style: none;
+}
+.sg-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 9px 12px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 12px;
+  margin-top: 6px;
+}
+.sg-strip.update {
+  border-color: color-mix(in oklab, var(--tone-preparing) 50%, var(--line));
+}
+.sg-strip.remove {
+  border-color: color-mix(in oklab, var(--over) 45%, var(--line));
+}
+.sg-main {
+  display: grid;
+  flex: 1 1 240px;
+  gap: 4px;
+  min-width: 0;
+}
+.sg-what {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 13.5px;
+}
+.sg-what .ri-badge {
+  margin-left: 0;
+}
+.sg-chg s {
+  color: var(--ink-3);
+}
+.flash {
+  animation: sg-flash 1.4s ease-out;
+}
+@keyframes sg-flash {
+  0%, 30% { box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 1px var(--accent); }
+  100% { box-shadow: none; }
+}
+/* 지도: 제안 핀은 반투명 */
+.is-ghost .pin-dot,
+.leaflet-marker-icon.is-ghost {
+  opacity: 0.6;
+}
+@media (max-width: 640px) {
+  .ri-suggs {
+    margin-left: 0;
+  }
+  .sq-all {
+    padding-left: 0;
+  }
+}

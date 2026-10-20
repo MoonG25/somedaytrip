@@ -4,7 +4,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
-import type { Item, Plan } from '@/lib/types';
+import type { Item, Plan, Proposal } from '@/lib/types';
+import { pendingGroups } from '@/lib/proposals';
 import { changePassword, deletePlan, login, logout, rejectAll, rekeyPlan, updatePlan } from '@/app/actions';
 import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
@@ -16,7 +17,27 @@ import { broadcast, toast } from './util';
 
 const previewKey = (id: string) => `sdt:preview:${id}`;
 
-export default function PlanShell({ plan, items, owner: isOwner, open, proposals = 0, children }: { plan: Plan; items: Item[]; owner: boolean; open: number; proposals?: number; children?: React.ReactNode }) {
+export default function PlanShell({
+  plan,
+  items,
+  owner: isOwner,
+  open: _open,
+  proposals = 0,
+  pending = [],
+  mine = [],
+  children,
+}: {
+  plan: Plan;
+  items: Item[];
+  owner: boolean;
+  open: number;
+  proposals?: number;
+  pending?: Proposal[];
+  mine?: number[];
+  children?: React.ReactNode;
+}) {
+  // 검토할 것: 같은 걸 원한 변경은 하나로 센다
+  const open = pendingGroups(items, pending).length;
   const router = useRouter();
   const [preview, setPreview] = useState(false);
   const [welcome, setWelcome] = useState(false);
@@ -91,8 +112,8 @@ export default function PlanShell({ plan, items, owner: isOwner, open, proposals
           </div>
           <div className="role-actions">
             {owner && open ? (
-              <a className="btn btn--sm btn--solid" href="#proposals">
-                검토할 제안 {open}개
+              <a className="btn btn--sm btn--solid" href="#suggestions">
+                📮 검토할 제안 {open}개
               </a>
             ) : null}
             <button type="button" className="btn btn--sm" onClick={() => setModal('share')}>
@@ -218,7 +239,7 @@ export default function PlanShell({ plan, items, owner: isOwner, open, proposals
       {owner ? <PrepBoard plan={plan} items={items} proposals={proposals} onShare={() => setModal('share')} /> : null}
       <PlanLinks plan={plan} owner={owner} />
       {children}
-      <Itinerary plan={plan} items={items} owner={owner} />
+      <Itinerary plan={plan} items={items} owner={owner} pending={pending} mine={mine} />
 
       <ShareModal open={modal === 'share'} plan={plan} welcome={welcome} onClose={() => (setModal(null), setWelcome(false))} />
       <LoginModal

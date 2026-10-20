@@ -50,11 +50,32 @@ export interface Repo {
   applyDirect(id: string, token: string, ops: Op[]): Promise<void>;
   propose(id: string, p: ProposalInput): Promise<Proposal>;
   decide(id: string, token: string, no: number, decision: 'accept' | 'reject', note: string, skipConflicts?: boolean): Promise<Proposal>;
+  /** 변경 하나씩 결정. force면 그 사이 바뀐 칸도 제안대로 덮어쓴다 */
+  decideOps(id: string, token: string, list: OpDecision[], force?: boolean): Promise<{ accepted: number; rejected: number }>;
+  withdrawOp(id: string, no: number, index: number, authorId: string): Promise<void>;
   rejectAllOpen(id: string, token: string, note: string): Promise<number>;
   withdraw(id: string, no: number, authorId: string): Promise<void>;
   remove(id: string, token: string): Promise<void>;
   /** 링크 새로 만들기: 계획 id를 바꾼다. 예전 링크는 더 이상 열리지 않는다 */
   rekey(id: string, token: string): Promise<string>;
+}
+
+export interface OpDecision {
+  no: number;
+  index: number;
+  /** supersede: 같은 걸 원한 다른 제안이 반영돼서 정리 */
+  decision: 'accept' | 'reject' | 'supersede';
+}
+
+/** 제안의 변경이 모두 결정되면 제안 상태를 정한다 */
+export function settle(pr: Proposal) {
+  if (pr.status !== 'open' || pr.ops.some((o) => !o.state)) return;
+  // 같은 걸 원한 다른 제안이 반영돼 정리된 것(superseded)도 바람이 이뤄졌으니 반영으로 센다
+  const ok = (o: Op) => o.state === 'accepted' || o.state === 'superseded';
+  const acc = pr.ops.filter(ok).length;
+  pr.status = acc === pr.ops.length ? 'accepted' : acc ? 'partial' : pr.ops.every((o) => o.state === 'withdrawn') ? 'withdrawn' : 'rejected';
+  if (pr.status === 'partial') pr.skipped = pr.ops.map((o, i) => (ok(o) ? -1 : i)).filter((i) => i >= 0);
+  pr.decidedAt = Date.now();
 }
 
 /** 저장소 안에서 다루는 계획 한 건 (비밀 포함) */
@@ -280,16 +301,25 @@ export abstract class BaseRepo implements Repo {
       const pr = r.proposals.find((x) => x.no === no);
       if (!pr) throw new RepoError('제안을 찾을 수 없어요', 'not_found');
       if (pr.status !== 'open') throw new RepoError('이미 처리된 제안이에요', 'invalid');
+      // 하나씩 결정한 변경이 있으면 남은(대기) 변경만 다룬다
+      const done = new Set(pr.ops.map((o, i) => (o.state ? i : -1)).filter((i) => i >= 0));
       if (decision === 'accept') {
-        const conflicts = findConflicts(r.items, pr.ops);
+        const conflicts = findConflicts(r.items, pr.ops).filter((c) => !done.has(c.op));
         if (conflicts.length && !skipConflicts) throw new RepoError('그 사이 계획이 바뀌어서 겹치는 변경이 있어요', 'conflict');
-        const skip = new Set(conflicts.map((c) => c.op));
+        const skip = new Set([...done, ...conflicts.map((c) => c.op)]);
         if (skip.size === pr.ops.length) throw new RepoError('반영할 수 있는 변경이 하나도 없어요', 'conflict');
         r.items = applyOps(r.items, pr.ops, skip);
         r.plan.version++;
-        pr.status = skip.size ? 'partial' : 'accepted';
-        if (skip.size) pr.skipped = [...skip];
-      } else pr.status = 'rejected';
+        pr.ops.forEach((o, i) => {
+          if (!o.state) o.state = skip.has(i) ? 'rejected' : 'accepted';
+        });
+        const acc = pr.ops.filter((o) => o.state === 'accepted').length;
+        pr.status = acc === pr.ops.length ? 'accepted' : 'partial';
+        if (pr.status === 'partial') pr.skipped = pr.ops.map((o, i) => (o.state === 'accepted' ? -1 : i)).filter((i) => i >= 0);
+      } else {
+        pr.ops.forEach((o) => (o.state ||= 'rejected'));
+        pr.status = pr.ops.some((o) => o.state === 'accepted') ? 'partial' : 'rejected';
+      }
       pr.decidedAt = Date.now();
       pr.note = note.trim().slice(0, 500) || undefined;
       const verb = pr.status === 'accepted' ? '수락' : pr.status === 'partial' ? '일부 수락' : '거절';
@@ -304,8 +334,8 @@ export abstract class BaseRepo implements Repo {
       this.owner(r, token);
       const open = r.proposals.filter((x) => x.status === 'open');
       for (const pr of open) {
-        pr.status = 'rejected';
-        pr.decidedAt = Date.now();
+        pr.ops.forEach((o) => (o.state ||= 'rejected'));
+        settle(pr);
         pr.note = note.trim().slice(0, 500) || undefined;
       }
       if (open.length) this.log(r, 'rejected', r.plan.ownerName, `열린 제안 ${open.length}개를 모두 거절`);
@@ -314,13 +344,68 @@ export abstract class BaseRepo implements Repo {
     });
   }
 
+  async decideOps(id: string, token: string, list: OpDecision[], force = false) {
+    if (!Array.isArray(list) || !list.length || list.length > 100) throw new RepoError('결정할 변경이 없어요', 'invalid');
+    return this.mutate(id, (r) => {
+      this.owner(r, token);
+      const parts: string[] = [];
+      const authors = new Set<string>();
+      let accepted = 0;
+      let rejected = 0;
+      for (const d of list) {
+        const pr = r.proposals.find((x) => x.no === Number(d.no));
+        const op = pr?.ops[Number(d.index)];
+        if (!pr || !op) throw new RepoError('제안을 찾을 수 없어요', 'not_found');
+        if (pr.status !== 'open' || op.state) continue; // 이미 결정됨 (다른 탭 등): 조용히 넘어간다
+        if (d.decision === 'accept') {
+          const conflict = findConflicts(r.items, [op])[0];
+          if (conflict && !force) throw new RepoError('그 사이 계획이 바뀌어서 겹치는 변경이 있어요', 'conflict');
+          if (conflict?.reason === 'gone') throw new RepoError('이미 지워진 일정이라 반영할 수 없어요', 'conflict');
+          r.items = applyOps(r.items, [op]);
+          op.state = 'accepted';
+          accepted++;
+          parts.push(describeOps([op], r.items) + ' 반영');
+        } else {
+          op.state = d.decision === 'supersede' ? 'superseded' : 'rejected';
+          if (d.decision === 'reject') {
+            rejected++;
+            parts.push(describeOps([op], r.items) + ' 거절');
+          }
+        }
+        authors.add(pr.authorName);
+        settle(pr);
+      }
+      if (accepted) r.plan.version++;
+      if (parts.length) {
+        const who = [...authors].slice(0, 2).join('·') + (authors.size > 2 ? ` 외 ${authors.size - 2}명` : '');
+        const text = parts.slice(0, 3).join(', ') + (parts.length > 3 ? ` 외 ${parts.length - 3}건` : '');
+        this.log(r, accepted ? 'accepted' : 'rejected', r.plan.ownerName, `${who}의 제안: ${text}`);
+      }
+      this.touch(r);
+      return { accepted, rejected };
+    });
+  }
+
+  async withdrawOp(id: string, no: number, index: number, authorId: string) {
+    await this.mutate(id, (r) => {
+      const pr = r.proposals.find((x) => x.no === no);
+      const op = pr?.ops[index];
+      if (!pr || !op || pr.status !== 'open' || op.state) throw new RepoError('철회할 수 없는 제안이에요', 'invalid');
+      if (pr.authorId !== authorId) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
+      op.state = 'withdrawn';
+      settle(pr);
+      this.log(r, 'withdrawn', pr.authorName, `#${no} ${describeOps([op], r.items)} 철회`, no);
+      this.touch(r);
+    });
+  }
+
   async withdraw(id: string, no: number, authorId: string) {
     await this.mutate(id, (r) => {
       const pr = r.proposals.find((x) => x.no === no);
       if (!pr || pr.status !== 'open') throw new RepoError('철회할 수 없는 제안이에요', 'invalid');
       if (pr.authorId !== authorId) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
-      pr.status = 'withdrawn';
-      pr.decidedAt = Date.now();
+      pr.ops.forEach((o) => (o.state ||= 'withdrawn'));
+      settle(pr);
       this.log(r, 'withdrawn', pr.authorName, `#${no} '${pr.title}' 철회`, no);
       this.touch(r);
     });

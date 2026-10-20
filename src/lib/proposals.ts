@@ -2,7 +2,7 @@
 //
 // 변경 하나(Op)는 "무엇을, 원래 어땠는데, 어떻게 바꾸자"를 담는다.
 // 수락할 때 지금 계획과 비교해서, 그 사이 같은 칸을 누가 바꿨으면 충돌로 본다 (3-way 비교).
-import type { Item, ItemField, Kind, Op } from './types';
+import type { Item, ItemField, Kind, Op, Proposal } from './types';
 
 export const KINDS: Record<Kind, { label: string; icon: string }> = {
   see: { label: '구경', icon: '📍' },
@@ -187,4 +187,112 @@ export function fieldText(k: ItemField, v: unknown): string {
   if (k === 'place') return (v as Item['place'])!.name;
   if (k === 'cost') return `${Number(v).toLocaleString('ko-KR')}원`;
   return String(v);
+}
+
+/* ---------- 일정 위에 보여 주는 대기 중인 제안 ---------- */
+
+/** 제안 안의 대기 중인 변경 하나 */
+export interface PendingOp {
+  no: number;
+  index: number;
+  op: Op;
+  authorId: string;
+  authorName: string;
+  createdAt: number;
+  message: string;
+}
+
+/**
+ * 같은 걸 원하는 변경끼리 묶은 것. 여러 명이 같은 곳을 추가하자고 하면 하나로 보여 주고
+ * "2명이 원해요"로 우선순위를 올린다. 반영하면 대표 하나만 반영하고 나머지는 정리한다.
+ */
+export interface PendingGroup {
+  key: string;
+  type: Op['type'];
+  /** add면 추가될 일정 id, 아니면 대상 일정 id */
+  target: string;
+  primary: PendingOp;
+  ops: PendingOp[];
+  /** 원하는 사람 수 (서로 다른 사람) */
+  support: number;
+  conflict: Conflict | null;
+  day: number | null;
+  /** 가장 먼저 낸 시각 (오래 기다린 순) */
+  since: number;
+  /** 그 제안의 첫 번째 대기 변경이면 true (메시지는 여기에만 보여 준다) */
+  lead: boolean;
+}
+
+const norm = (t: string) => t.replace(/\s+/g, '').toLowerCase();
+
+/** 대략 거리(m). 같은 곳인지 볼 때만 쓴다 */
+const meters = (a: { lat: number; lng: number }, b: { lat: number; lng: number }) =>
+  Math.hypot((a.lat - b.lat) * 111_000, (a.lng - b.lng) * 111_000 * Math.cos((a.lat * Math.PI) / 180));
+
+/** 같은 곳을 추가하자는 제안인지: 150m 안이거나, 장소가 없으면 같은 이름·같은 날 */
+const sameAdd = (x: Item, y: Item) => (x.place && y.place ? meters(x.place, y.place) < 150 : !x.place && !y.place && norm(x.title) === norm(y.title) && x.day === y.day);
+
+function groupKey(op: Op, adds: Map<string, Item>) {
+  if (op.type === 'add') {
+    for (const [k, it] of adds) if (sameAdd(it, op.item)) return k;
+    const k = `add:${op.item.id}`;
+    adds.set(k, op.item);
+    return k;
+  }
+  if (op.type === 'remove') return `rm:${op.id}`;
+  const after = Object.fromEntries(Object.entries(op.after).sort(([a], [b]) => a.localeCompare(b)));
+  return `upd:${op.id}:${JSON.stringify(after)}`;
+}
+
+/** 열린 제안들의 대기 중인 변경을 묶어서 우선순위대로 */
+export function pendingGroups(items: Item[], proposals: Proposal[]): PendingGroup[] {
+  const now = new Map(items.map((i) => [i.id, i]));
+  const map = new Map<string, PendingOp[]>();
+  const adds = new Map<string, Item>();
+  for (const pr of [...proposals].sort((a, b) => a.createdAt - b.createdAt)) {
+    if (pr.status !== 'open') continue;
+    pr.ops.forEach((op, index) => {
+      if (op.state) return;
+      const k = groupKey(op, adds);
+      const list = map.get(k) || [];
+      list.push({ no: pr.no, index, op, authorId: pr.authorId, authorName: pr.authorName, createdAt: pr.createdAt, message: pr.message });
+      map.set(k, list);
+    });
+  }
+  const groups: PendingGroup[] = [...map.entries()].map(([key, ops]) => {
+    ops.sort((a, b) => a.createdAt - b.createdAt);
+    const primary = ops[0];
+    const op = primary.op;
+    const target = op.type === 'add' ? op.item.id : op.id;
+    const cur = op.type === 'add' ? null : now.get(op.id);
+    const day = op.type === 'add' ? op.item.day : op.type === 'update' && 'day' in op.after ? (op.after.day ?? null) : (cur?.day ?? null);
+    return { key, type: op.type, target, primary, ops, support: new Set(ops.map((o) => o.authorId)).size, conflict: findConflicts(items, [op])[0] ?? null, day, since: primary.createdAt, lead: false };
+  });
+  const first = new Map<number, PendingGroup>();
+  for (const g of groups) {
+    const cur = first.get(g.primary.no);
+    if (!cur || g.primary.index < cur.primary.index) first.set(g.primary.no, g);
+  }
+  for (const g of first.values()) g.lead = true;
+  return groups.sort(byPriority);
+}
+
+/**
+ * 요청이 많을 때 보여 주는 순서
+ * 1. 여러 명이 같은 걸 원할수록 먼저
+ * 2. 바로 반영할 수 있는 것 먼저 (그 사이 바뀐 것은 뒤로)
+ * 3. 오래 기다린 것 먼저
+ * 4. 이른 날짜 먼저 (날짜 미정은 맨 뒤)
+ */
+export function byPriority(a: PendingGroup, b: PendingGroup) {
+  return b.support - a.support || Number(!!a.conflict) - Number(!!b.conflict) || a.since - b.since || (a.day ?? 999) - (b.day ?? 999);
+}
+
+/** 수정 제안의 바뀌는 칸들 (순서는 빼고) */
+export function changes(op: Op, items: Item[]): { field: ItemField; from: unknown; to: unknown }[] {
+  if (op.type !== 'update') return [];
+  const cur = items.find((i) => i.id === op.id);
+  return (Object.keys(op.after) as ItemField[])
+    .filter((k) => k !== 'order')
+    .map((k) => ({ field: k, from: cur ? cur[k] : op.before[k], to: op.after[k] }));
 }

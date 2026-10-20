@@ -132,6 +132,31 @@ export async function withdraw(id: string, no: number) {
   });
 }
 
+/** 일정 위에서 변경 하나씩 반영·거절 (기장) */
+export async function decideOps(id: string, list: { no: number; index: number; decision: 'accept' | 'reject' | 'supersede' }[], force = false) {
+  return run(async () => {
+    const clean = (Array.isArray(list) ? list : []).slice(0, 100).map((d) => ({
+      no: Number(d.no),
+      index: Number(d.index),
+      decision: d.decision === 'accept' ? ('accept' as const) : d.decision === 'supersede' ? ('supersede' as const) : ('reject' as const),
+    }));
+    const r = await repo().decideOps(id, await token(id), clean, !!force);
+    touch(id);
+    return r;
+  });
+}
+
+/** 내가 낸 변경 하나 철회 (승객) */
+export async function withdrawOp(id: string, no: number, index: number) {
+  return run(async () => {
+    const me = await visitorId();
+    if (!me) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
+    await repo().withdrawOp(id, Number(no), Number(index), me);
+    touch(id);
+    return null;
+  });
+}
+
 export async function deletePlan(id: string) {
   return run(async () => {
     await repo().remove(id, await token(id));

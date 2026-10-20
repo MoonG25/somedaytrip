@@ -85,10 +85,14 @@ export interface Plan extends PlanInfo {
   copiedFrom?: string;
 }
 
-export type Op =
+/** 제안 안의 변경 하나의 결정. 없으면 아직 대기 (예전 제안은 이 칸이 없다) */
+export type OpState = 'accepted' | 'rejected' | 'withdrawn' | 'superseded';
+
+export type Op = (
   | { type: 'add'; item: Item }
   | { type: 'update'; id: string; before: Partial<Item>; after: Partial<Item> }
-  | { type: 'remove'; id: string; before: Item };
+  | { type: 'remove'; id: string; before: Item }
+) & { state?: OpState };
 
 export type ProposalStatus = 'open' | 'accepted' | 'partial' | 'rejected' | 'withdrawn';
 

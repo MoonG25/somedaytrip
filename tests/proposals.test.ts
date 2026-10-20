@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Item, Op } from '../src/lib/types';
-import { applyOps, diffItem, findConflicts, stage, stagedView } from '../src/lib/proposals';
+import { applyOps, diffItem, findConflicts, pendingGroups, stage, stagedView } from '../src/lib/proposals';
 
 const mk = (id: string, o: Partial<Item> = {}): Item => ({ id, day: 1, time: '', title: id, en: '', kind: 'see', place: null, memo: '', cost: null, order: 0, ...o });
 
@@ -94,5 +94,33 @@ describe('stage (제안 바구니)', () => {
       ['a', 'remove'],
       ['n', 'add'],
     ]);
+  });
+});
+
+describe('pendingGroups (일정 위 제안 · 우선순위)', () => {
+  const prop = (no: number, authorId: string, ops: Op[], createdAt: number) => ({ id: `p${no}`, no, authorId, authorName: authorId, title: '', message: '', baseVersion: 1, ops, status: 'open' as const, createdAt });
+  const place = { name: '운하', lat: 43.1975, lng: 141.0036 };
+  it('같은 곳을 여러 명이 추가하면 하나로 묶고 맨 앞에 · 결정된 변경은 빠진다', () => {
+    const items = [mk('a', { time: '10:00' })];
+    const groups = pendingGroups(items, [
+      prop(1, 'x', [{ type: 'update', id: 'a', before: { time: '10:00' }, after: { time: '11:00' } }], 1),
+      prop(2, 'y', [{ type: 'add', item: mk('n1', { title: '운하', place }) }, { type: 'remove', id: 'a', before: items[0], state: 'rejected' }], 2),
+      prop(3, 'z', [{ type: 'add', item: mk('n2', { title: '오타루 운하', place: { ...place, lat: 43.1976 } }) }], 3),
+    ]);
+    expect(groups.length).toBe(2);
+    expect(groups[0].type).toBe('add');
+    expect(groups[0].support).toBe(2);
+    expect(groups[0].primary.no).toBe(2);
+    expect(groups[1].type).toBe('update');
+  });
+  it('바로 반영할 수 있는 것이 그 사이 바뀐 것보다 먼저 · 그다음 오래된 순', () => {
+    const items = [mk('a', { time: '12:00' }), mk('b')];
+    const groups = pendingGroups(items, [
+      prop(1, 'x', [{ type: 'update', id: 'a', before: { time: '10:00' }, after: { time: '11:00' } }], 1),
+      prop(2, 'y', [{ type: 'update', id: 'b', before: { memo: '' }, after: { memo: '우산' } }], 5),
+      prop(3, 'z', [{ type: 'update', id: 'b', before: { time: '' }, after: { time: '09:00' } }], 3),
+    ]);
+    expect(groups.map((g) => g.primary.no)).toEqual([3, 2, 1]);
+    expect(groups[2].conflict?.reason).toBe('changed');
   });
 });
