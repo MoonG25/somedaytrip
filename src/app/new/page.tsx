@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Composer from '@/components/Composer';
 import { repo } from '@/server';
+import { currentUser } from '@/server/auth';
 
 export const metadata: Metadata = {
   title: '계획 쓰기',
@@ -10,13 +11,15 @@ export const metadata: Metadata = {
 
 export default async function NewPlan({ searchParams }: { searchParams: Promise<{ from?: string }> }) {
   const { from } = await searchParams;
+  const u = await currentUser();
+  const account = u ? { nick: u.nick } : null;
   // ?from=<공개 계획 id>: 그 계획으로 내 계획 만들기
   if (from) {
     const src = await repo().get(from);
     if (src && src.plan.visibility === 'public') {
       const { id: _i, slug: _s, version: _v, createdAt: _c, updatedAt: _u, sample: _x, copiedFrom: _f, ownerName: _o, ...info } = src.plan;
-      return <Composer mode="copy" planId={from} copiedCount={src.items.length} initial={{ ...info, visibility: 'link', checklist: info.checklist.map(([t]) => [t, false]) }} />;
+      return <Composer mode="copy" planId={from} copiedCount={src.items.length} initial={{ ...info, visibility: 'link', checklist: info.checklist.map(([t]) => [t, false]) }} account={account} />;
     }
   }
-  return <Composer mode="new" />;
+  return <Composer mode="new" account={account} />;
 }

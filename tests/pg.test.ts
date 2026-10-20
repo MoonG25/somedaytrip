@@ -71,3 +71,40 @@ describe.skipIf(!url)('PgRepo (Supabase)', () => {
     await expect(r.login(bundle.plan.id, 'pass1234')).rejects.toMatchObject({ code: 'locked' });
   }, 30_000); // 비밀번호 확인(PBKDF2) 20번 + DB 왕복이라 오래 걸린다
 });
+
+describe.skipIf(!url)('PgUserStore (Supabase)', async () => {
+  const { PgUserStore } = await import('../src/server/users-pg');
+  const s = new PgUserStore(url!);
+  const r = new PgRepo(url!);
+  const R = Math.random().toString(36).slice(2, 8);
+  let uidMade = '';
+  const plans: { id: string; token: string }[] = [];
+  afterAll(async () => {
+    if (uidMade) await s.remove(uidMade).catch(() => {});
+    for (const m of plans) await r.remove(m.id, m.token).catch(() => {});
+  });
+
+  it('가입·중복·세션·토큰·계획 연결 (CASCADE)', async () => {
+    const u = await s.signup(`pgtest_${R}@example.com`, `pg${R}`, 'password1');
+    uidMade = u.id;
+    await expect(s.signup(`PGTEST_${R}@example.com`, `other${R}`, 'password1')).rejects.toThrow(/이미 가입된/);
+    await expect(s.signup(`x_${R}@example.com`, `PG${R}`, 'password1')).rejects.toThrow(/이미 쓰는/);
+    const t = await s.createSession(u.id);
+    expect((await s.bySession(t))?.id).toBe(u.id);
+    const vt = await s.issueToken(u.id, 'verify');
+    await s.verify(vt);
+    await expect(s.verify(vt)).rejects.toThrow();
+    const { bundle, token } = await r.create(cleanInfo({ title: '계정 연결', place: '테스트', ownerName: 't' }), [], 'pass1234');
+    plans.push({ id: bundle.plan.id, token });
+    await s.link(u.id, bundle.plan.id, 'owner');
+    await s.link(u.id, bundle.plan.id, 'member');
+    expect(await s.owners(bundle.plan.id)).toEqual([u.id]);
+    const next = await r.rekey(bundle.plan.id, token);
+    plans[0].id = next;
+    expect(await s.owners(next)).toEqual([u.id]); // ON UPDATE CASCADE
+    await s.remove(u.id);
+    uidMade = '';
+    expect(await s.bySession(t)).toBeNull();
+    expect(await s.owners(next)).toEqual([]);
+  }, 30_000);
+});

@@ -88,7 +88,7 @@ export const blankPlan = () => ({
 
 const lbl = (text, hint = '') => `<span class="lbl-text">${text}${hint ? ` <em>${hint}</em>` : ''}</span>`;
 
-export function renderComposer({ mode = 'new', copiedCount = 0 }) {
+export function renderComposer({ mode = 'new', copiedCount = 0, account = null }) {
   const editing = mode === 'edit';
   const quick = !editing;
   const noPlaces = mode !== 'new';
@@ -265,7 +265,14 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
         <header class="sdt-modal-head"><h2>탑승권 발권</h2><button type="button" class="icon-btn" data-issue-close aria-label="닫기">✕</button></header>
         <div class="sdt-modal-body">
           <div class="issue-ticket"></div>
-          <div class="owner-box">
+          ${
+            account
+              ? `<div class="owner-box">
+            <p class="owner-lede"><b>🧑‍✈️ ${esc(account.nick)} 계정으로 발권해요.</b> 계획 비밀번호 없이, 어느 기기에서든 로그인만 하면 기장이에요.</p>
+            <label class="field-block half">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" autocomplete="nickname"></label>
+            <input type="hidden" name="pw" value=""><input type="checkbox" name="remember" checked hidden>
+          </div>`
+              : `<div class="owner-box">
             <p class="owner-lede"><b>🔑 비밀번호를 아는 사람이 이 계획의 기장이에요.</b> 제안 수락·거절, 직접 수정, 삭제를 할 수 있어요. 다른 기기에서도 비밀번호만 넣으면 기장으로 돌아와요. <b>잊으면 되찾을 수 없어요.</b></p>
             <div class="grid2">
               <label class="field-block">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 문" autocomplete="nickname"></label>
@@ -273,7 +280,9 @@ export function renderComposer({ mode = 'new', copiedCount = 0 }) {
             </div>
             <div class="pw-meter" data-s="-1"><i></i><span>친구들과 같이 쓰는 비밀번호는 피하세요</span></div>
             <label class="switch"><input type="checkbox" name="remember" checked><span class="switch-ui" aria-hidden="true"></span>이 브라우저에서 기장으로 기억하기 <span class="faint">(공용 PC라면 끄세요)</span></label>
-          </div>
+            <p class="issue-login faint">💡 가입하면 비밀번호 없이 어느 기기에서든 기장이에요 · <a class="link-u" href="/login?next=/new">로그인</a> · <a class="link-u" href="/signup?next=/new">가입</a> <span>(쓰던 내용은 그대로 남아요)</span></p>
+          </div>`
+          }
           <div class="modal-actions"><button type="button" class="btn btn--solid" data-issue>✂ 발권하고 탑승하기</button></div>
         </div>
       </div>
@@ -502,7 +511,7 @@ const fmtDay = (iso) => {
  * @param {{ mode: 'new'|'edit'|'copy', initial?: object, onSubmit: (data, extra) => Promise<string|null> }} opts
  *   onSubmit은 실패하면 오류 메시지를, 성공하면 null을 돌려준다
  */
-export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) {
+export function mountComposer(root, { mode = 'new', initial = null, onSubmit, account = null }) {
   const cleanups = [];
   const editing = mode === 'edit';
   const quick = !editing;
@@ -516,6 +525,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     }
   })();
   let d = { ...blankPlan(), ...(initial || wip || {}) };
+  if (account?.nick) d.ownerName = d.ownerName || account.nick;
   if (!d.ownerName) {
     try {
       d.ownerName = localStorage.getItem('sdt:name') || '';
@@ -1356,11 +1366,11 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
     syncBudget();
     issueTicket.innerHTML = ticketHTML({ ...d, id: 'issue', href: '' }, { preview: true }).replace(' data-reveal', '');
     if (!issue.open) issue.showModal();
-    setTimeout(() => (d.ownerName ? form.pw : form.ownerName).focus(), 30);
+    setTimeout(() => (d.ownerName && !account ? form.pw : form.ownerName).focus(), 30);
   };
   issue?.querySelector('[data-issue-close]').addEventListener('click', () => issue.close());
   issue?.addEventListener('mousedown', (e) => e.target === issue && issue.close());
-  issue?.querySelector('[data-pw-show]').addEventListener('click', (e) => {
+  issue?.querySelector('[data-pw-show]')?.addEventListener('click', (e) => {
     const on = form.pw.type === 'password';
     form.pw.type = on ? 'text' : 'password';
     e.currentTarget.textContent = on ? '숨기기' : '보기';
@@ -1374,7 +1384,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit }) 
   });
   const ownerOk = () => {
     read();
-    const bad = !d.ownerName ? ['기장 이름을 적어 주세요', 'ownerName'] : form.pw.value.length < 4 ? ['비밀번호는 4자 이상이어야 해요', 'pw'] : null;
+    const bad = !d.ownerName ? ['기장 이름을 적어 주세요', 'ownerName'] : !account && form.pw.value.length < 4 ? ['비밀번호는 4자 이상이어야 해요', 'pw'] : null;
     if (bad) {
       toast(bad[0], '!');
       form[bad[1]].focus();

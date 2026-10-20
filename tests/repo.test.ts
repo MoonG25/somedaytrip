@@ -96,8 +96,8 @@ describe('FileRepo', () => {
     const { bundle, token } = await r.create(info, [], 'pass1234');
     const id = bundle.plan.id;
     const p = await r.propose(id, pr([{ type: 'add', item: item('a') }]));
-    await expect(r.withdraw(id, p.no, 'other')).rejects.toMatchObject({ code: 'forbidden' });
-    await r.withdraw(id, p.no, 'g');
+    await expect(r.withdraw(id, p.no, ['other'])).rejects.toMatchObject({ code: 'forbidden' });
+    await r.withdraw(id, p.no, ['g']);
     await r.propose(id, pr([{ type: 'add', item: item('b') }], 'x'));
     await r.propose(id, pr([{ type: 'add', item: item('c') }], 'y'));
     expect(await r.rejectAllOpen(id, token, '')).toBe(2);
@@ -232,8 +232,8 @@ describe('일정 위에서 하나씩 결정', () => {
     await expect(r.decideOps(id, token, [{ no: p.no, index: 0, decision: 'accept' }])).rejects.toThrow(/겹치는/);
     await r.decideOps(id, token, [{ no: p.no, index: 0, decision: 'accept' }], true);
     expect((await r.get(id))!.items.find((i) => i.id === 'a')!.time).toBe('11:00');
-    await expect(r.withdrawOp(id, p.no, 1, 'someone-else')).rejects.toThrow();
-    await r.withdrawOp(id, p.no, 1, 'x');
+    await expect(r.withdrawOp(id, p.no, 1, ['someone-else'])).rejects.toThrow();
+    await r.withdrawOp(id, p.no, 1, ['x']);
     expect((await r.get(id))!.proposals[0].status).toBe('partial');
   });
 });

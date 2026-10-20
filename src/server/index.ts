@@ -3,9 +3,12 @@
 import 'server-only';
 import { FileRepo, type Repo } from './repo';
 import { PgRepo } from './pg-repo';
+import { FileUserStore, type BaseUserStore } from './users';
+import { PgUserStore } from './users-pg';
 
 declare global {
   var __sdtRepo: Repo | undefined;
+  var __sdtUsers: BaseUserStore | undefined;
 }
 
 export function repo(): Repo {
@@ -14,6 +17,14 @@ export function repo(): Repo {
   if (cur && !(cur instanceof FileRepo) && !(cur instanceof PgRepo)) globalThis.__sdtRepo = undefined;
   globalThis.__sdtRepo ??= process.env.DATABASE_URL ? new PgRepo(process.env.DATABASE_URL) : new FileRepo(process.env.SDT_DATA_DIR || undefined);
   return globalThis.__sdtRepo;
+}
+
+/** 계정 저장소 (선택 가입) */
+export function users(): BaseUserStore {
+  const cur = globalThis.__sdtUsers;
+  if (cur && !(cur instanceof FileUserStore) && !(cur instanceof PgUserStore)) globalThis.__sdtUsers = undefined;
+  globalThis.__sdtUsers ??= process.env.DATABASE_URL ? new PgUserStore(process.env.DATABASE_URL) : new FileUserStore(process.env.SDT_DATA_DIR || undefined);
+  return globalThis.__sdtUsers;
 }
 
 export { RepoError, isRepoError } from './repo';

@@ -25,16 +25,31 @@ function stopsToItems(stops: Stop[], days: number): Item[] {
   }));
 }
 
-export default function Composer({ mode, initial, planId, copiedCount = 0 }: { mode: 'new' | 'edit' | 'copy'; initial?: Partial<PlanInfo> | null; planId?: string; copiedCount?: number }) {
+export default function Composer({
+  mode,
+  initial,
+  planId,
+  copiedCount = 0,
+  account = null,
+}: {
+  mode: 'new' | 'edit' | 'copy';
+  initial?: Partial<PlanInfo> | null;
+  planId?: string;
+  copiedCount?: number;
+  /** 로그인했으면 계획 비밀번호 없이 계정으로 발권 */
+  account?: { nick: string } | null;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const html = useMemo(() => renderComposer({ mode, copiedCount }), [mode, copiedCount]);
+  const nick = account?.nick ?? null;
+  const html = useMemo(() => renderComposer({ mode, copiedCount, account: nick ? { nick } : null }), [mode, copiedCount, nick]);
   useEffect(() => {
     // 붙일 때마다 HTML을 새로 깐다: 이전에 붙은 이벤트가 남아 작성기가 두 벌 돌지 않게 (StrictMode·다시 그리기)
     ref.current!.innerHTML = html;
     return mountComposer(ref.current!, {
       mode,
       initial,
+      account: nick ? { nick } : null,
       onSubmit: async ({ info, stops }: { info: PlanInfo; stops: Stop[] }, extra: { password?: string; remember?: boolean; tear?: () => Promise<void> }) => {
         if (mode === 'edit') {
           const r = await updatePlan(planId!, info);

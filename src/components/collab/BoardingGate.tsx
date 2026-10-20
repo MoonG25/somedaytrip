@@ -12,7 +12,7 @@ import { rememberPlan } from '@/lib/mine';
 
 const boardedKey = (id: string) => `sdt:boarded:${id}`;
 
-export default function BoardingGate({ plan, items, onCaptain }: { plan: Plan; items: Item[]; onCaptain: () => void }) {
+export default function BoardingGate({ plan, items, nick, onCaptain }: { plan: Plan; items: Item[]; nick?: string; onCaptain: () => void }) {
   const [show, setShow] = useState(true);
   const [leaving, setLeaving] = useState(false);
   const [role, setRole] = useState<'guest' | 'captain' | null>(null);
@@ -30,7 +30,7 @@ export default function BoardingGate({ plan, items, onCaptain }: { plan: Plan; i
     try {
       skip = !!localStorage.getItem(boardedKey(plan.id)) || sessionStorage.getItem('sdt:tore') === plan.id;
       sessionStorage.removeItem('sdt:tore');
-      setName(localStorage.getItem('sdt:name') || '');
+      setName(nick || localStorage.getItem('sdt:name') || '');
     } catch {}
     if (skip) setShow(false);
   }, [plan.id]);

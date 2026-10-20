@@ -1,8 +1,8 @@
 // 홈의 "내 계획"과 쿠키 백업. 서버 액션에서 쿠키를 쓰면 Next가 화면을 새로 받아 와서
 // 홈이 다시 불러오기를 반복한다. 그래서 화면 새로고침이 없는 API로 둔다.
 import { NextResponse, type NextRequest } from 'next/server';
-import { repo } from '@/server';
-import { ownerToken, savedMine, setSavedMine } from '@/server/auth';
+import { repo, users } from '@/server';
+import { currentUser, ownerToken, savedMine, setSavedMine } from '@/server/auth';
 import { allow, clientIp } from '@/server/limit';
 
 export const dynamic = 'force-dynamic';
@@ -15,11 +15,15 @@ export async function POST(req: NextRequest) {
   if (!allow(`mine:${clientIp(req)}`, 60, 60_000)) return NextResponse.json({ error: 'limited' }, { status: 429 });
   const body = (await req.json().catch(() => ({}))) as { ids?: unknown; keep?: boolean };
   const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).slice(0, 100);
-  const want = [...new Set([...ids, ...(await savedMine())])].slice(0, 100);
+  // 로그인했으면 계정의 내 계획도 합친다 (어느 기기든 같은 목록)
+  const user = await currentUser();
+  const fromAccount = user ? (await users().links(user.id)).map((l) => l.planId) : [];
+  const want = [...new Set([...ids, ...(await savedMine()), ...fromAccount])].slice(0, 100);
 
   // 새로 기억한 계획을 백업에 넣기만
   if (body.keep) {
     await setSavedMine(want);
+    if (user) for (const id of ids.slice(0, 20)) await users().link(user.id, id, 'member').catch(() => {}); // 없는 계획 id면 FK가 막는다
     return NextResponse.json({ ok: true }, { headers: noStore });
   }
 
@@ -28,6 +32,11 @@ export async function POST(req: NextRequest) {
   const byId = new Map((await repo().getMany(want)).map((b) => [b.plan.id, b]));
   const list = want.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
   await setSavedMine(list.map((b) => b.plan.id));
+  // 이 브라우저에만 있던 계획을 계정으로 옮겨 둔다 (로그인 직후 한 번에 합쳐진다)
+  if (user) {
+    const known = new Set(fromAccount);
+    for (const b of list) if (!known.has(b.plan.id)) await users().link(user.id, b.plan.id, 'member').catch(() => {});
+  }
   const rows = await Promise.all(
     list.map(async (b) => ({
       bundle: { plan: b.plan, items: b.items },

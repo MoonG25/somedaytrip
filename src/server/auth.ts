@@ -12,8 +12,18 @@ export async function ownerToken(id: string) {
   return (await cookies()).get(ownerKey(id))?.value ?? null;
 }
 
+/** 기장인지: 이 브라우저의 기장 토큰, 또는 로그인한 계정이 이 계획의 기장 */
 export async function isOwner(id: string) {
-  return repo().checkToken(id, await ownerToken(id));
+  if (await repo().checkToken(id, await ownerToken(id))) return true;
+  return accountOwns(id);
+}
+
+/** 로그인한 계정이 이 계획의 기장인지 (계획 비밀번호 없이 관리) */
+export async function accountOwns(id: string) {
+  const u = await currentUser();
+  if (!u) return false;
+  const { users } = await import('./index');
+  return (await users().owners(id)).includes(u.id);
 }
 
 /** remember=false면 브라우저를 닫을 때 지워지는 쿠키 */
@@ -63,4 +73,45 @@ export async function setSavedMine(ids: string[]) {
   if (v === (jar.get(MINE)?.value ?? '')) return; // 같으면 다시 쓰지 않는다
   if (v) jar.set(MINE, v, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge: YEAR });
   else jar.delete(MINE);
+}
+
+/* ---------- 이메일 계정 세션 (선택 가입) ---------- */
+// sdt_s: 세션 토큰 (httpOnly). sdt_authed: 로그인 상태 표시만 (머리말을 깜빡임 없이 그리려고 스크립트가 읽는다. 비밀 아님)
+const SESSION = 'sdt_s';
+const AUTHED = 'sdt_authed';
+
+export async function sessionToken() {
+  return (await cookies()).get(SESSION)?.value ?? null;
+}
+
+export async function setSession(token: string) {
+  const jar = await cookies();
+  const maxAge = 60 * 60 * 24 * 30;
+  jar.set(SESSION, token, { httpOnly: true, sameSite: 'lax', secure, path: '/', maxAge });
+  jar.set(AUTHED, '1', { httpOnly: false, sameSite: 'lax', secure, path: '/', maxAge });
+}
+
+export async function clearSession() {
+  const jar = await cookies();
+  jar.delete(SESSION);
+  jar.delete(AUTHED);
+}
+
+/** 지금 로그인한 계정 (없으면 null) */
+export async function currentUser() {
+  const { users } = await import('./index');
+  const u = await users().bySession(await sessionToken());
+  if (!u && (await cookies()).get(AUTHED)) {
+    // 세션이 끝났는데 표시만 남았으면 지운다 (서버 액션·라우트에서만 지울 수 있어서 실패는 무시)
+    try {
+      (await cookies()).delete(AUTHED);
+    } catch {}
+  }
+  return u;
+}
+
+/** 이 브라우저(그리고 계정)로 낸 제안을 알아보는 id들. 계정은 'u:<id>' */
+export async function authorIds() {
+  const [u, v] = await Promise.all([currentUser(), visitorId()]);
+  return [u ? `u:${u.id}` : null, v].filter(Boolean) as string[];
 }

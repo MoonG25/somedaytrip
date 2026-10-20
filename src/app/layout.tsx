@@ -28,6 +28,8 @@ export const viewport: Viewport = {
 };
 
 // 첫 페인트 전에 테마와 포인트 색을 적용해 깜빡임을 막는다 (moon.log index.html과 같음)
+// 로그인했는지 (머리말 버튼을 그리기 전에 정한다. sdt_authed는 비밀이 아닌 표시용 쿠키)
+const AUTH_SCRIPT = `(function(){try{if(/(?:^|; )sdt_authed=1/.test(document.cookie))document.documentElement.dataset.authed='1'}catch(e){}})();`;
 // 탑승 수속을 마친 계획 id (그리기 전에 게이트를 숨기려고)
 const BOARDED_SCRIPT = `(function(){try{var b=[];for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf('sdt:boarded:')===0)b.push(k.slice(12))}var t=sessionStorage.getItem('sdt:tore');if(t)b.push(t);document.documentElement.dataset.boarded=b.join(' ')}catch(e){}})();`;
 const THEME_SCRIPT = `(function(){try{var g=function(k){var v=localStorage.getItem('sdt:'+k);return v?JSON.parse(v):null};var t=g('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';var h=g('hue');if(h!=null)document.documentElement.style.setProperty('--hue',h)}catch(e){}})();`;
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: BOARDED_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: AUTH_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
@@ -76,6 +79,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a className="btn btn--solid btn--sm header-cta" href="/new">
               + 계획 쓰기
             </a>
+            <a className="btn btn--ghost btn--sm auth-in" href="/login">
+              로그인
+            </a>
+            <a className="icon-btn auth-me" href="/account" aria-label="내 계정">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="8.5" r="3.6" />
+                <path d="M4.5 20c1.3-3.6 4.2-5.4 7.5-5.4s6.2 1.8 7.5 5.4" />
+              </svg>
+            </a>
             <button className="icon-btn" type="button" popoverTarget="accent-pop" aria-label="포인트 색상 바꾸기">
               <span className="accent-dot" aria-hidden="true" />
             </button>
@@ -108,6 +120,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a href="/new">
               <span>02</span>New plan<small>계획 쓰기</small>
             </a>
+            <a href="/login" className="auth-in">
+              <span>03</span>Sign in<small>로그인 · 가입</small>
+            </a>
+            <a href="/account" className="auth-me">
+              <span>03</span>Account<small>내 계정</small>
+            </a>
           </nav>
         </div>
 
@@ -133,6 +151,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <li>
                   <a href="/new">New plan · 계획 쓰기</a>
                 </li>
+                <li>
+                  <a href="/privacy">Privacy · 개인정보처리방침</a>
+                </li>
               </ul>
             </div>
             <div>
@@ -142,7 +163,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <span className="faint">링크를 받은 사람은 누구나 일정을 제안</span>
                 </li>
                 <li>
-                  <span className="faint">반영은 비밀번호를 아는 기장만</span>
+                  <span className="faint">반영은 기장만 (계획 비밀번호 또는 계정)</span>
                 </li>
               </ul>
             </div>

@@ -52,9 +52,13 @@ export interface Repo {
   decide(id: string, token: string, no: number, decision: 'accept' | 'reject', note: string, skipConflicts?: boolean): Promise<Proposal>;
   /** 변경 하나씩 결정. force면 그 사이 바뀐 칸도 제안대로 덮어쓴다 */
   decideOps(id: string, token: string, list: OpDecision[], force?: boolean): Promise<{ accepted: number; rejected: number }>;
-  withdrawOp(id: string, no: number, index: number, authorId: string): Promise<void>;
+  withdrawOp(id: string, no: number, index: number, authorIds: string[]): Promise<void>;
+  /** 계정 기장에게 기장 토큰을 준다 (계정 소유는 호출하는 쪽에서 확인한다) */
+  grant(id: string): Promise<string>;
+  /** 계정 기장이 지금 비밀번호 없이 계획 비밀번호를 정한다 (기장 토큰 필요) */
+  setPassword(id: string, token: string, next: string): Promise<void>;
   rejectAllOpen(id: string, token: string, note: string): Promise<number>;
-  withdraw(id: string, no: number, authorId: string): Promise<void>;
+  withdraw(id: string, no: number, authorIds: string[]): Promise<void>;
   remove(id: string, token: string): Promise<void>;
   /** 링크 새로 만들기: 계획 id를 바꾼다. 예전 링크는 더 이상 열리지 않는다 */
   rekey(id: string, token: string): Promise<string>;
@@ -386,12 +390,12 @@ export abstract class BaseRepo implements Repo {
     });
   }
 
-  async withdrawOp(id: string, no: number, index: number, authorId: string) {
+  async withdrawOp(id: string, no: number, index: number, authorIds: string[]) {
     await this.mutate(id, (r) => {
       const pr = r.proposals.find((x) => x.no === no);
       const op = pr?.ops[index];
       if (!pr || !op || pr.status !== 'open' || op.state) throw new RepoError('철회할 수 없는 제안이에요', 'invalid');
-      if (pr.authorId !== authorId) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
+      if (!authorIds.includes(pr.authorId)) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
       op.state = 'withdrawn';
       settle(pr);
       this.log(r, 'withdrawn', pr.authorName, `#${no} ${describeOps([op], r.items)} 철회`, no);
@@ -399,11 +403,31 @@ export abstract class BaseRepo implements Repo {
     });
   }
 
-  async withdraw(id: string, no: number, authorId: string) {
+  async grant(id: string) {
+    const t = uid(24);
+    await this.mutate(id, (r) => {
+      r.tokens = [sha256(t), ...r.tokens].slice(0, 20);
+    });
+    return t;
+  }
+
+  async setPassword(id: string, token: string, next: string) {
+    if (next.length < 4) throw new RepoError('새 비밀번호는 4자 이상이어야 해요', 'invalid');
+    const secret = await makeSecret(next);
+    await this.mutate(id, (r) => {
+      this.owner(r, token);
+      r.secret = secret;
+      r.tokens = [sha256(token)];
+      this.log(r, 'meta', r.plan.ownerName, '기장 비밀번호를 정했어요');
+      this.touch(r);
+    });
+  }
+
+  async withdraw(id: string, no: number, authorIds: string[]) {
     await this.mutate(id, (r) => {
       const pr = r.proposals.find((x) => x.no === no);
       if (!pr || pr.status !== 'open') throw new RepoError('철회할 수 없는 제안이에요', 'invalid');
-      if (pr.authorId !== authorId) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
+      if (!authorIds.includes(pr.authorId)) throw new RepoError('제안한 사람만 철회할 수 있어요', 'forbidden');
       pr.ops.forEach((o) => (o.state ||= 'withdrawn'));
       settle(pr);
       this.log(r, 'withdrawn', pr.authorName, `#${no} '${pr.title}' 철회`, no);

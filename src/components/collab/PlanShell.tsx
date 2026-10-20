@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import type { Item, Plan, Proposal } from '@/lib/types';
 import { pendingGroups } from '@/lib/proposals';
-import { changePassword, deletePlan, login, logout, rejectAll, rekeyPlan, updatePlan } from '@/app/actions';
+import { changePassword, claimPlan, deletePlan, login, logout, rejectAll, rekeyPlan, updatePlan } from '@/app/actions';
 import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
 import PlanLinks from './PlanLinks';
@@ -25,6 +25,7 @@ export default function PlanShell({
   proposals = 0,
   pending = [],
   mine = [],
+  account = null,
   children,
 }: {
   plan: Plan;
@@ -34,6 +35,8 @@ export default function PlanShell({
   proposals?: number;
   pending?: Proposal[];
   mine?: number[];
+  /** 로그인한 계정 (owns: 계정이 이 계획의 기장) */
+  account?: { nick: string; owns: boolean } | null;
   children?: React.ReactNode;
 }) {
   // 검토할 것: 같은 걸 원한 변경은 하나로 센다
@@ -186,9 +189,24 @@ export default function PlanShell({
                       🔄 링크 새로 만들기
                     </button>
                   ) : null}
+                  {account && !account.owns ? (
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        closeMenu(e);
+                        const r = await claimPlan(plan.id);
+                        if (!r.ok) return toast(r.error, '!');
+                        router.refresh();
+                        toast('내 계정에 연결했어요. 다른 기기에서도 로그인만 하면 기장이에요', '🔗');
+                      }}
+                    >
+                      🔗 내 계정에 연결
+                    </button>
+                  ) : null}
                   <button type="button" onClick={(e) => (closeMenu(e), setModal('password'))}>
-                    🔑 비밀번호 바꾸기
+                    🔑 {account?.owns ? '계획 비밀번호 정하기' : '비밀번호 바꾸기'}
                   </button>
+                  {account?.owns ? null : (
                   <button
                     type="button"
                     onClick={async (e) => {
@@ -201,6 +219,7 @@ export default function PlanShell({
                   >
                     🚪 기장 인증 풀기
                   </button>
+                  )}
                   <hr />
                   <button
                     type="button"
@@ -229,6 +248,7 @@ export default function PlanShell({
         <BoardingGate
           plan={plan}
           items={items}
+          nick={account?.nick}
           onCaptain={() => {
             setPrev(false);
             router.refresh();
@@ -254,7 +274,7 @@ export default function PlanShell({
           toast('기장으로 인증됐어요', '🧑‍✈️');
         }}
       />
-      <PasswordModal open={modal === 'password'} plan={plan} onClose={() => setModal(null)} />
+      <PasswordModal open={modal === 'password'} plan={plan} byAccount={!!account?.owns} onClose={() => setModal(null)} />
       <Modal open={modal === 'publish'} title="전체 공개로 바꿀까요?" onClose={() => setModal(null)}>
         <div className="item-form">
           <ul className="pub-rules">
@@ -370,6 +390,7 @@ function LoginModal({ open, plan, onClose, onDone }: { open: boolean; plan: Plan
           }
           setPw('');
           setErr('');
+          if (r.data?.linked) toast('내 계정에 연결했어요. 다음부터는 로그인만 하면 기장이에요', '🔗');
           onDone();
         }}
       >
@@ -395,13 +416,13 @@ function LoginModal({ open, plan, onClose, onDone }: { open: boolean; plan: Plan
   );
 }
 
-function PasswordModal({ open, plan, onClose }: { open: boolean; plan: Plan; onClose: () => void }) {
+function PasswordModal({ open, plan, byAccount, onClose }: { open: boolean; plan: Plan; byAccount: boolean; onClose: () => void }) {
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
   const [next2, setNext2] = useState('');
   const [err, setErr] = useState('');
   return (
-    <Modal open={open} title="기장 비밀번호 바꾸기" onClose={onClose}>
+    <Modal open={open} title={byAccount ? '계획 비밀번호 정하기' : '기장 비밀번호 바꾸기'} onClose={onClose}>
       <form
         className="item-form"
         onSubmit={async (e) => {
@@ -418,10 +439,14 @@ function PasswordModal({ open, plan, onClose }: { open: boolean; plan: Plan; onC
           toast('비밀번호를 바꿨어요. 다른 기기의 기장 인증은 풀렸어요', '🔑');
         }}
       >
-        <label className="lbl">
-          지금 비밀번호
-          <input className="inp" type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
-        </label>
+        {byAccount ? (
+          <p className="muted">계정으로 관리하는 계획이라 지금 비밀번호 없이 정할 수 있어요. 정해 두면 로그인하지 않은 기기나 다른 기장도 이 비밀번호로 들어올 수 있어요.</p>
+        ) : (
+          <label className="lbl">
+            지금 비밀번호
+            <input className="inp" type="password" value={cur} onChange={(e) => setCur(e.target.value)} autoComplete="current-password" />
+          </label>
+        )}
         <label className="lbl">
           새 비밀번호
           <input className="inp" type="password" value={next} onChange={(e) => setNext(e.target.value)} autoComplete="new-password" />

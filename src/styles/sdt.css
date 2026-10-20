@@ -2701,3 +2701,159 @@ main {
     padding-left: 0;
   }
 }
+
+/* ---------- 계정 (선택 가입) ---------- */
+/* 머리말: 로그인 여부는 <html data-authed>로 (첫 화면은 layout 스크립트가 쿠키로 정해서 깜빡이지 않는다) */
+html:not([data-authed]) .auth-me,
+html[data-authed] .auth-in {
+  display: none !important;
+}
+.auth-me svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+@media (max-width: 760px) {
+  .header-tools .auth-in {
+    display: none;
+  }
+}
+.auth-page .lede {
+  max-width: 560px;
+}
+.auth-card {
+  width: min(460px, 100%);
+  margin-top: 28px;
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in oklab, var(--paper) 70%, #fff);
+  box-shadow: var(--shadow);
+}
+:root[data-theme='dark'] .auth-card {
+  background: color-mix(in oklab, var(--paper) 90%, #fff);
+}
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+.auth-hint {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.auth-hint.ok {
+  color: var(--under);
+}
+.auth-hint.bad {
+  color: var(--over);
+}
+.auth-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.auth-agree input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+.auth-submit {
+  width: 100%;
+  justify-content: center;
+}
+.auth-alt {
+  margin: 0;
+  text-align: center;
+  font-size: 13.5px;
+}
+.auth-done {
+  display: grid;
+  gap: 16px;
+}
+.auth-perks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.account {
+  display: grid;
+  gap: 18px;
+  width: min(640px, 100%);
+  margin-top: 28px;
+}
+.acc-card {
+  padding: 22px 24px;
+  border-radius: var(--radius-lg, 18px);
+  background: var(--ink);
+  color: var(--paper);
+}
+.acc-card .eyebrow,
+.acc-card .faint {
+  color: color-mix(in oklab, var(--paper) 70%, transparent);
+}
+.acc-nick {
+  display: block;
+  margin-top: 4px;
+  font-size: 28px;
+  font-weight: 800;
+}
+.acc-stat {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+.acc-stat a {
+  color: inherit;
+}
+.acc-sec {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg, 18px);
+}
+.acc-sec h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.acc-sec p {
+  margin: 0;
+}
+.acc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.acc-delete {
+  margin-left: auto;
+  font-size: 13px;
+}
+.danger-btn {
+  border-color: var(--over) !important;
+  background: var(--over) !important;
+}
+.privacy-body {
+  max-width: 680px;
+  margin-top: 24px;
+  line-height: 1.7;
+}
+.privacy-body h2 {
+  margin: 28px 0 8px;
+  font-size: 18px;
+}
+.lbl > .pw-wrap,
+.auth-form .lbl > .auth-hint {
+  flex-basis: 100%;
+}
