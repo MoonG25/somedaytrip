@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import type { Bundle, Item, Op, PlanInfo } from '@/lib/types';
 import { cleanItem } from '@/lib/clean';
 import { repo, users, RepoError, isRepoError } from '@/server';
-import { authorIds, clearOwnerToken, currentUser, ownerToken, setOwnerToken, visitorId } from '@/server/auth';
+import { authorIds, clearOwnerToken, currentUser, ownerToken, savedMine, setOwnerToken, setSavedMine, visitorId } from '@/server/auth';
 import { uid } from '@/server/secret';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
@@ -98,6 +98,30 @@ export async function changePassword(id: string, current: string, next: string) 
     // 계정 기장은 지금 비밀번호 없이 정할 수 있다 (계정으로 만든 계획은 비밀번호를 아무도 모른다)
     if (!current && (await accountOwner(id))) await repo().setPassword(id, await token(id), String(next ?? ''));
     else await repo().changePassword(id, await token(id), String(current ?? ''), String(next ?? ''));
+    return null;
+  });
+}
+
+/** 탑승권을 내 지갑(계정)에 저장. 지금 기장이면 기장으로, 아니면 탑승한 계획으로 */
+export async function saveTicket(id: string) {
+  return run(async () => {
+    const u = await currentUser();
+    if (!u) throw new RepoError('로그인이 필요해요', 'forbidden');
+    if (!(await repo().get(id))) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
+    const owner = await repo().checkToken(id, await ownerToken(id));
+    await users().link(u.id, id, owner ? 'owner' : 'member');
+    return { role: owner ? 'owner' : 'member' };
+  });
+}
+
+/** 지갑에서 빼기 (기장인 계획은 뺄 수 없다). 이 브라우저의 쿠키 백업에서도 지운다 */
+export async function unsaveTicket(id: string) {
+  return run(async () => {
+    const u = await currentUser();
+    if (!u) throw new RepoError('로그인이 필요해요', 'forbidden');
+    if ((await users().owners(id)).includes(u.id)) throw new RepoError('기장인 계획은 지갑에서 뺄 수 없어요', 'invalid');
+    await users().unlink(u.id, id);
+    await setSavedMine((await savedMine()).filter((x) => x !== id));
     return null;
   });
 }

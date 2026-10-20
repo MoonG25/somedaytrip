@@ -83,6 +83,9 @@ export class PgUserStore extends BaseUserStore {
     await this.sql`insert into user_plans (user_id, plan_id, role) values (${userId}, ${planId}, ${role})
       on conflict (user_id, plan_id) do update set role = case when user_plans.role = 'owner' then 'owner' else excluded.role end`;
   }
+  async unlink(userId: string, planId: string) {
+    await this.sql`delete from user_plans where user_id = ${userId} and plan_id = ${planId} and role = 'member'`;
+  }
   async links(userId: string) {
     const rows = await this.sql`select plan_id, role from user_plans where user_id = ${userId} order by created_at desc limit 200`;
     return rows.map((r) => ({ planId: r.plan_id as string, role: r.role as Role }));

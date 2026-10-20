@@ -2059,30 +2059,6 @@ body:has(.basket) .toasts {
 .en-adv[open] {
   padding-bottom: 12px;
 }
-.move-devices {
-  padding-top: clamp(40px, 6vw, 72px);
-}
-.md-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding: 20px 22px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius-lg);
-}
-.md-card > div {
-  display: grid;
-  gap: 4px;
-  max-width: 640px;
-}
-.md-card b {
-  font-size: 18px;
-}
-.md-card .muted {
-  font-size: 14px;
-}
 .time-sort {
   height: 28px;
   padding: 0 10px;
@@ -2856,4 +2832,112 @@ html[data-authed] .auth-in {
 .lbl > .pw-wrap,
 .auth-form .lbl > .auth-hint {
   flex-basis: 100%;
+}
+
+/* ---------- 탑승권 저장 (가입 유도) ---------- */
+.save-btn.is-saved {
+  border-color: color-mix(in oklab, var(--under) 50%, var(--line));
+  color: var(--under);
+}
+.save-nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 12px 0 28px;
+  padding: 14px 16px;
+  border: 1.5px dashed color-mix(in oklab, var(--accent) 55%, var(--line));
+  border-radius: var(--radius-lg, 18px);
+  background: color-mix(in oklab, var(--accent) 6%, var(--paper));
+  animation: sn-in 0.4s var(--ease-out, ease-out);
+}
+@keyframes sn-in {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+.sn-ico {
+  font-size: 24px;
+}
+.sn-text {
+  display: grid;
+  flex: 1 1 260px;
+  gap: 2px;
+}
+.sn-text small {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.save-ticket {
+  display: grid;
+  gap: 14px;
+}
+.st-lede {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--paper-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+/* 홈: 떠 있는 지갑 알림 (화면을 밀지 않는다) */
+.wallet-bar {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px 12px;
+  max-width: min(640px, calc(100vw - 32px));
+  padding: 10px 10px 10px 16px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: var(--shadow-lg);
+  animation: sn-in 0.5s var(--ease-out, ease-out) 0.8s both;
+}
+.wb-ico {
+  font-size: 22px;
+}
+.wb-text {
+  display: grid;
+  min-width: 0;
+}
+.wb-text b {
+  font-size: 14px;
+}
+.wb-text small {
+  color: color-mix(in oklab, var(--paper) 70%, transparent);
+  font-size: 12px;
+}
+.wallet-bar .btn--solid {
+  flex: none;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.wallet-bar .wb-move {
+  flex: none;
+  color: color-mix(in oklab, var(--paper) 75%, transparent);
+  font-size: 12.5px;
+}
+.wallet-bar .wb-close {
+  flex: none;
+  color: var(--paper);
+}
+@media (max-width: 560px) {
+  .wallet-bar {
+    flex-wrap: wrap;
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+  }
+  .wb-text {
+    flex: 1 1 200px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-nudge,
+  .wallet-bar {
+    animation: none;
+  }
 }

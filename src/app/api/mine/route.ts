@@ -13,12 +13,14 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin');
   if (origin && new URL(origin).host !== req.headers.get('host')) return NextResponse.json({ error: 'origin' }, { status: 403 });
   if (!allow(`mine:${clientIp(req)}`, 60, 60_000)) return NextResponse.json({ error: 'limited' }, { status: 429 });
-  const body = (await req.json().catch(() => ({}))) as { ids?: unknown; keep?: boolean };
+  const body = (await req.json().catch(() => ({}))) as { ids?: unknown; keep?: boolean; merge?: boolean };
   const ids = (Array.isArray(body.ids) ? body.ids : []).map(String).slice(0, 100);
-  // 로그인했으면 계정의 내 계획도 합친다 (어느 기기든 같은 목록)
+  // 로그인했으면 계정이 기준 (어느 기기든 같은 목록, 한 기기에서 빼면 다른 기기에서도 빠진다).
+  // 이 브라우저에만 있던 목록은 로그인·가입할 때 한 번 합친다 (merge)
   const user = await currentUser();
   const fromAccount = user ? (await users().links(user.id)).map((l) => l.planId) : [];
-  const want = [...new Set([...ids, ...(await savedMine()), ...fromAccount])].slice(0, 100);
+  const merge = !user || !!body.merge || !!body.keep;
+  const want = (merge ? [...new Set([...ids, ...(await savedMine()), ...fromAccount])] : fromAccount).slice(0, 100);
 
   // 새로 기억한 계획을 백업에 넣기만
   if (body.keep) {
@@ -32,8 +34,8 @@ export async function POST(req: NextRequest) {
   const byId = new Map((await repo().getMany(want)).map((b) => [b.plan.id, b]));
   const list = want.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
   await setSavedMine(list.map((b) => b.plan.id));
-  // 이 브라우저에만 있던 계획을 계정으로 옮겨 둔다 (로그인 직후 한 번에 합쳐진다)
-  if (user) {
+  // 이 브라우저에만 있던 계획을 계정으로 옮겨 둔다 (로그인·가입 직후)
+  if (user && body.merge) {
     const known = new Set(fromAccount);
     for (const b of list) if (!known.has(b.plan.id)) await users().link(user.id, b.plan.id, 'member').catch(() => {});
   }

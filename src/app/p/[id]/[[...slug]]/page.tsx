@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
-import { repo } from '@/server';
+import { repo, users } from '@/server';
 import { accountOwns, authorIds, currentUser, isOwner } from '@/server/auth';
 import { sha256 } from '@/server/secret';
 import { toView, STATUS, totalBudget, nights } from '@/blog/plans-lib.js';
@@ -59,6 +59,7 @@ export default async function PlanPage({ params }: Props) {
   const me = await authorIds();
   const user = await currentUser();
   const byAccount = owner && (await accountOwns(id));
+  const saved = user ? (await users().links(user.id)).some((l) => l.planId === id) : false;
   // 일정 위에 보여 줄 열린 제안. 승객 쿠키 값(authorId)은 철회 권한이라 그대로 내보내지 않고, 같은 사람인지만 알 수 있게 바꾼다
   const pending = b.proposals.filter((x) => x.status === 'open').map((x) => ({ ...x, authorId: sha256(`sdt:${x.authorId}`).slice(0, 12) }));
   const mine = b.proposals.filter((x) => x.status === 'open' && me.includes(x.authorId)).map((x) => x.no);
@@ -89,7 +90,7 @@ export default async function PlanPage({ params }: Props) {
     <article className={`plan tone-${p.status}`}>
       {p.visibility === 'public' ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} /> : null}
       <LegacyBlock html={renderPlanHero(p, { owner, nowMonth })} plan={p} owner={owner} />
-      <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length} proposals={b.proposals.length} pending={pending} mine={mine} account={user ? { nick: user.nick, owns: byAccount } : null}>
+      <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length} proposals={b.proposals.length} pending={pending} mine={mine} account={user ? { nick: user.nick, owns: byAccount, saved } : null}>
         <LegacyBlock html={renderPlanStory(p, { nowMonth })} plan={p} owner={owner} />
       </PlanShell>
       <LegacyBlock html={renderPrep(p, { owner })} plan={p} owner={owner} />

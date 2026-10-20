@@ -12,7 +12,7 @@ import { rememberPlan } from '@/lib/mine';
 
 const boardedKey = (id: string) => `sdt:boarded:${id}`;
 
-export default function BoardingGate({ plan, items, nick, onCaptain }: { plan: Plan; items: Item[]; nick?: string; onCaptain: () => void }) {
+export default function BoardingGate({ plan, items, nick, onCaptain, onBoard }: { plan: Plan; items: Item[]; nick?: string; onCaptain: () => void; onBoard?: (role: 'guest' | 'captain') => void }) {
   const [show, setShow] = useState(true);
   const [leaving, setLeaving] = useState(false);
   const [role, setRole] = useState<'guest' | 'captain' | null>(null);
@@ -51,6 +51,7 @@ export default function BoardingGate({ plan, items, nick, onCaptain }: { plan: P
     setTimeout(() => {
       setShow(false);
       if (role === 'captain') onCaptain();
+      onBoard?.(role === 'captain' ? 'captain' : 'guest');
     }, 380);
   };
 

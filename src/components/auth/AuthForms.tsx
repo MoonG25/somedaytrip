@@ -61,7 +61,10 @@ function PasswordInput({ value, onChange, auto, label = '비밀번호' }: { valu
   );
 }
 
-export function SignupForm({ next }: { next?: string }) {
+/** 모달 안에서 쓸 때: onDone이 있으면 페이지를 옮기지 않고 부르고, onSwitch로 가입↔로그인 전환 */
+type Inline = { onDone?: (nick: string) => void | Promise<void>; onSwitch?: () => void };
+
+export function SignupForm({ next, onDone, onSwitch, presetNick }: { next?: string; presetNick?: string } & Inline) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [nick, setNick] = useState('');
@@ -73,7 +76,7 @@ export function SignupForm({ next }: { next?: string }) {
   const nc = useAvailability('nick', nick);
   useEffect(() => {
     try {
-      const n = localStorage.getItem('sdt:name');
+      const n = presetNick || localStorage.getItem('sdt:name');
       if (n && !nickError(n)) setNick(n);
     } catch {}
   }, []);
@@ -95,6 +98,7 @@ export function SignupForm({ next }: { next?: string }) {
         try {
           localStorage.setItem('sdt:name', r.data.nick);
         } catch {}
+        if (onDone) return onDone(r.data.nick);
         toast(`${r.data.nick}님, 환영해요!`, '🎫');
         router.push(safeNext(next) || '/account?welcome=1');
         router.refresh();
@@ -102,7 +106,7 @@ export function SignupForm({ next }: { next?: string }) {
     >
       <label className="lbl">
         이메일
-        <input className="inp" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" aria-describedby="h-email" required autoFocus />
+        <input className="inp" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" aria-describedby="h-email" required autoFocus={!onDone} />
         <Hint c={ec} id="h-email" />
       </label>
       <label className="lbl">
@@ -134,15 +138,21 @@ export function SignupForm({ next }: { next?: string }) {
       </button>
       <p className="auth-alt faint">
         이미 계정이 있나요?{' '}
-        <a className="link-u" href={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
-          로그인
-        </a>
+        {onSwitch ? (
+          <button type="button" className="link-u" onClick={onSwitch}>
+            로그인
+          </button>
+        ) : (
+          <a className="link-u" href={`/login${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
+            로그인
+          </a>
+        )}
       </p>
     </form>
   );
 }
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ next, onDone, onSwitch }: { next?: string } & Inline) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -158,6 +168,7 @@ export function LoginForm({ next }: { next?: string }) {
         setBusy(false);
         if (!r.ok) return setErr(r.error);
         markAuthed(true);
+        if (onDone) return onDone(r.data.nick);
         toast(`${r.data.nick}님, 어서 오세요`, '👋');
         router.push(safeNext(next) || '/');
         router.refresh();
@@ -165,7 +176,7 @@ export function LoginForm({ next }: { next?: string }) {
     >
       <label className="lbl">
         이메일
-        <input className="inp" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required autoFocus />
+        <input className="inp" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required autoFocus={!onDone} />
       </label>
       <label className="lbl">
         비밀번호
@@ -184,9 +195,15 @@ export function LoginForm({ next }: { next?: string }) {
           비밀번호를 잊었어요
         </a>{' '}
         ·{' '}
-        <a className="link-u" href={`/signup${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
-          가입하기
-        </a>
+        {onSwitch ? (
+          <button type="button" className="link-u" onClick={onSwitch}>
+            가입하기
+          </button>
+        ) : (
+          <a className="link-u" href={`/signup${next ? `?next=${encodeURIComponent(next)}` : ''}`}>
+            가입하기
+          </a>
+        )}
       </p>
     </form>
   );

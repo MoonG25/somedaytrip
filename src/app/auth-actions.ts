@@ -7,6 +7,7 @@ import { clearSession, currentUser, sessionToken, setSession } from '@/server/au
 import { allow } from '@/server/limit';
 import { link, mailReady, sendMail } from '@/server/mail';
 import type { User } from '@/server/users';
+import { mergeBrowserPlans } from '@/server/mine';
 
 type Result<T = null> = { ok: true; data: T } | { ok: false; error: string; code?: string };
 
@@ -52,9 +53,10 @@ export async function checkAvailable(input: { email?: string; nick?: string }) {
 export async function signup(input: { email: string; nick: string; password: string; agree: boolean }) {
   return run(async () => {
     if (!input.agree) throw new RepoError('개인정보 수집·이용에 동의해 주세요', 'invalid');
-    await limit('signup', 5, 600_000);
+    await limit('signup', 10, 600_000); // 같은 와이파이의 친구 여럿이 한꺼번에 가입해도 되게
     const u = await users().signup(String(input.email ?? ''), String(input.nick ?? ''), String(input.password ?? ''));
     await setSession(await users().createSession(u.id));
+    await mergeBrowserPlans(u.id);
     after(() => sendVerify(u).catch((e) => console.error('[mail]', e)));
     return { nick: u.nick, mail: mailReady() };
   });
@@ -65,6 +67,7 @@ export async function signin(input: { email: string; password: string }) {
     await limit('signin', 10, 600_000, '로그인을 여러 번 시도했어요. 10분 뒤에 다시 해 주세요');
     const u = await users().login(String(input.email ?? ''), String(input.password ?? ''));
     await setSession(await users().createSession(u.id));
+    await mergeBrowserPlans(u.id);
     return { nick: u.nick };
   });
 }

@@ -1,12 +1,13 @@
 'use client';
 // 계획 화면의 협업 부분: 역할 표시줄(기장/승객) + 공유·인증·기장 메뉴 + 일정.
 // 기장은 "승객 화면 미리보기"로 친구가 보는 화면을 볼 수 있다 (이 탭에서만).
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
 import type { Item, Plan, Proposal } from '@/lib/types';
 import { pendingGroups } from '@/lib/proposals';
-import { changePassword, claimPlan, deletePlan, login, logout, rejectAll, rekeyPlan, updatePlan } from '@/app/actions';
+import { changePassword, claimPlan, deletePlan, login, logout, rejectAll, rekeyPlan, saveTicket, unsaveTicket, updatePlan } from '@/app/actions';
+import { SaveTicketModal } from '../auth/SaveTicket';
 import { forgetPlan, rememberPlan } from '@/lib/mine';
 import Itinerary from './Itinerary';
 import PlanLinks from './PlanLinks';
@@ -36,7 +37,7 @@ export default function PlanShell({
   pending?: Proposal[];
   mine?: number[];
   /** 로그인한 계정 (owns: 계정이 이 계획의 기장) */
-  account?: { nick: string; owns: boolean } | null;
+  account?: { nick: string; owns: boolean; saved: boolean } | null;
   children?: React.ReactNode;
 }) {
   // 검토할 것: 같은 걸 원한 변경은 하나로 센다
@@ -44,7 +45,12 @@ export default function PlanShell({
   const router = useRouter();
   const [preview, setPreview] = useState(false);
   const [welcome, setWelcome] = useState(false);
-  const [modal, setModal] = useState<'share' | 'login' | 'password' | 'publish' | null>(null);
+  const [modal, setModal] = useState<'share' | 'login' | 'password' | 'publish' | 'save' | null>(null);
+  // 지갑(계정)에 저장됐는지. 로그인 안 했으면 이 브라우저에만 있다
+  const [saved, setSaved] = useState(!!account?.saved);
+  // 탑승 직후 저장 권유 (로그인 안 한 승객, 계획마다 한 번)
+  const [nudge, setNudge] = useState(false);
+  const nudgeKey = `sdt:savenudge:${plan.id}`;
   const owner = isOwner && !preview;
   // 탑승 수속은 처음 열 때의 역할로 정한다 (게이트 안에서 기장 인증해도 뜯을 때까지 남아 있게)
   const [gate] = useState(!isOwner);
@@ -61,6 +67,44 @@ export default function PlanShell({
       history.replaceState(null, '', location.pathname);
     }
   }, [plan.id, plan.visibility, isOwner]);
+
+  // 로그인했으면 링크로 받은 계획·기장인 계획은 자동으로 지갑에 (전체 공개 계획은 직접 저장할 때만)
+  const authed = !!account;
+  const savedProp = !!account?.saved;
+  const autoSaved = useRef(false);
+  useEffect(() => {
+    setSaved(savedProp);
+    if (!authed || savedProp || autoSaved.current || !(isOwner || plan.visibility === 'link')) return;
+    autoSaved.current = true; // 30초마다 새로 받아도 한 번만
+    saveTicket(plan.id).then((r) => r.ok && setSaved(true));
+  }, [authed, savedProp, isOwner, plan.id, plan.visibility]);
+
+  const onBoard = (role: 'guest' | 'captain') => {
+    if (account || role !== 'guest') return;
+    try {
+      if (localStorage.getItem(nudgeKey)) return;
+      localStorage.setItem(nudgeKey, '1');
+    } catch {}
+    setNudge(true);
+  };
+
+  const toggleSave = async () => {
+    if (!account) return setModal('save');
+    if (!saved) {
+      const r = await saveTicket(plan.id);
+      if (!r.ok) return toast(r.error, '!');
+      setSaved(true);
+      return toast('지갑에 저장했어요. 어느 기기에서든 열 수 있어요', '🎫');
+    }
+    if (account.owns || isOwner) return toast('기장인 계획은 항상 지갑에 있어요', '🧑‍✈️');
+    if (!confirm('지갑에서 뺄까요? 링크가 있으면 다시 열 수 있어요.')) return;
+    autoSaved.current = true; // 직접 뺐으면 이 화면에서는 자동으로 다시 넣지 않는다
+    const r = await unsaveTicket(plan.id);
+    if (!r.ok) return toast(r.error, '!');
+    forgetPlan(plan.id);
+    setSaved(false);
+    toast('지갑에서 뺐어요', '🗂');
+  };
 
   // 실시간(1단계): 다른 탭에서 바뀌면 바로, 그 밖에는 30초마다 보이는 동안 새로 받기
   useEffect(() => {
@@ -119,6 +163,9 @@ export default function PlanShell({
                 📮 검토할 제안 {open}개
               </a>
             ) : null}
+            <button type="button" className={`btn btn--sm save-btn${saved ? ' is-saved' : ''}`} onClick={toggleSave} aria-pressed={saved}>
+              {saved ? '✓ 지갑에 있음' : '🎫 탑승권 저장'}
+            </button>
             <button type="button" className="btn btn--sm" onClick={() => setModal('share')}>
               🔗 공유
             </button>
@@ -249,6 +296,7 @@ export default function PlanShell({
           plan={plan}
           items={items}
           nick={account?.nick}
+          onBoard={onBoard}
           onCaptain={() => {
             setPrev(false);
             router.refresh();
@@ -256,12 +304,32 @@ export default function PlanShell({
           }}
         />
       ) : null}
+      {nudge && !account ? (
+        <div className="container">
+          <div className="save-nudge" role="region" aria-label="탑승권 저장">
+            <span className="sn-ico" aria-hidden="true">
+              🎫
+            </span>
+            <div className="sn-text">
+              <b>탑승권을 저장할까요?</b>
+              <small>지금은 이 브라우저에만 있어요. 기기를 바꾸거나 기록을 지우면 링크 없이는 다시 찾을 수 없어요.</small>
+            </div>
+            <button type="button" className="btn btn--sm btn--solid" onClick={() => (setNudge(false), setModal('save'))}>
+              가입하고 저장
+            </button>
+            <button type="button" className="link-u faint" onClick={() => setNudge(false)}>
+              괜찮아요
+            </button>
+          </div>
+        </div>
+      ) : null}
       {owner ? <PrepBoard plan={plan} items={items} proposals={proposals} onShare={() => setModal('share')} /> : null}
       <PlanLinks plan={plan} owner={owner} />
       {children}
       <Itinerary plan={plan} items={items} owner={owner} pending={pending} mine={mine} />
 
-      <ShareModal open={modal === 'share'} plan={plan} welcome={welcome} onClose={() => (setModal(null), setWelcome(false))} />
+      <ShareModal open={modal === 'share'} plan={plan} welcome={welcome} canSave={!account} onSave={() => (setWelcome(false), setModal('save'))} onClose={() => (setModal(null), setWelcome(false))} />
+      <SaveTicketModal open={modal === 'save'} planId={plan.id} title={plan.title} presetNick={isOwner ? plan.ownerName : undefined} onClose={() => setModal(null)} />
       <LoginModal
         open={modal === 'login'}
         plan={plan}
@@ -304,7 +372,7 @@ export default function PlanShell({
   );
 }
 
-export function ShareModal({ open, plan, onClose, welcome }: { open: boolean; plan: Plan; onClose: () => void; welcome?: boolean }) {
+export function ShareModal({ open, plan, onClose, welcome, canSave, onSave }: { open: boolean; plan: Plan; onClose: () => void; welcome?: boolean; canSave?: boolean; onSave?: () => void }) {
   const [url, setUrl] = useState('');
   const [qr, setQr] = useState('');
   useEffect(() => {
@@ -356,6 +424,11 @@ export function ShareModal({ open, plan, onClose, welcome }: { open: boolean; pl
                 >
                   ✉️ 메일로 보내기
                 </a>
+                {canSave && onSave ? (
+                  <button type="button" className="btn btn--sm" onClick={onSave}>
+                    🎫 가입하고 지갑에 보관
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}

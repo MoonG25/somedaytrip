@@ -54,6 +54,8 @@ export abstract class BaseUserStore {
   protected abstract takeToken(hash: string, kind: 'verify' | 'reset'): Promise<string | null>;
   abstract link(userId: string, planId: string, role: Role): Promise<void>;
   abstract links(userId: string): Promise<{ planId: string; role: Role }[]>;
+  /** 지갑에서 빼기 (탑승한 계획만. 기장인 계획은 빼지 않는다) */
+  abstract unlink(userId: string, planId: string): Promise<void>;
   abstract owners(planId: string): Promise<string[]>;
   /** 개발용 파일 저장소만 필요하다 (Postgres는 FK가 따라간다) */
   abstract renamePlan(oldId: string, newId: string): Promise<void>;
@@ -286,6 +288,11 @@ export class FileUserStore extends BaseUserStore {
       const cur = db.plans.find((p) => p.userId === userId && p.planId === planId);
       if (!cur) db.plans.push({ userId, planId, role, at: Date.now() });
       else if (role === 'owner') cur.role = 'owner'; // 기장이 된 건 내려가지 않는다
+    });
+  }
+  unlink(userId: string, planId: string) {
+    return this.tx((db) => {
+      db.plans = db.plans.filter((p) => !(p.userId === userId && p.planId === planId && p.role === 'member'));
     });
   }
   links(userId: string) {
