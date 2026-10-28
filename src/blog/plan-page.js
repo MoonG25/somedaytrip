@@ -138,7 +138,7 @@ export function renderPlanStory(p, { nowMonth }) {
   </section>`;
 }
 
-export function renderPrep(p, { owner = false }) {
+export function renderPrep(p, { owner = false, editable = true }) {
   const ready = readiness(p);
   const total = totalBudget(p);
   return `
@@ -151,16 +151,16 @@ export function renderPrep(p, { owner = false }) {
         ${p.checklist
           .map(
             ([text, done], k) =>
-              `<li data-ck="${k}"><label class="check"><input type="checkbox" data-check="${k}" ${done ? 'checked' : ''} ${owner ? '' : 'disabled'}><span class="check-box" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="check-text">${esc(text)}</span></label>${
-                owner ? `<span class="ck-tools"><button type="button" class="ck-btn" data-ckedit="${k}" aria-label="${esc(text)} 고치기">✎</button><button type="button" class="ck-btn" data-ckdel="${k}" aria-label="${esc(text)} 지우기">✕</button></span>` : ''
+              `<li data-ck="${k}"><label class="check"><input type="checkbox" data-check="${k}" ${done ? 'checked' : ''}><span class="check-box" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="check-text">${esc(text)}</span></label>${
+                editable ? `<span class="ck-tools"><button type="button" class="ck-btn" data-ckedit="${k}" aria-label="${esc(text)} 고치기">✎</button><button type="button" class="ck-btn" data-ckdel="${k}" aria-label="${esc(text)} 지우기">✕</button></span>` : ''
               }</li>`
           )
           .join('')}
       </ul>`
-          : `<p class="muted">아직 준비할 것이 없어요.${owner ? ' 생각날 때마다 아래에 적어 두세요.' : ''}</p>`
+          : `<p class="muted">아직 준비할 것이 없어요.${editable ? ' 생각날 때마다 아래에 적어 두세요.' : ''}</p>`
       }
       ${
-        owner
+        editable
           ? (() => {
               const have = new Set((p.checklist || []).map(([t]) => t));
               const sug = (CHECK_SUGGEST[p.scope] || []).filter((t) => !have.has(t));
@@ -169,7 +169,7 @@ export function renderPrep(p, { owner = false }) {
             })()
           : ''
       }
-      <p class="faint check-note">${owner ? '체크하면 친구들에게도 보여요. 여행이 다가오며 생각나는 것도 언제든 더해요.' : '체크는 기장만 할 수 있어요.'}</p>
+      <p class="faint check-note">${editable ? '모두의 체크리스트예요. 누구나 체크하고, 생각날 때마다 더해요.' : ''}</p>
     </div>
     <div class="prep-jar" data-reveal>
       <header class="sec-head"><div><p class="eyebrow">여행 적금</p><h2>Travel <em>fund</em></h2></div></header>
@@ -288,13 +288,13 @@ export function mountPlanPage(root, p, { owner = false, onCheck, onChecklist, na
   const checklist = (p.checklist || []).map(([t, d]) => [t, d]);
   const onChange = async (e) => {
     const box = e.target.closest('[data-check]');
-    if (!box || !owner) return;
+    if (!box) return;
     const k = Number(box.dataset.check);
     checklist[k][1] = box.checked;
     const pct = updateReady(checklist);
     if (box.checked) navigator.vibrate?.(8);
     if (pct === 100 && box.checked) toast('준비 완료! 이제 떠나기만 하면 돼요', '✈');
-    const ok = await onCheck?.(k, box.checked);
+    const ok = await onCheck?.(k, box.checked, checklist[k][0]);
     if (ok === false && alive) {
       box.checked = !box.checked;
       checklist[k][1] = box.checked;
@@ -306,7 +306,7 @@ export function mountPlanPage(root, p, { owner = false, onCheck, onChecklist, na
   /* 준비물 더하기·지우기·고치기 (기장): 저장하면 화면이 새 목록으로 다시 그려진다 */
   const prepBox = root.querySelector('.prep-check');
   const onPrepClick = async (e) => {
-    if (!owner || !onChecklist) return;
+    if (!onChecklist) return;
     const del = e.target.closest('[data-ckdel]');
     const ed = e.target.closest('[data-ckedit]');
     const sug = e.target.closest('[data-cksug]');
@@ -360,7 +360,7 @@ export function mountPlanPage(root, p, { owner = false, onCheck, onChecklist, na
   };
   const onPrepSubmit = async (e) => {
     const f = e.target.closest('.ck-add');
-    if (!f || !owner || !onChecklist) return;
+    if (!f || !onChecklist) return;
     e.preventDefault();
     const text = f.ck.value.trim();
     if (!text) return f.ck.focus();

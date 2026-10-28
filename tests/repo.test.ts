@@ -112,13 +112,12 @@ describe('FileRepo', () => {
     expect(await r.checkToken(id, token)).toBe(true);
   });
 
-  it('기간을 줄이면 넘치는 일정은 날짜 미정으로 · 체크는 기장만', async () => {
+  it('기간을 줄이면 넘치는 일정은 날짜 미정으로 · 체크는 누구나', async () => {
     const { bundle, token } = await r.create({ ...info, checklist: [['여권', false]] }, [item('a', 1), item('b', 2)], 'pass1234');
     const id = bundle.plan.id;
     await r.updateInfo(id, token, { ...info, days: 1, checklist: [['여권', false]] });
     expect((await r.get(id))!.items.find((i) => i.id === 'b')!.day).toBeNull();
-    await expect(r.setCheck(id, 'fake', 0, true)).rejects.toMatchObject({ code: 'forbidden' });
-    await r.setCheck(id, token, 0, true);
+    await r.setCheck(id, 0, true);
     expect((await r.get(id))!.plan.checklist[0][1]).toBe(true);
   });
 
@@ -243,19 +242,34 @@ describe('준비물 바로 고치기', () => {
   beforeEach(() => {
     r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
   });
-  it('더하기·고치기·지우기 · 같은 글자는 막고 · 번호가 어긋나도 글자로 찾는다 · 기장만', async () => {
-    const { bundle, token } = await r.create({ ...info, checklist: [['여권', false]] }, [], 'pass1234');
+  it('모두의 체크리스트: 누구나 더하기·고치기·지우기·체크 · 같은 글자는 막고 · 번호가 어긋나도 글자로 찾는다', async () => {
+    const { bundle } = await r.create({ ...info, checklist: [['여권', false]] }, [], 'pass1234');
     const id = bundle.plan.id;
-    await r.editChecklist(id, token, { type: 'add', text: '  JR패스 교환 ' });
-    await expect(r.editChecklist(id, token, { type: 'add', text: '여권' })).rejects.toThrow(/이미 있는/);
-    await r.setCheck(id, token, 0, true);
-    await r.editChecklist(id, token, { type: 'rename', index: 1, from: 'JR패스 교환', to: 'JR패스 교환하기' });
+    await r.editChecklist(id, { type: 'add', text: '  JR패스 교환 ' });
+    await expect(r.editChecklist(id, { type: 'add', text: '여권' })).rejects.toThrow(/이미 있는/);
+    await r.setCheck(id, 0, true);
+    await r.editChecklist(id, { type: 'rename', index: 1, from: 'JR패스 교환', to: 'JR패스 교환하기' });
     expect((await r.get(id))!.plan.checklist).toEqual([['여권', true], ['JR패스 교환하기', false]]);
-    // 다른 탭에서 앞 항목이 지워져 번호가 어긋난 경우: 글자로 찾아 지운다
-    await r.editChecklist(id, token, { type: 'remove', index: 5, text: 'JR패스 교환하기' });
+    // 다른 사람이 앞 항목을 지워 번호가 어긋난 경우: 글자로 찾아 체크·지우기
+    await r.setCheck(id, 9, true, 'JR패스 교환하기');
+    expect((await r.get(id))!.plan.checklist[1]).toEqual(['JR패스 교환하기', true]);
+    await r.editChecklist(id, { type: 'remove', index: 5, text: 'JR패스 교환하기' });
     const b = (await r.get(id))!;
     expect(b.plan.checklist).toEqual([['여권', true]]);
     expect(b.plan.version).toBe(bundle.plan.version); // 일정 버전은 그대로
-    await expect(r.editChecklist(id, 'nope', { type: 'add', text: 'x' })).rejects.toThrow();
+    await expect(r.setCheck(id, 3, true, '없는 항목')).rejects.toThrow(/지워진/);
+  });
+});
+
+describe('계획 정보 저장은 체크리스트를 덮어쓰지 않는다', () => {
+  it('기장이 예전 목록으로 정보를 저장해도 그사이 누군가 더한 준비물은 남는다', async () => {
+    const r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
+    const { bundle, token } = await r.create({ ...info, checklist: [['여권', false]] }, [], 'pass1234');
+    const id = bundle.plan.id;
+    await r.editChecklist(id, { type: 'add', text: '보조배터리' });
+    await r.updateInfo(id, token, { ...info, title: '새 이름', checklist: [['여권', false]] });
+    const p = (await r.get(id))!.plan;
+    expect(p.title).toBe('새 이름');
+    expect(p.checklist.map(([t]) => t)).toEqual(['여권', '보조배터리']);
   });
 });

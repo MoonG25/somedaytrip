@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import type { BudgetItem, Item, Plan, PlanInfo } from '@/lib/types';
 import { updatePlan } from '@/app/actions';
 import Modal from './Modal';
-import { BUDGET_SUGGEST, CHECK_SUGGEST } from '@/lib/suggest';
+import { BUDGET_SUGGEST } from '@/lib/suggest';
 import { broadcast, toast } from './util';
 
 // 숙소·렌터카는 보통 다 같이 낸다
@@ -54,6 +54,13 @@ export default function PrepBoard({ plan, items, proposals, onShare }: { plan: P
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
+    if (k === 'check') {
+      // 준비물은 모두의 체크리스트: 계획 화면의 체크리스트에서 바로 더한다 (전체를 덮어쓰는 창은 쓰지 않는다)
+      const box = document.querySelector<HTMLElement>('.prep-check');
+      box?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => box?.querySelector<HTMLInputElement>('.ck-add input')?.focus({ preventScroll: true }), 450);
+      return;
+    }
     setModal(k);
   };
 
@@ -88,7 +95,6 @@ export default function PrepBoard({ plan, items, proposals, onShare }: { plan: P
         </ul>
       </div>
       {modal === 'budget' ? <BudgetModal plan={plan} onClose={() => setModal(null)} onSave={save} /> : null}
-      {modal === 'check' ? <CheckModal plan={plan} onClose={() => setModal(null)} onSave={save} /> : null}
       {modal === 'why' ? <WhyModal plan={plan} onClose={() => setModal(null)} onSave={save} /> : null}
     </section>
   );
@@ -179,76 +185,6 @@ function BudgetModal({ plan, onClose, onSave }: { plan: Plan; onClose: () => voi
             onClick={async () => {
               setBusy(true);
               await onSave({ travelers: ppl, budgetItems: rows.filter((b) => b.name.trim()).map((b) => ({ ...b, name: b.name.trim() })) }, '예산을 저장했어요');
-              setBusy(false);
-            }}
-          >
-            저장
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function CheckModal({ plan, onClose, onSave }: { plan: Plan; onClose: () => void; onSave: SaveFn }) {
-  const [list, setList] = useState<[string, boolean][]>(() => plan.checklist.map(([t, d]) => [t, d]));
-  const [text, setText] = useState('');
-  const [busy, setBusy] = useState(false);
-  const add = (t: string) => {
-    const v = t.trim().slice(0, 80);
-    if (!v || list.some(([x]) => x === v)) return;
-    setList((l) => [...l, [v, false]].slice(0, 60) as [string, boolean][]);
-    setText('');
-  };
-  const unused = (CHECK_SUGGEST[plan.scope] || []).filter((n) => !list.some(([x]) => x === n));
-  return (
-    <Modal open title="준비물 · 할 일" onClose={onClose}>
-      <div className="item-form pf-form">
-        {list.length ? (
-          <ul className="pf-checks" role="list">
-            {list.map(([t, d], i) => (
-              <li key={t}>
-                <span className={d ? 'faint' : ''}>{d ? '✓ ' : '· '}{t}</span>
-                <button type="button" className="icon-btn" aria-label={`${t} 지우기`} onClick={() => setList((l) => l.filter((_, k) => k !== i))}>
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <input
-          className="inp"
-          value={text}
-          maxLength={80}
-          placeholder="준비할 것 적고 Enter"
-          aria-label="준비할 것 추가"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              add(text);
-            }
-          }}
-        />
-        <div className="chips">
-          {unused.map((n) => (
-            <button key={n} type="button" className="chip" onClick={() => add(n)}>
-              + {n}
-            </button>
-          ))}
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
-            취소
-          </button>
-          <button
-            type="button"
-            className="btn btn--solid"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              const all = text.trim() && !list.some(([x]) => x === text.trim()) ? [...list, [text.trim(), false] as [string, boolean]] : list;
-              await onSave({ checklist: all }, '준비물을 저장했어요');
               setBusy(false);
             }}
           >

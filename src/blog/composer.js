@@ -83,7 +83,8 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
   const editing = mode === 'edit';
   const quick = !editing;
   const noPlaces = mode !== 'new';
-  const n = (i) => String(noPlaces && i >= 5 ? i - 1 : i).padStart(2, '0');
+  // 준비물 단계는 늘 숨긴다 (계획 화면의 모두의 체크리스트에서 고친다) → 뒤 단계 번호를 하나씩 당긴다
+  const n = (i) => String(i - (noPlaces && i >= 5 ? 1 : 0) - (i >= 6 ? 1 : 0)).padStart(2, '0');
   const off = quick ? ' hidden' : '';
   return `
 <section class="container page-head composer-head">
@@ -211,7 +212,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
     </fieldset>`
     }
 
-    <fieldset class="cstep" data-step="prep" id="prep"${off}>
+    <fieldset class="cstep" data-step="prep" id="prep" hidden>
       <legend><span class="step-no mono">${n(5)}</span>준비할 것<span class="step-done" aria-hidden="true">✓</span></legend>
       <ul class="todo-list check-edit" role="list"></ul>
       <div class="todo-add">
@@ -585,7 +586,6 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
       : [
           ['how', '예산', () => budget.some((b) => b.amount > 0)],
           ...(mode !== 'new' ? [] : [['places', '가 볼 곳', () => d.stops.length > 0]]),
-          ['prep', '준비', () => d.checklist.length > 0],
           ['why', '소개', () => !!d.why],
           ['share', '공개', () => true],
         ]),

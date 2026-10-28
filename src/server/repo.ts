@@ -47,9 +47,10 @@ export interface Repo {
   logout(id: string, token: string): Promise<void>;
   changePassword(id: string, token: string, current: string, next: string): Promise<void>;
   updateInfo(id: string, token: string, info: PlanInfo): Promise<Plan>;
-  setCheck(id: string, token: string, index: number, done: boolean): Promise<void>;
+  /** 체크리스트는 모두의 것: 링크를 가진 누구나 체크·추가·고치기·지우기 (누가 했는지는 남기지 않는다) */
+  setCheck(id: string, index: number, done: boolean, text?: string): Promise<void>;
   /** 준비물 하나 더하기·지우기·고치기 (계획 정보 전체를 덮어쓰지 않는다) */
-  editChecklist(id: string, token: string, op: ChecklistOp): Promise<void>;
+  editChecklist(id: string, op: ChecklistOp): Promise<void>;
   applyDirect(id: string, token: string, ops: Op[]): Promise<void>;
   propose(id: string, p: ProposalInput): Promise<Proposal>;
   decide(id: string, token: string, no: number, decision: 'accept' | 'reject', note: string, skipConflicts?: boolean): Promise<Proposal>;
@@ -235,7 +236,8 @@ export abstract class BaseRepo implements Repo {
     return this.mutate(id, (r) => {
       this.owner(r, token);
       const was = r.plan.visibility;
-      r.plan = { ...r.plan, ...clean, slug: planSlug(clean) };
+      // 체크리스트는 모두의 것이라 여기서는 건드리지 않는다 (예전 목록으로 남이 더한 항목을 덮어쓰지 않게)
+      r.plan = { ...r.plan, ...clean, checklist: r.plan.checklist, slug: planSlug(clean) };
       // 기간이 줄면 넘치는 날의 일정은 "날짜 미정"으로
       let moved = 0;
       r.items = r.items.map((i) => (i.day != null && i.day > clean.days ? (moved++, { ...i, day: null }) : i));
@@ -247,20 +249,21 @@ export abstract class BaseRepo implements Repo {
     });
   }
 
-  async setCheck(id: string, token: string, index: number, done: boolean) {
+  async setCheck(id: string, index: number, done: boolean, text?: string) {
     await this.mutate(id, (r) => {
-      this.owner(r, token);
-      const c = r.plan.checklist[index];
-      if (!c) throw new RepoError('없는 항목이에요', 'invalid');
+      const list = r.plan.checklist;
+      // 여러 사람이 동시에 고쳐 순서가 바뀌었으면 글자로 찾는다
+      const i = text == null || list[index]?.[0] === text ? index : list.findIndex(([x]) => x === text);
+      const c = list[i];
+      if (!c) throw new RepoError('그 사이 지워진 항목이에요', 'invalid');
       c[1] = !!done;
       this.touch(r);
     });
   }
 
-  async editChecklist(id: string, token: string, op: ChecklistOp) {
+  async editChecklist(id: string, op: ChecklistOp) {
     const clip = (t: unknown) => String(t ?? '').trim().slice(0, CHECK_LEN);
     await this.mutate(id, (r) => {
-      this.owner(r, token);
       const list = r.plan.checklist;
       // 다른 탭에서 먼저 바뀌었으면 번호가 어긋날 수 있어서 글자도 같이 맞춰 본다
       const at = (i: number, t: string) => (list[i]?.[0] === t ? i : list.findIndex(([x]) => x === t));

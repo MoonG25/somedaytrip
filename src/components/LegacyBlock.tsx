@@ -17,9 +17,12 @@ export default function LegacyBlock({ html, plan, owner = false }: { html: strin
     const off = mountPlanPage(ref.current!, plan, {
       owner,
       navigate: (href: string) => router.push(href),
-      onCheck: async (i: number, done: boolean) => {
-        const r = await setCheck(plan.id, i, done);
-        if (!r.ok) toast(r.error, '!');
+      onCheck: async (i: number, done: boolean, text?: string) => {
+        const r = await setCheck(plan.id, i, done, text);
+        if (!r.ok) {
+          toast(r.error, '!');
+          router.refresh();
+        } else broadcast(plan.id);
         return r.ok;
       },
       onChecklist: async (op: ChecklistOp) => {

@@ -147,18 +147,26 @@ export async function updatePlan(id: string, info: PlanInfo) {
   });
 }
 
-export async function setCheck(id: string, index: number, done: boolean) {
+/** 체크리스트는 모두의 것 (링크를 가진 누구나). 장난·도배를 막으려고 IP당 1분에 60번까지 */
+async function checklistLimit(id: string) {
+  const ip = ((await headers()).get('x-forwarded-for') || 'local').split(',')[0].trim();
+  if (!allow(`ck:${ip}:${id}`, 60, 60_000)) throw new RepoError('너무 빠르게 고치고 있어요. 잠시 뒤에 다시 해 주세요', 'limited');
+}
+
+export async function setCheck(id: string, index: number, done: boolean, text?: string) {
   return run(async () => {
-    await repo().setCheck(id, await token(id), Number(index), !!done);
+    await checklistLimit(id);
+    await repo().setCheck(id, Number(index), !!done, text == null ? undefined : String(text));
     touch(id);
     return null;
   });
 }
 
-/** 준비물 더하기·지우기·고치기 (기장) */
+/** 준비물 더하기·지우기·고치기 (누구나) */
 export async function editChecklist(id: string, op: ChecklistOp) {
   return run(async () => {
-    await repo().editChecklist(id, await token(id), op);
+    await checklistLimit(id);
+    await repo().editChecklist(id, op);
     touch(id);
     return null;
   });
