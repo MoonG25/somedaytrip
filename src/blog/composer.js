@@ -22,16 +22,12 @@ import { toast } from './toast.js';
 import { reverse, nameOf, enOf, geoPending, geoIdle, CURRENCY, SCENES, SCENE_KO, TIMES } from './geo.js';
 import { iataFor, airportsFor, AIRPORT_NAME } from './airports.js';
 import { linkKind, LINK_META, defaultLabel, normalizeUrl } from '../lib/links';
+import { BUDGET_SUGGEST, CHECK_SUGGEST } from '../lib/suggest';
 
 const SCOPES = {
   abroad: { icon: '✈️', ko: '해외', hint: '여권 챙겨서' },
   domestic: { icon: '🚄', ko: '국내', hint: '주말에 훌쩍' },
   local: { icon: '🏘️', ko: '동네', hint: '걸어서, 버스 몇 정거장' },
-};
-const BUDGET_SUGGEST = {
-  abroad: ['항공', '숙소', '식비', '교통', '입장료', '쇼핑', '통신', '보험'],
-  domestic: ['교통', '숙소', '식비', '입장료', '쇼핑', '렌터카'],
-  local: ['식비', '카페', '교통', '입장료', '쇼핑'],
 };
 const BUDGET_ICON = [
   [/항공|비행|flight/i, '✈️'],
@@ -48,11 +44,6 @@ const BUDGET_ICON = [
   [/액티비티|체험|스키|다이빙|서핑/, '🏄'],
 ];
 const iconOf = (name) => BUDGET_ICON.find(([re]) => re.test(name))?.[1] || '✦';
-const CHECK_SUGGEST = {
-  abroad: ['항공권 예약', '숙소 예약', '여권 유효기간 확인', '여행자 보험', '환전', 'eSIM', '비자 확인', '현지 교통패스'],
-  domestic: ['교통편 예약', '숙소 예약', '맛집 예약', '날씨 확인', '보조배터리'],
-  local: ['동선 짜기', '맛집 예약', '돗자리', '보조배터리', '편한 신발', '날씨 확인'],
-};
 const QUICK_DAYS = [1, 2, 3, 4, 5, 7, 10];
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 

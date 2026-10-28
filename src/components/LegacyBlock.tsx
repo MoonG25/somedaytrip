@@ -4,8 +4,9 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { mountPlanPage } from '@/blog/plan-page.js';
-import { setCheck } from '@/app/actions';
-import { toast } from './collab/util';
+import { editChecklist, setCheck } from '@/app/actions';
+import type { ChecklistOp } from '@/server/repo';
+import { broadcast, toast } from './collab/util';
 import type { Plan } from '@/lib/types';
 
 export default function LegacyBlock({ html, plan, owner = false }: { html: string; plan: Plan & { stops?: unknown[] }; owner?: boolean }) {
@@ -20,6 +21,16 @@ export default function LegacyBlock({ html, plan, owner = false }: { html: strin
         const r = await setCheck(plan.id, i, done);
         if (!r.ok) toast(r.error, '!');
         return r.ok;
+      },
+      onChecklist: async (op: ChecklistOp) => {
+        const r = await editChecklist(plan.id, op);
+        if (!r.ok) {
+          toast(r.error, '!');
+          return false;
+        }
+        broadcast(plan.id);
+        router.refresh();
+        return true;
       },
     });
     return off;

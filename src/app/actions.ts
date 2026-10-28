@@ -11,6 +11,7 @@ import { after } from 'next/server';
 import { allow } from '@/server/limit';
 import { notifyDecided, notifyProposal } from '@/server/notify';
 import { describeOps } from '@/lib/proposals';
+import type { ChecklistOp } from '@/server/repo';
 
 export type Result<T = null> = { ok: true; data: T } | { ok: false; error: string; code?: string };
 
@@ -149,6 +150,15 @@ export async function updatePlan(id: string, info: PlanInfo) {
 export async function setCheck(id: string, index: number, done: boolean) {
   return run(async () => {
     await repo().setCheck(id, await token(id), Number(index), !!done);
+    touch(id);
+    return null;
+  });
+}
+
+/** 준비물 더하기·지우기·고치기 (기장) */
+export async function editChecklist(id: string, op: ChecklistOp) {
+  return run(async () => {
+    await repo().editChecklist(id, await token(id), op);
     touch(id);
     return null;
   });

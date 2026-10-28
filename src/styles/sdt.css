@@ -2962,3 +2962,85 @@ html[data-authed] .auth-in {
 .dc-air .link-u {
   font-size: 12.5px;
 }
+
+/* ---------- 계획 화면 체크리스트: 기장이 바로 더하고 지우고 고친다 ---------- */
+.checklist li[data-ck] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.checklist li[data-ck] > .check {
+  flex: 1;
+  min-width: 0;
+}
+.ck-tools {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+}
+.checklist li:hover .ck-tools,
+.checklist li:focus-within .ck-tools {
+  opacity: 1;
+}
+@media (hover: none) {
+  .ck-tools {
+    opacity: 0.7;
+  }
+}
+.ck-btn {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.ck-btn:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.ck-edit {
+  flex: 1;
+  height: 34px;
+  min-width: 0;
+}
+.ck-going {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.ck-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px 6px 6px 12px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: 12px;
+}
+.ck-add input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
+.ck-add:focus-within {
+  border-color: var(--accent);
+}
+.ck-suggest {
+  margin-top: 10px;
+}
+.ck-suggest summary {
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.ck-suggest .chips {
+  margin-top: 8px;
+}

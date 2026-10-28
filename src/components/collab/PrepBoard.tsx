@@ -6,18 +6,9 @@ import { useRouter } from 'next/navigation';
 import type { BudgetItem, Item, Plan, PlanInfo } from '@/lib/types';
 import { updatePlan } from '@/app/actions';
 import Modal from './Modal';
+import { BUDGET_SUGGEST, CHECK_SUGGEST } from '@/lib/suggest';
 import { broadcast, toast } from './util';
 
-const BUDGET_SUGGEST: Record<string, string[]> = {
-  abroad: ['항공', '숙소', '식비', '교통', '입장료', '쇼핑', '통신', '보험'],
-  domestic: ['교통', '숙소', '식비', '입장료', '쇼핑', '렌터카'],
-  local: ['식비', '카페', '교통', '입장료', '쇼핑'],
-};
-const CHECK_SUGGEST: Record<string, string[]> = {
-  abroad: ['항공권 예약', '숙소 예약', '여권 유효기간 확인', '여행자 보험', '환전', 'eSIM', '비자 확인', '현지 교통패스'],
-  domestic: ['교통편 예약', '숙소 예약', '맛집 예약', '날씨 확인', '보조배터리'],
-  local: ['동선 짜기', '맛집 예약', '돗자리', '보조배터리', '편한 신발', '날씨 확인'],
-};
 // 숙소·렌터카는 보통 다 같이 낸다
 const GROUP_DEFAULT = /숙소|호텔|료칸|에어비앤비|게스트|렌터카|주유|캠핑/;
 const won = (n: number) => `₩${Math.round(n).toLocaleString('ko-KR')}`;

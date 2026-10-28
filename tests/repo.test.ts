@@ -237,3 +237,25 @@ describe('일정 위에서 하나씩 결정', () => {
     expect((await r.get(id))!.proposals[0].status).toBe('partial');
   });
 });
+
+describe('준비물 바로 고치기', () => {
+  let r: FileRepo;
+  beforeEach(() => {
+    r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
+  });
+  it('더하기·고치기·지우기 · 같은 글자는 막고 · 번호가 어긋나도 글자로 찾는다 · 기장만', async () => {
+    const { bundle, token } = await r.create({ ...info, checklist: [['여권', false]] }, [], 'pass1234');
+    const id = bundle.plan.id;
+    await r.editChecklist(id, token, { type: 'add', text: '  JR패스 교환 ' });
+    await expect(r.editChecklist(id, token, { type: 'add', text: '여권' })).rejects.toThrow(/이미 있는/);
+    await r.setCheck(id, token, 0, true);
+    await r.editChecklist(id, token, { type: 'rename', index: 1, from: 'JR패스 교환', to: 'JR패스 교환하기' });
+    expect((await r.get(id))!.plan.checklist).toEqual([['여권', true], ['JR패스 교환하기', false]]);
+    // 다른 탭에서 앞 항목이 지워져 번호가 어긋난 경우: 글자로 찾아 지운다
+    await r.editChecklist(id, token, { type: 'remove', index: 5, text: 'JR패스 교환하기' });
+    const b = (await r.get(id))!;
+    expect(b.plan.checklist).toEqual([['여권', true]]);
+    expect(b.plan.version).toBe(bundle.plan.version); // 일정 버전은 그대로
+    await expect(r.editChecklist(id, 'nope', { type: 'add', text: 'x' })).rejects.toThrow();
+  });
+});

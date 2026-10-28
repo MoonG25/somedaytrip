@@ -11,6 +11,7 @@ import path from 'node:path';
 import type { Bundle, HistoryEntry, HistoryKind, Item, Op, Plan, PlanInfo, Proposal } from '@/lib/types';
 import { applyOps, describeOps, findConflicts, opCounts, sortItems } from '@/lib/proposals';
 import { cleanInfo, cleanItem, cleanOps, planSlug } from '@/lib/clean';
+import { CHECK_LEN, CHECK_MAX } from '@/lib/suggest';
 import { checkSecret, makeSecret, sha256, uid, type Secret } from './secret';
 import { SAMPLES } from './samples.js';
 
@@ -47,6 +48,8 @@ export interface Repo {
   changePassword(id: string, token: string, current: string, next: string): Promise<void>;
   updateInfo(id: string, token: string, info: PlanInfo): Promise<Plan>;
   setCheck(id: string, token: string, index: number, done: boolean): Promise<void>;
+  /** 준비물 하나 더하기·지우기·고치기 (계획 정보 전체를 덮어쓰지 않는다) */
+  editChecklist(id: string, token: string, op: ChecklistOp): Promise<void>;
   applyDirect(id: string, token: string, ops: Op[]): Promise<void>;
   propose(id: string, p: ProposalInput): Promise<Proposal>;
   decide(id: string, token: string, no: number, decision: 'accept' | 'reject', note: string, skipConflicts?: boolean): Promise<Proposal>;
@@ -63,6 +66,8 @@ export interface Repo {
   /** 링크 새로 만들기: 계획 id를 바꾼다. 예전 링크는 더 이상 열리지 않는다 */
   rekey(id: string, token: string): Promise<string>;
 }
+
+export type ChecklistOp = { type: 'add'; text: string } | { type: 'remove'; index: number; text: string } | { type: 'rename'; index: number; from: string; to: string };
 
 export interface OpDecision {
   no: number;
@@ -248,6 +253,36 @@ export abstract class BaseRepo implements Repo {
       const c = r.plan.checklist[index];
       if (!c) throw new RepoError('없는 항목이에요', 'invalid');
       c[1] = !!done;
+      this.touch(r);
+    });
+  }
+
+  async editChecklist(id: string, token: string, op: ChecklistOp) {
+    const clip = (t: unknown) => String(t ?? '').trim().slice(0, CHECK_LEN);
+    await this.mutate(id, (r) => {
+      this.owner(r, token);
+      const list = r.plan.checklist;
+      // 다른 탭에서 먼저 바뀌었으면 번호가 어긋날 수 있어서 글자도 같이 맞춰 본다
+      const at = (i: number, t: string) => (list[i]?.[0] === t ? i : list.findIndex(([x]) => x === t));
+      if (op.type === 'add') {
+        const t = clip(op.text);
+        if (!t) throw new RepoError('준비할 것을 적어 주세요', 'invalid');
+        if (list.some(([x]) => x === t)) throw new RepoError('이미 있는 항목이에요', 'invalid');
+        if (list.length >= CHECK_MAX) throw new RepoError(`준비물은 ${CHECK_MAX}개까지예요`, 'limited');
+        list.push([t, false]);
+      } else if (op.type === 'remove') {
+        const i = at(Number(op.index), clip(op.text));
+        if (i < 0) return;
+        list.splice(i, 1);
+      } else {
+        const i = at(Number(op.index), clip(op.from));
+        const t = clip(op.to);
+        if (i < 0) throw new RepoError('없는 항목이에요', 'invalid');
+        if (!t) throw new RepoError('준비할 것을 적어 주세요', 'invalid');
+        if (list.some(([x], k) => x === t && k !== i)) throw new RepoError('이미 있는 항목이에요', 'invalid');
+        list[i][0] = t;
+      }
+      // 일정 버전은 올리지 않는다 (승객 제안 바구니에 "그 사이 바뀜"이 뜨지 않게)
       this.touch(r);
     });
   }

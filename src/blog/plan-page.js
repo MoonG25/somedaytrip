@@ -10,6 +10,7 @@ import { weatherAt, krwPer, fxLabel, tzOffsetHours, sunAt } from './live.js';
 import { createFlapEngine } from './splitflap.js';
 import { ticketHTML, bindTickets, monthsStrip, readyRing, donut, bindDonut } from './ticket.js';
 import { toast } from './toast.js';
+import { CHECK_SUGGEST } from '../lib/suggest';
 
 const JAR = 'M70 34 L130 34 L130 52 C 160 58 172 76 172 104 L172 206 C172 222 160 232 144 232 L56 232 C40 232 28 222 28 206 L28 104 C28 76 40 58 70 52 Z';
 
@@ -150,13 +151,25 @@ export function renderPrep(p, { owner = false }) {
         ${p.checklist
           .map(
             ([text, done], k) =>
-              `<li><label class="check"><input type="checkbox" data-check="${k}" ${done ? 'checked' : ''} ${owner ? '' : 'disabled'}><span class="check-box" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="check-text">${esc(text)}</span></label></li>`
+              `<li data-ck="${k}"><label class="check"><input type="checkbox" data-check="${k}" ${done ? 'checked' : ''} ${owner ? '' : 'disabled'}><span class="check-box" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></svg></span><span class="check-text">${esc(text)}</span></label>${
+                owner ? `<span class="ck-tools"><button type="button" class="ck-btn" data-ckedit="${k}" aria-label="${esc(text)} 고치기">✎</button><button type="button" class="ck-btn" data-ckdel="${k}" aria-label="${esc(text)} 지우기">✕</button></span>` : ''
+              }</li>`
           )
           .join('')}
       </ul>`
-          : `<p class="muted">아직 준비할 것이 없어요.${owner ? ` <a class="link-u" href="/p/${esc(p.id)}/edit#prep">추가하기 →</a>` : ''}</p>`
+          : `<p class="muted">아직 준비할 것이 없어요.${owner ? ' 생각날 때마다 아래에 적어 두세요.' : ''}</p>`
       }
-      <p class="faint check-note">${owner ? '체크하면 친구들에게도 보여요.' : '체크는 기장만 할 수 있어요.'}</p>
+      ${
+        owner
+          ? (() => {
+              const have = new Set((p.checklist || []).map(([t]) => t));
+              const sug = (CHECK_SUGGEST[p.scope] || []).filter((t) => !have.has(t));
+              return `<form class="ck-add" autocomplete="off"><span class="ba-ico" aria-hidden="true">+</span><input name="ck" maxlength="80" placeholder="준비할 것 추가 (예: JR패스 교환)" aria-label="준비할 것 추가"><button type="submit" class="btn btn--sm">추가</button></form>
+      ${sug.length ? `<details class="ck-suggest"><summary>추천 보기</summary><div class="chips">${sug.map((t) => `<button type="button" class="chip" data-cksug="${esc(t)}">+ ${esc(t)}</button>`).join('')}</div></details>` : ''}`;
+            })()
+          : ''
+      }
+      <p class="faint check-note">${owner ? '체크하면 친구들에게도 보여요. 여행이 다가오며 생각나는 것도 언제든 더해요.' : '체크는 기장만 할 수 있어요.'}</p>
     </div>
     <div class="prep-jar" data-reveal>
       <header class="sec-head"><div><p class="eyebrow">여행 적금</p><h2>Travel <em>fund</em></h2></div></header>
@@ -195,7 +208,7 @@ export function renderPrep(p, { owner = false }) {
 }
 
 /** 브라우저에서: 카운트다운 플랩 · 현지 시각 · 날씨 · 환율 · 체크리스트 · 적금 병 · 도넛 · 탑승권 */
-export function mountPlanPage(root, p, { owner = false, onCheck, navigate } = {}) {
+export function mountPlanPage(root, p, { owner = false, onCheck, onChecklist, navigate } = {}) {
   const cleanups = [];
   let alive = true;
   cleanups.push(bindTickets(root, navigate || (() => {})));
@@ -289,6 +302,80 @@ export function mountPlanPage(root, p, { owner = false, onCheck, navigate } = {}
     }
   };
   root.querySelector('.checklist')?.addEventListener('change', onChange);
+
+  /* 준비물 더하기·지우기·고치기 (기장): 저장하면 화면이 새 목록으로 다시 그려진다 */
+  const prepBox = root.querySelector('.prep-check');
+  const onPrepClick = async (e) => {
+    if (!owner || !onChecklist) return;
+    const del = e.target.closest('[data-ckdel]');
+    const ed = e.target.closest('[data-ckedit]');
+    const sug = e.target.closest('[data-cksug]');
+    if (sug) {
+      sug.disabled = true;
+      if (!(await onChecklist({ type: 'add', text: sug.dataset.cksug }))) sug.disabled = false;
+      return;
+    }
+    if (del) {
+      const k = Number(del.dataset.ckdel);
+      const li = del.closest('li');
+      li.classList.add('ck-going');
+      if (!(await onChecklist({ type: 'remove', index: k, text: checklist[k][0] }))) li.classList.remove('ck-going');
+      return;
+    }
+    if (ed) {
+      const k = Number(ed.dataset.ckedit);
+      const li = ed.closest('li');
+      if (li.querySelector('.ck-edit')) return;
+      const span = li.querySelector('.check-text');
+      const input = document.createElement('input');
+      input.className = 'inp ck-edit';
+      input.maxLength = 80;
+      input.value = checklist[k][0];
+      input.setAttribute('aria-label', '준비할 것 고치기');
+      span.hidden = true;
+      span.after(input);
+      input.focus();
+      input.select();
+      let done = false;
+      const finish = async (save) => {
+        if (done) return;
+        done = true;
+        const to = input.value.trim();
+        if (save && to && to !== checklist[k][0]) {
+          if (await onChecklist({ type: 'rename', index: k, from: checklist[k][0], to })) return;
+        }
+        input.remove();
+        span.hidden = false;
+      };
+      // 라벨 안이라 누르면 체크가 바뀌지 않게
+      input.addEventListener('click', (ev) => ev.preventDefault());
+      input.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && !ev.isComposing) {
+          ev.preventDefault();
+          finish(true);
+        } else if (ev.key === 'Escape') finish(false);
+      });
+      input.addEventListener('blur', () => finish(true));
+    }
+  };
+  const onPrepSubmit = async (e) => {
+    const f = e.target.closest('.ck-add');
+    if (!f || !owner || !onChecklist) return;
+    e.preventDefault();
+    const text = f.ck.value.trim();
+    if (!text) return f.ck.focus();
+    f.ck.disabled = true;
+    const ok = await onChecklist({ type: 'add', text });
+    f.ck.disabled = false;
+    if (ok) f.ck.value = '';
+    f.ck.focus();
+  };
+  prepBox?.addEventListener('click', onPrepClick);
+  prepBox?.addEventListener('submit', onPrepSubmit);
+  cleanups.push(() => {
+    prepBox?.removeEventListener('click', onPrepClick);
+    prepBox?.removeEventListener('submit', onPrepSubmit);
+  });
 
   /* 여행 적금 병 (이 블록에 병이 있을 때만) */
   if (root.querySelector('.jar')) mountJar(root, p, cleanups);
