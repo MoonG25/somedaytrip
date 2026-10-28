@@ -1,5 +1,6 @@
 // 목적지 → 대표 공항 코드 (탑승권·전광판에 찍힌다). 한국 사람이 자주 가는 도시 위주.
-// 키는 영문 소문자 또는 한글 이름. 없으면 사용자가 "탑승권에 찍히는 정보"에서 직접 넣는다.
+// 키는 영문 소문자 또는 한글 이름. 공항이 여러 개인 도시는 GROUP에서 고를 수 있다 (작성 화면의 공항 칩).
+// 목록에 없으면 사용자가 "다른 공항 직접 입력"으로 넣는다.
 const A = {
   // 일본
   tokyo: 'NRT', 도쿄: 'NRT', osaka: 'KIX', 오사카: 'KIX', kyoto: 'KIX', 교토: 'KIX', nara: 'KIX', 나라: 'KIX', kobe: 'UKB', 고베: 'UKB',
@@ -31,6 +32,33 @@ const A = {
   // 국내
   jeju: 'CJU', 제주: 'CJU', 제주시: 'CJU', 서귀포: 'CJU', busan: 'PUS', 부산: 'PUS', gangneung: 'YNY', 강릉: 'YNY', 양양: 'YNY', yeosu: 'RSU', 여수: 'RSU', daegu: 'TAE', 대구: 'TAE', gwangju: 'KWJ', 광주: 'KWJ', ulsan: 'USN', 울산: 'USN', pohang: 'KPO', 포항: 'KPO',
 };
+
+// 공항이 여러 개인 도시: 대표 코드 → 고를 수 있는 공항들 (첫 번째가 기본)
+const GROUP = {
+  NRT: ['NRT', 'HND'], HND: ['HND', 'NRT'],
+  KIX: ['KIX', 'ITM', 'UKB'], UKB: ['UKB', 'KIX', 'ITM'],
+  TPE: ['TPE', 'TSA'], PVG: ['PVG', 'SHA'], PEK: ['PEK', 'PKX'],
+  BKK: ['BKK', 'DMK'], CGK: ['CGK', 'HLP'],
+  JFK: ['JFK', 'EWR', 'LGA'], LAX: ['LAX', 'BUR'], SFO: ['SFO', 'OAK', 'SJC'], ORD: ['ORD', 'MDW'], YYZ: ['YYZ', 'YTZ'], MEX: ['MEX', 'NLU'],
+  LHR: ['LHR', 'LGW', 'STN', 'LTN', 'LCY'], CDG: ['CDG', 'ORY', 'BVA'], FCO: ['FCO', 'CIA'], MXP: ['MXP', 'LIN', 'BGY'], VCE: ['VCE', 'TSF'],
+  ARN: ['ARN', 'BMA'], IST: ['IST', 'SAW'], DXB: ['DXB', 'DWC'],
+};
+
+/** 공항 이름 (칩에 같이 보여 준다) */
+export const AIRPORT_NAME = {
+  NRT: '나리타', HND: '하네다', KIX: '간사이', ITM: '이타미', UKB: '고베', TPE: '타오위안', TSA: '쑹산', PVG: '푸둥', SHA: '훙차오', PEK: '서우두', PKX: '다싱',
+  BKK: '수완나품', DMK: '돈므앙', CGK: '수카르노하타', HLP: '할림', JFK: 'JFK', EWR: '뉴어크', LGA: '라과디아', LAX: 'LA 국제', BUR: '버뱅크', SFO: 'SF 국제', OAK: '오클랜드', SJC: '산호세',
+  ORD: '오헤어', MDW: '미드웨이', YYZ: '피어슨', YTZ: '빌리 비숍', MEX: '베니토 후아레스', NLU: '펠리페 앙헬레스', LHR: '히스로', LGW: '개트윅', STN: '스탠스테드', LTN: '루턴', LCY: '런던 시티',
+  CDG: '샤를드골', ORY: '오를리', BVA: '보베', FCO: '피우미치노', CIA: '참피노', MXP: '말펜사', LIN: '리나테', BGY: '베르가모', VCE: '마르코 폴로', TSF: '트레비소',
+  ARN: '알란다', BMA: '브롬마', IST: '이스탄불', SAW: '사비하 괵첸', DXB: '두바이 국제', DWC: '알 막툼',
+};
+
+/** 고를 수 있는 공항들 (대표 공항이 먼저). 모르는 도시면 빈 목록 */
+export function airportsFor(...names) {
+  const main = iataFor(...names);
+  if (!main) return [];
+  return (GROUP[main] || [main]).map((code) => ({ code, name: AIRPORT_NAME[code] || '' }));
+}
 
 /** 이름(한글·영문) 몇 개 중 하나라도 맞으면 공항 코드 */
 export function iataFor(...names) {

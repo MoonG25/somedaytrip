@@ -20,7 +20,7 @@ import { ticketHTML, tearStub } from './ticket.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from './leaflet.js';
 import { toast } from './toast.js';
 import { reverse, nameOf, enOf, geoPending, geoIdle, CURRENCY, SCENES, SCENE_KO, TIMES } from './geo.js';
-import { iataFor } from './airports.js';
+import { iataFor, airportsFor, AIRPORT_NAME } from './airports.js';
 import { linkKind, LINK_META, defaultLabel, normalizeUrl } from '../lib/links';
 
 const SCOPES = {
@@ -638,6 +638,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
   form.addEventListener('input', (e) => {
     if (['q', 'sq', 'newCheck', 'bName', 'bAmt', 'tagIn', 'linkIn'].includes(e.target.name) || e.target.closest('.budget-list') || e.target.closest('.link-edit')) return;
     if (e.target.name === 'title') autoTitle = !e.target.value.trim(); // 직접 고치면 자동 이름은 멈춘다 (다 지우면 다시 자동)
+    if (e.target.name === 'iata') requestAnimationFrame(drawDest); // 직접 넣은 공항도 칩에 보이게
     if (e.target.name === 'pw') {
       const m = root.querySelector('.pw-meter');
       const s = strength(form.pw.value);
@@ -669,12 +670,28 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     update();
   });
   const destCard = root.querySelector('.dest-card');
+  /** 공항 고르기: 공항이 여러 개인 도시는 칩으로, 목록에 없으면 직접 입력 (해외·공항 코드가 있는 곳만) */
+  const airportChips = () => {
+    const list = airportsFor(d.place, d.placeEn);
+    if (d.scope !== 'abroad' && !list.length && !d.iata) return '';
+    const codes = list.map((a) => a.code);
+    const custom = d.iata && !codes.includes(d.iata) ? [{ code: d.iata, name: AIRPORT_NAME[d.iata] || '직접 입력' }] : [];
+    const all = [...list, ...custom];
+    if (all.length < 2) {
+      // 고를 게 하나뿐이면 칩 대신 직접 입력 링크만
+      return `<span class="dc-air"><button type="button" class="link-u faint" data-air-custom>✈ 다른 공항이면 직접 입력</button></span>`;
+    }
+    return `<span class="dc-air" role="radiogroup" aria-label="도착 공항"><span class="dc-air-lbl">✈ 공항</span>${all
+      .map((a) => `<button type="button" class="chip" role="radio" aria-checked="${d.iata === a.code}" data-air="${esc(a.code)}"><b class="mono">${esc(a.code)}</b>${a.name ? ` ${esc(a.name)}` : ''}</button>`)
+      .join('')}<button type="button" class="link-u faint" data-air-custom>다른 공항</button></span>`;
+  };
   const drawDest = () => {
     destCard.hidden = !d.place;
     if (!d.place) return;
     destCard.innerHTML = `<span class="dc-flag">${d.countryCode ? flagOf(d.countryCode) : SCOPES[d.scope].icon}</span>
       <span class="dc-txt"><b>${esc(d.place)}</b> ${d.placeEn ? `<span class="serif faint">${esc(d.placeEn)}</span>` : ''}<small>${esc([d.country, d.iata && `✈ ${d.iata}`, d.coords && `${d.coords[0].toFixed(2)}, ${d.coords[1].toFixed(2)}`].filter(Boolean).join(' · '))}</small></span>
       <button type="button" class="link-u faint" data-dest-clear>바꾸기</button>
+      ${airportChips()}
       ${
         quick && d.scope !== 'abroad'
           ? `<span class="dc-scope chips" role="radiogroup" aria-label="여행 종류">${['domestic', 'local'].map((k) => `<button type="button" class="chip" role="radio" aria-checked="${d.scope === k}" data-scope2="${k}">${SCOPES[k].icon} ${SCOPES[k].ko} 여행</button>`).join('')}</span>`
@@ -682,6 +699,22 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
       }`;
   };
   destCard.addEventListener('click', (e) => {
+    const air = e.target.closest('[data-air]');
+    if (air) {
+      d.iata = air.dataset.air;
+      fill();
+      drawDest();
+      update();
+      return;
+    }
+    if (e.target.closest('[data-air-custom]')) {
+      // 접혀 있는 "탑승권에 찍히는 정보"를 열고 공항 코드 칸으로
+      const adv = form.iata.closest('details');
+      if (adv) adv.open = true;
+      form.iata.focus();
+      form.iata.select();
+      return;
+    }
     const sc = e.target.closest('[data-scope2]');
     if (sc) {
       d.scope = sc.dataset.scope2;
