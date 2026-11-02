@@ -121,7 +121,7 @@ export async function addItem(page: Page, { day = 1, title, time, place, memo }:
     await page.fill('.sdt-modal[open] input[aria-label="장소 검색"]', place);
     await page.locator('.sdt-modal[open] .ac-list li[data-i]').first().click();
   }
-  if (memo) await page.fill('.sdt-modal[open] input[placeholder="예: 새벽 6시 반 출발"]', memo);
+  if (memo) await page.fill('.sdt-modal[open] [placeholder="예: 새벽 6시 반 출발"]', memo);
   await page.click('.sdt-modal[open] button[type=submit]');
   await page.locator('.sdt-modal[open] .item-form').waitFor({ state: 'detached' });
 }
