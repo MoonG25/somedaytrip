@@ -521,7 +521,8 @@ export class FileRepo extends BaseRepo {
 
   private async save() {
     await mkdir(path.dirname(this.file), { recursive: true });
-    const tmp = this.file + '.tmp';
+    // 빌드 작업자 여러 개가 동시에 저장해도 부딪히지 않게 임시 파일 이름을 저장마다 다르게
+    const tmp = `${this.file}.${process.pid}.${Math.random().toString(36).slice(2, 8)}.tmp`;
     await writeFile(tmp, JSON.stringify(this.db));
     await rename(tmp, this.file);
   }

@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "e2e:japan": "node e2e/japan-trip.mjs"
   },
   "dependencies": {
     "next": "^16.4.2",
@@ -19,6 +21,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",

@@ -7,6 +7,8 @@ export function clientIp(req: Request) {
 
 /** windowMs 안에 max번까지. 넘으면 false */
 export function allow(key: string, max: number, windowMs: number) {
+  // e2e 테스트 서버에서만 끈다 (한 번에 여러 계정을 만들고 여러 번 고친다). 운영에는 이 값을 두지 않는다
+  if (process.env.SDT_NO_LIMIT === '1' && process.env.VERCEL !== '1') return true;
   const now = Date.now();
   const list = (buckets.get(key) || []).filter((t) => now - t < windowMs);
   if (list.length >= max) {

@@ -213,8 +213,9 @@ export class FileUserStore extends BaseUserStore {
   }
   private async save() {
     await mkdir(path.dirname(this.file), { recursive: true });
-    await writeFile(this.file + '.tmp', JSON.stringify(this.db));
-    await rename(this.file + '.tmp', this.file);
+    const tmp = `${this.file}.${process.pid}.${Math.random().toString(36).slice(2, 8)}.tmp`;
+    await writeFile(tmp, JSON.stringify(this.db));
+    await rename(tmp, this.file);
   }
   private tx<T>(fn: (db: FileDb) => T | Promise<T>, write = true): Promise<T> {
     const run = this.chain.then(async () => {
