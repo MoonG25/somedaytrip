@@ -7,24 +7,12 @@
 import { NextResponse } from 'next/server';
 import { findCities } from '@/blog/cities.js';
 import { allow, clientIp } from '@/server/limit';
+import { jpBias, lookupJp, mergeHits, pickJp, rankHits, type Hit } from '@/lib/place-rank';
 
 export const runtime = 'nodejs';
 
-type Hit = {
-  name: string;
-  en?: string;
-  address?: string;
-  country?: string;
-  countryCode?: string;
-  city?: string;
-  lat: number;
-  lng: number;
-  kind: 'region' | 'poi';
-  source: 'kakao' | 'photon' | 'osm' | 'list';
-};
-
 const UA = 'SomedayTrip/0.2 (+https://somedaytrip.vercel.app)';
-const cache = new Map<string, { at: number; hits: Hit[] }>();
+const cache = new Map<string, { at: number; hits: Hit[]; far: boolean }>();
 const REGION = new Set(['city', 'town', 'village', 'hamlet', 'suburb', 'quarter', 'neighbourhood', 'borough', 'district', 'county', 'state', 'province', 'region', 'country', 'island', 'municipality', 'locality']);
 
 async function kakao(q: string, lat?: number, lng?: number): Promise<Hit[]> {
@@ -119,8 +107,6 @@ async function osm(q: string, mode: string, lat?: number, lng?: number): Promise
   });
 }
 
-const dist = (a: Hit, b: Hit) => Math.hypot(a.lat - b.lat, (a.lng - b.lng) * Math.cos((a.lat * Math.PI) / 180)) * 111;
-
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get('q') || '').trim().slice(0, 80);
@@ -132,27 +118,32 @@ export async function GET(req: Request) {
   if (!allow(`places:${clientIp(req)}`, 40, 60_000)) return NextResponse.json({ hits: [], limited: true }, { status: 429, headers: { 'Retry-After': '30' } });
   const key = `${mode}|${q}|${lat?.toFixed(1)}|${lng?.toFixed(1)}`;
   const c = cache.get(key);
-  if (c && Date.now() - c.at < 3600_000) return NextResponse.json({ hits: c.hits });
+  if (c && Date.now() - c.at < 3600_000) return NextResponse.json(c.far ? { hits: c.hits, far: true } : { hits: c.hits });
+  const near = lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined;
 
   // 목적지는 한글 이름표에서 먼저 (오픈스트리트맵에 외국 도시 한글 이름이 빠진 경우가 많다)
   const listed: Hit[] = mode === 'dest' ? findCities(q) : [];
-  const results = await Promise.allSettled([kakao(q, lat, lng), photon(q, mode, lat, lng), osm(q, mode, lat, lng)]);
-  const [k, p, o] = results.map((r) => (r.status === 'fulfilled' ? r.value : []));
-  // 순서: 카카오(한국 가게) → Nominatim(한국어 이름) → Photon. 가까운 같은 곳은 하나로 (한국어 이름·영문 이름을 합친다)
-  const out: Hit[] = [];
-  for (const h of [...listed, ...k, ...o, ...p]) {
-    if (mode === 'dest' && h.kind !== 'region' && h.source !== 'kakao' && h.source !== 'list') continue;
-    const same = out.find((x) => dist(x, h) < (h.kind === 'region' ? 8 : 0.15) || (x.name === h.name && dist(x, h) < 2));
-    if (same) {
-      same.en ||= h.en || (h.source === 'photon' && /^[\x00-\x7FÀ-ɏ\s'.-]+$/.test(h.name) ? h.name : undefined);
-      same.countryCode ||= h.countryCode;
-      same.country ||= h.country;
-      continue;
-    }
-    out.push({ ...h });
-  }
-  const hits = out.slice(0, 8);
-  cache.set(key, { at: Date.now(), hits });
+  // 일본 명소를 한글로 치면 현지 이름으로도 찾는다 (Nominatim은 초당 1회라 현지 이름 쪽에 쓴다)
+  const jp = mode === 'poi' ? lookupJp(q) : [];
+  const ok = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
+  const [k, p, o, ...local] = await Promise.all([
+    ok(kakao(q, lat, lng)),
+    ok(photon(q, mode, lat, lng)),
+    jp.length ? Promise.resolve([] as Hit[]) : ok(osm(q, mode, lat, lng)),
+    ...jp.map((x, i) => {
+      const b = jpBias(x, near);
+      return Promise.all([i === 0 ? ok(osm(x.q, 'poi', b?.lat, b?.lng)) : Promise.resolve([] as Hit[]), ok(photon(x.q, 'poi', b?.lat, b?.lng))]).then(([a, c]) => [...a, ...c]);
+    }),
+  ]);
+  // 사전 명소는 한글 이름을 붙여 맨 앞에
+  const pins = jp.map((x, i) => pickJp(x, local[i], near)).filter((h): h is Hit => !!h);
+  // 순서: 카카오(한국 가게) → Nominatim(한국어 이름) → Photon
+  const merged = mergeHits([...pins, ...listed, ...k, ...o, ...p, ...local.flat()], mode);
+  const at = merged.findIndex((h) => !pins.some((x) => x.name === h.name && x.lat === h.lat && x.lng === h.lng));
+  const pinned = at < 0 ? merged.length : at;
+  const { hits: ranked, far } = rankHits(merged, mode === 'poi' ? near : undefined, mode, pinned);
+  const hits = ranked.slice(0, 8);
+  cache.set(key, { at: Date.now(), hits, far });
   if (cache.size > 500) cache.delete(cache.keys().next().value!);
-  return NextResponse.json({ hits }, { headers: { 'Cache-Control': 'public, s-maxage=3600' } });
+  return NextResponse.json(far ? { hits, far: true } : { hits }, { headers: { 'Cache-Control': 'public, s-maxage=3600' } });
 }
