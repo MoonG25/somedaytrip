@@ -1,7 +1,7 @@
 // 계획 쓰기 · 고치기 (moon.log pages/plan-edit.js에서 시작해 섬데트 흐름으로 다시 짰다)
 //
 // 흐름
-//  01 어디로   여행 종류 → 목적지 검색(자동완성) → 이름. 나라·공항 코드는 자동으로 채우고 접어 둔다
+//  01 어디로   여행 종류 → 목적지 검색(자동완성) → 함께 들를 도시(선택) → 이름. 나라·공항 코드는 자동으로 채우고 접어 둔다
 //  02 언제     "날짜 정했어요" → 범위 달력(기간 자동) / "아직 몰라요" → 가기 좋은 달 + 며칠짜리
 //  03 예산     할 일 목록처럼 항목을 더하고 지운다
 //  04 가 볼 곳 (새로 쓸 때만) 자동완성 검색 + 지도에 찍기
@@ -45,6 +45,7 @@ const BUDGET_ICON = [
 ];
 const iconOf = (name) => BUDGET_ICON.find(([re]) => re.test(name))?.[1] || '✦';
 const QUICK_DAYS = [1, 2, 3, 4, 5, 7, 10];
+const VIA_MAX = 6;
 const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 export const blankPlan = () => ({
@@ -67,6 +68,7 @@ export const blankPlan = () => ({
   tags: [],
   intro: '',
   coords: null,
+  via: [],
   stops: [],
   travelers: 1,
   budgetItems: [],
@@ -114,6 +116,15 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
           <ul class="ac-list" id="ac-dest" role="listbox" hidden></ul>
         </div>
         <div class="dest-card" hidden></div>
+        <div class="via-box" hidden>
+          <ul class="via-chips" role="list" aria-label="함께 들르는 도시"></ul>
+          <button type="button" class="via-open link-u" data-via-open aria-expanded="false">+ 다른 도시도 들러요</button>
+          <p class="via-max faint" hidden>도시는 ${VIA_MAX}곳까지 더할 수 있어요</p>
+          <div class="ac" data-ac="via" hidden>
+            <label class="field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input name="vq" placeholder="들를 도시 (예: 하코네, 교토)" aria-label="들를 도시 검색" role="combobox" aria-expanded="false" aria-controls="ac-via" aria-autocomplete="list"></label>
+            <ul class="ac-list" id="ac-via" role="listbox" hidden></ul>
+          </div>
+        </div>
       </div>
       <label class="field-block">${lbl('여행 이름', '탑승권에 크게 찍혀요')}<input class="inp" name="title" placeholder="삿포로, 눈이 소리를 먹는 도시" maxlength="60"></label>
       <details class="adv">
@@ -144,8 +155,8 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
       <div class="when-pane" data-pane="date" hidden>
         <div class="cal" aria-label="여행 날짜 고르기"></div>
         <div class="cal-sum"></div>
-        <div class="field-block"${off}>
-          ${lbl('어디까지 준비했나요?')}
+        <div class="field-block">
+          ${lbl('어디까지 준비했나요?', quick ? '항공·숙소를 이미 예약했다면 예약 완료' : '')}
           <div class="segmented status-seg" role="radiogroup" aria-label="준비 상태">
             ${['planning', 'preparing', 'booked', ...(editing ? ['done'] : [])].map((k) => `<button type="button" role="radio" aria-checked="false" data-status="${k}">${STATUS[k].ko}</button>`).join('')}
             <span class="seg-indicator"></span>
@@ -517,6 +528,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     }
   })();
   let d = { ...blankPlan(), ...(initial || wip || {}) };
+  d.via = Array.isArray(d.via) ? d.via.filter((v) => v?.name).slice(0, VIA_MAX) : []; // 예전 계획엔 없다
   if (account?.nick) d.ownerName = d.ownerName || account.nick;
   if (!d.ownerName) {
     try {
@@ -527,7 +539,10 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
   let whenMode = d.target ? 'date' : initial ? 'someday' : wip?._when || null;
   // 발권 흐름: 여행 이름은 "삿포로 4박 5일"처럼 자동으로 지어 두고, 직접 고치면 그때부터 그대로 둔다
   let autoTitle = quick && (!d.title || !!wip?._autoTitle);
-  const makeTitle = () => (d.scope === 'local' ? `${d.place} 한 바퀴` : `${d.place} ${nights(d.days)}`);
+  const makeTitle = () => {
+    const names = [d.place, ...d.via.map((v) => v.name)].join('·');
+    return d.scope === 'local' ? `${names} 한 바퀴` : `${names} ${nights(d.days)}`;
+  };
   // 예산: 순서를 지키려고 화면에서는 목록으로 다룬다
   // DB(jsonb)는 키 순서를 바꾸므로, 자주 쓰는 항목 순서대로 다시 세운다
   const ORDER = ['항공', '숙소', '식비', '카페', '교통', '렌터카', '입장료', '쇼핑', '통신', '보험'];
@@ -627,7 +642,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     });
   };
   form.addEventListener('input', (e) => {
-    if (['q', 'sq', 'newCheck', 'bName', 'bAmt', 'tagIn', 'linkIn'].includes(e.target.name) || e.target.closest('.budget-list') || e.target.closest('.link-edit')) return;
+    if (['q', 'vq', 'sq', 'newCheck', 'bName', 'bAmt', 'tagIn', 'linkIn'].includes(e.target.name) || e.target.closest('.budget-list') || e.target.closest('.link-edit')) return;
     if (e.target.name === 'title') autoTitle = !e.target.value.trim(); // 직접 고치면 자동 이름은 멈춘다 (다 지우면 다시 자동)
     if (e.target.name === 'iata') requestAnimationFrame(drawDest); // 직접 넣은 공항도 칩에 보이게
     if (e.target.name === 'pw') {
@@ -678,6 +693,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
   };
   const drawDest = () => {
     destCard.hidden = !d.place;
+    drawVia();
     if (!d.place) return;
     destCard.innerHTML = `<span class="dc-flag">${d.countryCode ? flagOf(d.countryCode) : SCOPES[d.scope].icon}</span>
       <span class="dc-txt"><b>${esc(d.place)}</b> ${d.placeEn ? `<span class="serif faint">${esc(d.placeEn)}</span>` : ''}<small>${esc([d.country, d.iata && `✈ ${d.iata}`, d.coords && `${d.coords[0].toFixed(2)}, ${d.coords[1].toFixed(2)}`].filter(Boolean).join(' · '))}</small></span>
@@ -741,6 +757,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     }
     d.iata = iataFor(h.name, h.en, h.city, d.placeEn) || (d.scope === 'abroad' ? (d.placeEn || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() : '');
     if (CURRENCY[d.countryCode]) d.currency = CURRENCY[d.countryCode];
+    d.via = d.via.filter((v) => v.name !== d.place); // 목적지와 같은 도시는 뺀다
     if (autoTitle) d.title = makeTitle();
     else if (!d.title) d.title = d.scope === 'local' ? `${h.name} 한 바퀴` : `${h.name}, `;
     fill();
@@ -762,6 +779,65 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     }
   };
   autocomplete(root.querySelector('[data-ac="dest"]'), { mode: 'dest', onPick: pickDest });
+
+  /* ---------- 함께 들르는 도시 (여러 도시 여행) ---------- */
+  const viaBox = root.querySelector('.via-box');
+  const viaChips = viaBox.querySelector('.via-chips');
+  const viaOpen = viaBox.querySelector('[data-via-open]');
+  const viaAc = viaBox.querySelector('[data-ac="via"]');
+  function drawVia() {
+    viaBox.hidden = !d.place;
+    const full = d.via.length >= VIA_MAX;
+    viaChips.hidden = !d.via.length;
+    viaChips.innerHTML = d.via
+      .map(
+        (v, i) => `<li class="via-chip" data-vi="${i}"><span class="via-no mono" aria-hidden="true">${i + 1}</span><b>${esc(v.name)}</b>${
+          i ? `<button type="button" class="via-btn" data-via-up="${i}" aria-label="${esc(v.name)} 앞으로">↑</button>` : ''
+        }<button type="button" class="via-btn" data-via-del="${i}" aria-label="${esc(v.name)} 빼기">✕</button></li>`
+      )
+      .join('');
+    viaOpen.hidden = full || !viaAc.hidden;
+    viaBox.querySelector('.via-max').hidden = !full;
+    if (full) viaAc.hidden = true;
+  }
+  const setViaOpen = (on) => {
+    viaAc.hidden = !on;
+    viaOpen.setAttribute('aria-expanded', String(on));
+    drawVia();
+    if (on) form.vq.focus();
+  };
+  viaOpen.addEventListener('click', () => setViaOpen(true));
+  viaChips.addEventListener('click', (e) => {
+    const del = e.target.closest('[data-via-del]');
+    const up = e.target.closest('[data-via-up]');
+    if (del) d.via.splice(Number(del.dataset.viaDel), 1);
+    else if (up) {
+      const i = Number(up.dataset.viaUp);
+      [d.via[i - 1], d.via[i]] = [d.via[i], d.via[i - 1]];
+    } else return;
+    drawVia();
+    update();
+    // 지운 뒤에도 키보드 자리를 잃지 않게
+    (viaChips.querySelector(up ? `[data-vi="${Number(up.dataset.viaUp) - 1}"] .via-btn` : '.via-btn') || (viaOpen.hidden ? form.vq : viaOpen)).focus();
+  });
+  form.vq.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !form.vq.value) setViaOpen(false);
+  });
+  autocomplete(viaAc, {
+    mode: 'dest',
+    near: () => d.coords,
+    onPick: (h) => {
+      const name = String(h.name || '').trim().slice(0, 40);
+      if (!name) return;
+      if (name === d.place || d.via.some((v) => v.name === name)) return void toast('이미 넣은 도시예요', '·');
+      if (d.via.length >= VIA_MAX) return void toast(`도시는 ${VIA_MAX}곳까지 더할 수 있어요`, '!');
+      const en = h.en || (/^[\x00-\x7FÀ-ɏ\s'.-]+$/.test(name) ? name : '');
+      d.via.push({ name, ...(en ? { en: en.slice(0, 40) } : {}), ...(Number.isFinite(h.lat) && Number.isFinite(h.lng) ? { coords: [+h.lat.toFixed(5), +h.lng.toFixed(5)] } : {}) });
+      drawVia();
+      update();
+      setTimeout(() => form.vq.focus(), 0);
+    },
+  });
 
   /* ---------- 풍경 ---------- */
   const sceneGrid = root.querySelector('.scene-grid');
