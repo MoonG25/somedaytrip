@@ -1,6 +1,6 @@
 // 브라우저에서 온 값은 믿지 않는다. 서버가 저장하기 전에 모양과 길이를 맞춘다.
 import { defaultLabel, normalizeUrl } from './links';
-import type { BudgetItem, Item, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
+import type { BudgetItem, Item, ItemTag, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim().slice(0, max);
 const num = (v: unknown, min: number, max: number, fallback: number) => {
@@ -38,10 +38,15 @@ export function cleanItem(i: unknown): Item {
     kind: oneOf(o.kind, KIND_KEYS, 'see'),
     place: cleanPlace(o.place),
     memo: str(o.memo, 400),
-    cost: o.cost == null || o.cost === '' ? null : num(o.cost, 0, 1e10, 0),
+    cost: o.cost == null || o.cost === '' ? null : Math.round(Math.min(1e10, Math.max(0, Number(o.cost) || 0)) * 100) / 100,
     order: Number.isFinite(Number(o.order)) ? Number(o.order) : 0,
+    end: /^\d{2}:\d{2}$/.test(String(o.end ?? '')) ? String(o.end) : '',
+    tag: oneOf(o.tag, ITEM_TAGS, ''),
+    cur: /^[A-Z]{3}$/.test(String(o.cur ?? '')) && o.cur !== 'KRW' ? String(o.cur) : '',
   };
 }
+
+export const ITEM_TAGS = ['booked', 'hope', 'maybe', ''] as const satisfies readonly ItemTag[];
 
 /** 부분 수정(before/after)의 칸들도 같은 규칙으로 */
 function cleanPartial(p: unknown): Partial<Item> {
@@ -110,6 +115,17 @@ export function cleanInfo(i: unknown): PlanInfo {
     : [];
   const months = Array.isArray(o.months) ? [...new Set(o.months.map((m) => num(m, 1, 12, 1)))].sort((a, b) => a - b) : [];
   const coords = Array.isArray(o.coords) ? coord(o.coords[0], o.coords[1]) : null;
+  const via = Array.isArray(o.via)
+    ? o.via
+        .slice(0, 6)
+        .map((v) => {
+          const x = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
+          const c = Array.isArray(x.coords) ? coord(x.coords[0], x.coords[1]) : null;
+          const name = str(x.name, 40);
+          return name ? { name, ...(str(x.en, 40) ? { en: str(x.en, 40) } : {}), ...(c ? { coords: c } : {}) } : null;
+        })
+        .filter((v): v is NonNullable<typeof v> => !!v)
+    : [];
   return {
     title: str(o.title, 60) || '이름 없는 여행',
     place: str(o.place, 40) || '어딘가',
@@ -135,6 +151,7 @@ export function cleanInfo(i: unknown): PlanInfo {
     budget,
     checklist,
     links,
+    via,
     ownerName: str(o.ownerName, 20) || '기장',
     visibility: oneOf<Visibility>(o.visibility, ['link', 'public'], 'link'),
   };

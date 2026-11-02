@@ -215,10 +215,16 @@ export interface ItemModalProps {
   owner: boolean;
   onClose: () => void;
   onSave: (item: Item) => void;
+  /** "저장하고 다음 일정": 저장하되 창은 닫지 않는다 (새 일정만). 없으면 버튼을 숨긴다 */
+  onSaveNext?: (item: Item) => void;
   nextOrder: (day: number | null) => number;
+  /** 장소 검색을 이 근처로 (그날 앞 일정의 장소 등). 없으면 계획 목적지 */
+  near?: [number, number] | null;
+  /** 이 일정 바로 아래에 넣기 (새 일정의 order를 정할 때 nextOrder 대신) */
+  order?: number;
 }
 
-export default function ItemModal({ open, plan, item, day, owner, onClose, onSave, nextOrder }: ItemModalProps) {
+export default function ItemModal({ open, plan, item, day, owner, onClose, onSave, nextOrder, near }: ItemModalProps) {
   const [d, setD] = useState<Item | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -276,7 +282,7 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
         </div>
         <div className="lbl">
           장소 <span className="faint">(선택)</span>
-          <PlaceField value={d.place} near={plan.coords} onChange={(p) => setD((cur) => (cur ? { ...cur, place: p, en: p?.en || cur.en } : cur))} />
+          <PlaceField value={d.place} near={near ?? plan.coords} onChange={(p) => setD((cur) => (cur ? { ...cur, place: p, en: p?.en || cur.en } : cur))} />
           <details className="adv en-adv">
             <summary>
               <span>영문 이름</span>

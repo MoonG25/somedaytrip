@@ -2,7 +2,7 @@
 //
 // 변경 하나(Op)는 "무엇을, 원래 어땠는데, 어떻게 바꾸자"를 담는다.
 // 수락할 때 지금 계획과 비교해서, 그 사이 같은 칸을 누가 바꿨으면 충돌로 본다 (3-way 비교).
-import type { Item, ItemField, Kind, Op, Proposal } from './types';
+import type { Item, ItemField, ItemTag, Kind, Op, Proposal } from './types';
 
 export const KINDS: Record<Kind, { label: string; icon: string }> = {
   see: { label: '구경', icon: '📍' },
@@ -24,11 +24,22 @@ export const FIELD_LABEL: Record<ItemField, string> = {
   memo: '메모',
   cost: '비용',
   order: '순서',
+  end: '끝 시각',
+  tag: '상태',
+  cur: '통화',
+};
+
+export const TAGS: Record<Exclude<ItemTag, ''>, { label: string; icon: string }> = {
+  booked: { label: '예약 완료', icon: '✓' },
+  hope: { label: '희망', icon: '☆' },
+  maybe: { label: '선택', icon: '?' },
 };
 
 const FIELDS = Object.keys(FIELD_LABEL) as ItemField[];
 
-export const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+// 없음(undefined) · null · ''는 같은 "비어 있음"으로 본다 (예전 일정엔 end·tag·cur 칸이 아예 없다)
+const empty = (v: unknown) => (v === '' || v === undefined ? null : v);
+export const same = (a: unknown, b: unknown) => JSON.stringify(empty(a)) === JSON.stringify(empty(b));
 
 /** 두 일정의 다른 칸만 뽑아 update 변경으로 만든다. 같으면 null */
 export function diffItem(before: Item, after: Item): Op | null {
@@ -185,7 +196,8 @@ export function fieldText(k: ItemField, v: unknown): string {
   if (k === 'day') return `${v}일차`;
   if (k === 'kind') return `${KINDS[v as Item['kind']].icon} ${KINDS[v as Item['kind']].label}`;
   if (k === 'place') return (v as Item['place'])!.name;
-  if (k === 'cost') return `${Number(v).toLocaleString('ko-KR')}원`;
+  if (k === 'cost') return `${Number(v).toLocaleString('ko-KR')}`;
+  if (k === 'tag') return TAGS[v as Exclude<ItemTag, ''>]?.label ?? '—';
   return String(v);
 }
 

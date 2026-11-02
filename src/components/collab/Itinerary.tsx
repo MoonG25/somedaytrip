@@ -502,6 +502,13 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
         day={edit?.day ?? 1}
         owner={owner}
         nextOrder={nextOrder}
+        near={(() => {
+          // 장소 검색은 그날 마지막으로 장소가 있는 일정 근처부터 (없으면 계획 목적지)
+          const d = edit?.item?.day ?? edit?.day ?? null;
+          const last = [...rows].reverse().find((r) => r.item.day === d && r.item.place && r.item.id !== edit?.item?.id);
+          return last ? ([last.item.place!.lat, last.item.place!.lng] as [number, number]) : null;
+        })()}
+        onSaveNext={(next) => commit([{ type: 'add', item: next }], owner ? '추가했어요 · 다음 일정을 적어 주세요' : undefined)}
         onClose={() => setEdit(null)}
         onSave={(next) => {
           const cur = edit?.item;

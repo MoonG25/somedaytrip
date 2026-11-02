@@ -15,11 +15,20 @@ export interface Place {
   lng: number;
 }
 
+/** 일정 하나의 확정 정도. ''이면 표시 안 함 */
+export type ItemTag = 'booked' | 'hope' | 'maybe' | '';
+
 export interface Item {
   id: string;
   /** 1부터 시작하는 일차. null이면 "날짜 미정" */
   day: number | null;
   time: string;
+  /** 끝나는 시각 "HH:MM" (선택, ''이면 없음). 예: 16:40–17:30, 13:07 → 15:26 */
+  end?: string;
+  /** 예약 완료 / 희망 / 선택 (선택, 예전 일정엔 없다) */
+  tag?: ItemTag;
+  /** cost의 통화 (ISO 코드, ''·없음 = 원화 KRW). 예: 'JPY' */
+  cur?: string;
   title: string;
   en: string;
   kind: Kind;
@@ -68,6 +77,8 @@ export interface PlanInfo {
   checklist: [string, boolean][];
   /** 지도·참고 링크 (구글맵 리스트 공유 등) */
   links: { label: string; url: string }[];
+  /** 함께 들르는 도시 (여러 도시 여행. 목적지 place 말고 더) — 최대 6곳 */
+  via?: { name: string; en?: string; coords?: [number, number] }[];
   ownerName: string;
   visibility: Visibility;
 }

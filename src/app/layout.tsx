@@ -4,6 +4,11 @@ import '@/styles/blog/components.css';
 import '@/styles/blog/pages-plan.css';
 import '@/styles/blog/plans.css';
 import '@/styles/sdt.css';
+// 영역별 스타일 (멀티 에이전트가 서로 다른 파일을 고치도록 나눴다)
+import '@/styles/area-modal.css';
+import '@/styles/area-itinerary.css';
+import '@/styles/area-search.css';
+import '@/styles/area-ticket.css';
 import Chrome from '@/components/Chrome';
 import { PLANE } from '@/blog/plans-lib.js';
 import { SITE } from '@/lib/site';
