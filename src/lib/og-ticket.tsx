@@ -4,7 +4,7 @@
 //  - 절취선 위·아래 반원 홈은 바탕색 원을 덮어서 만든다.
 import { ImageResponse } from 'next/og';
 import { sceneSvg } from '@/blog/art.js';
-import { ARC_PATH, STATUS, SCOPE, barcode, flagOf, guillocheSvg, nights, readiness, ticketKind, totalBudget, travelField } from '@/blog/plans-lib.js';
+import { ARC_PATH, STATUS, SCOPE, barcode, flagOf, guillocheSvg, nights, readiness, ticketKind, totalBudget, travelField, viaText } from '@/blog/plans-lib.js';
 import { ddayLabel } from '@/blog/ticket.js';
 import type { View } from '@/blog/plans-lib.js';
 
@@ -89,6 +89,8 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
   const chip = brand ? '섬데트' : `${p.sample ? '예시 · ' : ''}${p.scope !== 'abroad' ? `${SCOPE[p.scope].ko} · ` : ''}${st.ko}`;
   const tk = ticketKind(p);
   const code = tk.to;
+  // 함께 들르는 도시 (여러 도시 여행). 대표 탑승권엔 없다
+  const via = brand ? '' : viaText(p);
   const flag = brand ? '✈️' : p.scope === 'abroad' || p.countryCode ? flagOf(p.countryCode) : SCOPE[p.scope].icon;
   const fields = brand
     ? [
@@ -107,7 +109,7 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
   const ddFont = /^[∞✓]$/.test(dd.big) ? 'Sans' : 'Serif';
   const now = Number(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', month: 'numeric' }).format(new Date()));
 
-  const sans = `∞✓${tk.from[0]}${tk.from[1]}명인·${p.place}${p.title}${chip}${fields.flat().join('')}준비출발까지시간 나면다녀왔어요다녀왔나요?오늘 출발!예약 완료도착 · 다녀옴섬데트`;
+  const sans = `∞✓${tk.from[0]}${tk.from[1]}명인·${p.place}${via}${p.title}${chip}${fields.flat().join('')}준비출발까지시간 나면다녀왔어요다녀왔나요?오늘 출발!예약 완료도착 · 다녀옴섬데트`;
   const mono = `${tk.brand} GATE CONFIRMED ARRIVED ${code} JFMASOND 0123456789%·`;
   const big = `${tk.from[0]}${code}0123456789`;
   const [s5, s7, s8, m4, m7, sf] = await Promise.all([
@@ -116,7 +118,7 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
     font('Noto+Sans+KR', 800, sans + big),
     font('JetBrains+Mono', 400, mono),
     font('JetBrains+Mono', 700, mono),
-    serif(`${dd.big}∞✓D-+`),
+    serif(`${dd.big}∞✓D-+via`),
   ]);
   const fonts = [
     s5 && { name: 'Sans', data: s5, weight: 500 as const, style: 'normal' as const },
@@ -153,9 +155,15 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
                 <span style={{ marginTop: 10, fontSize: 21, color: C.ink3 }}>{tk.from[1]}</span>
               </div>
               <img src={svgUri(arcSvg(tone, tk.icon, tk.upright))} width={300} height={93} style={{ flex: 1, margin: '0 18px 30px', height: 93 }} />
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                 <span style={{ fontSize: 82, fontWeight: 800, letterSpacing: -2.5, lineHeight: 1 }}>{code}</span>
                 <span style={{ marginTop: 10, fontSize: 21, color: C.ink3 }}>{p.place}</span>
+                {via ? (
+                  <span style={{ position: 'absolute', right: 0, top: '100%', display: 'flex', alignItems: 'baseline', marginTop: 4, width: 520, justifyContent: 'flex-end', fontSize: 18, color: C.ink2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ fontFamily: 'Serif', fontSize: 21, color: C.ink3, marginRight: 6 }}>via</span>
+                    <span style={{ display: 'flex', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{via}</span>
+                  </span>
+                ) : null}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, fontSize: 34, fontWeight: 800, letterSpacing: -1.2, lineHeight: 1.25 }}>
@@ -197,7 +205,7 @@ export async function ticketImage(p: View, { brand = false }: { brand?: boolean 
               })}
             </div>
             {p.status === 'booked' || p.status === 'done' ? (
-              <div style={{ position: 'absolute', right: 40, bottom: 168, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 20px 7px', border: `4px solid ${tone}`, borderRadius: 12, color: tone, transform: 'rotate(-11deg)', opacity: 0.8 }}>
+              <div style={{ position: 'absolute', right: 40, bottom: via ? 150 : 168, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 20px 7px', border: `4px solid ${tone}`, borderRadius: 12, color: tone, transform: 'rotate(-11deg)', opacity: 0.8 }}>
                 <span style={{ fontFamily: 'Mono', fontWeight: 700, fontSize: 26, letterSpacing: 4, lineHeight: 1.1 }}>{p.status === 'booked' ? 'CONFIRMED' : 'ARRIVED'}</span>
                 <span style={{ fontSize: 16, letterSpacing: 6, fontWeight: 700 }}>{p.status === 'booked' ? '예약 완료' : '도착 · 다녀옴'}</span>
               </div>

@@ -1,1 +1,116 @@
 /* ticket 영역 (멀티 에이전트 작업: 이 파일은 해당 영역 에이전트만 고친다) */
+
+/* ---------- 탑승권: 함께 들르는 도시 (via) ---------- */
+.tk-via {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--ink-2);
+  text-align: right;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tk-via em {
+  font-family: var(--font-serif);
+  font-size: 1.15em;
+  color: var(--ink-3);
+  margin-right: 2px;
+}
+.ticket--big .tk-via {
+  font-size: 14px;
+}
+
+/* ---------- 발권 화면: 함께 들르는 도시 ---------- */
+.via-box {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.via-box[hidden],
+.via-box [hidden] {
+  display: none;
+}
+.via-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.via-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 5%, var(--paper));
+  font-size: 14px;
+}
+.via-chip b {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 650;
+}
+.via-no {
+  font-size: 10.5px;
+  color: var(--ink-3);
+}
+.via-btn {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.via-btn:hover,
+.via-btn:focus-visible {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+.via-open {
+  justify-self: start;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.via-max {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+/* ---------- 탑승 준비 · 예산: 현지 통화로 적기 ---------- */
+.pf-cur {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  min-width: 0;
+}
+.pf-cur > span {
+  color: var(--ink-2);
+}
+.pf-cur .chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pf-rate {
+  flex-basis: 100%;
+  font-size: 12.5px;
+}
+.pf-conv {
+  grid-column: 1 / -1;
+  margin-top: -2px;
+  font-size: 12.5px;
+  text-align: right;
+}

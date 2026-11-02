@@ -217,4 +217,7 @@ export function ticketKind(p) {
   return { brand: 'SOMEDAY AIR · BOARDING PASS', from: ['SEL', '서울'], to: p.iata || '???', icon: PLANE, upright: false };
 }
 
+/** 함께 들르는 도시: "하코네 · 쿠사츠" (없으면 '') */
+export const viaText = (p) => (Array.isArray(p.via) ? p.via.map((v) => v?.name).filter(Boolean).slice(0, 6).join(' · ') : '');
+
 export const sceneUrl = (p) => `/art/scene/${p.cover?.scene || 'mountain'}/${p.cover?.time || 'day'}/${safeSeed(p.id || p.slug)}.svg`;

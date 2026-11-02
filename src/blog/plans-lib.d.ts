@@ -21,3 +21,4 @@ export function groupBudget(p: any): number;
 export function ticketKind(p: any): { brand: string; from: [string, string]; to: string; icon: string; upright: boolean };
 export const TRAIN: string;
 export const WALK: string;
+export function viaText(p: { via?: { name: string }[] }): string;

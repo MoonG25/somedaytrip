@@ -1,7 +1,7 @@
 // 탑승권 카드: 위조방지 무늬, 항로 위를 나는 비행기, 홀로그램, 찢어지는 스텁 (moon.log ui/ticket.js에서 옮김)
 // ticketHTML 등 문자열 함수는 서버에서도 돈다. bindTickets만 브라우저 전용.
 import { esc, fmtDot, fmtWon, clamp, easeOutCubic, reducedMotion, seoulMonth } from './util.js';
-import { STATUS, SCOPE, totalBudget, travelField, daysUntil, flagOf, nights, readiness, guilloche, barcode, ARC_PATH, sceneUrl, ticketKind } from './plans-lib.js';
+import { STATUS, SCOPE, totalBudget, travelField, daysUntil, flagOf, nights, readiness, guilloche, barcode, ARC_PATH, sceneUrl, ticketKind, viaText } from './plans-lib.js';
 
 const MONTHS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 
@@ -37,6 +37,7 @@ export function ticketHTML(p, { big = false, fit = null, mine = false, preview =
   const tf = travelField(p);
   const chip = `${p.sample ? '예시 · ' : ''}${p.scope !== 'abroad' ? `${SCOPE[p.scope].ko} · ` : ''}${st.ko}`;
   const tk = ticketKind(p);
+  const via = viaText(p);
   return `<article class="ticket tone-${p.status}${big ? ' ticket--big' : ''}${mine ? ' is-mine' : ''}" data-slug="${esc(p.id)}"${big ? '' : ' data-reveal'}>
     <a ${preview ? 'tabindex="-1" aria-hidden="true"' : `href="${esc(p.href)}"`} class="ticket-link" data-tilt="6" data-cursor="${big || preview ? '' : p.status === 'done' ? '추억' : '탑승'}" aria-label="${esc(p.title)} 계획 보기${p.status === 'done' ? ' (다녀옴)' : ''}">
       <div class="tk-main">
@@ -55,6 +56,7 @@ export function ticketHTML(p, { big = false, fit = null, mine = false, preview =
             <g class="tk-plane${tk.upright ? ' upright' : ''}" transform="translate(14 46)${tk.upright ? ' scale(0.9)' : ' rotate(-48)'}"><path d="${tk.icon}" fill-rule="evenodd"/></g>
           </svg>
           <div class="tk-port to"><b>${esc(tk.to)}</b><span>${esc(p.place)}</span></div>
+          ${via ? `<p class="tk-via" title="${esc(via)}"><em>via</em> ${esc(via)}</p>` : ''}
         </div>
         <${big ? 'h1' : 'h3'} class="tk-title"><span class="tk-flag" aria-hidden="true">${p.scope === 'abroad' || p.countryCode ? flagOf(p.countryCode) : SCOPE[p.scope].icon}</span>${esc(p.title)}</${big ? 'h1' : 'h3'}>
         <dl class="tk-fields">
