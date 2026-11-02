@@ -9,6 +9,8 @@ describe('일정 창: 종류 짐작 · 장소 검색어', () => {
     expect(guessKind('북신주쿠 에어비앤비 체크인')).toBe('stay');
     expect(guessKind('시부야·하라주쿠 쇼핑')).toBe('shop');
     expect(guessKind('텐잔 토지쿄')).toBeNull();
+    expect(guessKind('아침 산책')).toBeNull();
+    expect(guessKind('저녁 뷔페')).toBe('eat');
   });
   it('이름에서 장소 검색어를 뽑고, 일반적인 말만 남으면 비운다', () => {
     expect(placeQuery('점심 · 하츠하나 소바 본점')).toBe('하츠하나 소바 본점');

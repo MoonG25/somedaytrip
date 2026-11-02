@@ -103,7 +103,7 @@ describe('일본 명소 한글 사전', () => {
 
   it('별칭: 띄어쓰기 · 온천 · 절 · 역 · 쓰/츠', () => {
     expect(lookupJp('텐잔 온천')[0].q).toBe('天山湯治郷');
-    expect(lookupJp('텐세이엔온천')[0].q).toBe('天成園');
+    expect(lookupJp('텐세이엔온천')[0].q).toBe('箱根湯本 天成園');
     expect(lookupJp('센소지 절')[0].q).toBe('浅草寺');
     expect(lookupJp('고센지절')[0].q).toBe('光泉寺');
     expect(lookupJp('아키하바라역')[0].q).toBe('秋葉原');
@@ -160,5 +160,23 @@ describe('목적지 한글 이름표', () => {
       expect(c[4]).toBeGreaterThan(122);
       expect(c[4]).toBeLessThan(146);
     }
+  });
+});
+
+describe('리뷰 고침: 사전 명소 고르기', () => {
+  it('이름이 맞고 동네 중심에서 가까운 것을 고른다 (天成源 히라쓰카를 고르지 않음)', async () => {
+    const { pickJp, lookupJp } = await import('../src/lib/place-rank');
+    const p = lookupJp('텐세이엔')[0];
+    expect(p).toBeTruthy();
+    const hiratsuka = { name: '天成源', lat: 35.3554, lng: 139.2698, kind: 'poi', source: 'osm', countryCode: 'JP' } as never;
+    const yumoto = { name: '箱根湯本温泉 天成園', lat: 35.2318, lng: 139.1028, kind: 'poi', source: 'photon', countryCode: 'JP' } as never;
+    expect(pickJp(p, [hiratsuka])).toBeNull();
+    const station = { name: '箱根湯本駅', lat: 35.2326, lng: 139.1052, kind: 'poi', source: 'osm', countryCode: 'JP' } as never;
+    expect(pickJp(p, [station])).toBeNull(); // 동네 이름만 맞는 역은 고르지 않는다
+    const lot = { name: '天成園第二駐車場', lat: 35.2290261, lng: 139.0967491, kind: 'poi', source: 'osm', countryCode: 'JP' } as never;
+    expect(pickJp(p, [lot, yumoto])!.lat).toBeCloseTo(35.2318, 3); // 주차장보다 본 건물
+    const got = pickJp(p, [hiratsuka, yumoto])!;
+    expect(got.name).toBe('텐세이엔');
+    expect(got.lat).toBeCloseTo(35.2318, 3);
   });
 });

@@ -7,7 +7,8 @@
 import { NextResponse } from 'next/server';
 import { findCities } from '@/blog/cities.js';
 import { allow, clientIp } from '@/server/limit';
-import { jpBias, lookupJp, mergeHits, pickJp, rankHits, type Hit } from '@/lib/place-rank';
+import { inKorea, jpBias, km, lookupJp, mergeHits, pickJp, rankHits, type Hit } from '@/lib/place-rank';
+import { JP_AREAS } from '@/data/jp-ko';
 
 export const runtime = 'nodejs';
 
@@ -73,10 +74,15 @@ async function photon(q: string, mode: string, lat?: number, lng?: number): Prom
 }
 
 let lastOsm = 0;
-async function osm(q: string, mode: string, lat?: number, lng?: number): Promise<Hit[]> {
-  // 초당 1회 규칙: 너무 붙어 오면 이번엔 건너뛴다 (Photon·카카오 결과로 충분)
-  if (Date.now() - lastOsm < 1000) return [];
-  lastOsm = Date.now();
+async function osm(q: string, mode: string, lat?: number, lng?: number, wait = false): Promise<Hit[]> {
+  // 초당 1회 규칙: 너무 붙어 오면 이번엔 건너뛴다 (Photon·카카오 결과로 충분).
+  // 사전 명소 조회(wait)는 Nominatim이 사실상 유일한 출처라 차례를 기다린다 (건너뛰면 결과가 비어 버린다)
+  const gap = 1000 - (Date.now() - lastOsm);
+  if (gap > 0) {
+    if (!wait) return [];
+    lastOsm = Date.now() + gap;
+    await new Promise((r) => setTimeout(r, gap));
+  } else lastOsm = Date.now();
   const u = new URL('https://nominatim.openstreetmap.org/search');
   u.searchParams.set('q', q);
   u.searchParams.set('format', 'jsonv2');
@@ -118,13 +124,16 @@ export async function GET(req: Request) {
   if (!allow(`places:${clientIp(req)}`, 40, 60_000)) return NextResponse.json({ hits: [], limited: true }, { status: 429, headers: { 'Retry-After': '30' } });
   const key = `${mode}|${q}|${lat?.toFixed(1)}|${lng?.toFixed(1)}`;
   const c = cache.get(key);
-  if (c && Date.now() - c.at < 3600_000) return NextResponse.json(c.far ? { hits: c.hits, far: true } : { hits: c.hits });
+  // 결과가 있으면 1시간, 비었으면 1분만 (이름 추천이 먼저 보낸 검색이 '없음'을 오래 남기지 않게)
+  if (c && Date.now() - c.at < (c.hits.length ? 3600_000 : 60_000)) return NextResponse.json(c.far ? { hits: c.hits, far: true } : { hits: c.hits });
   const near = lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : undefined;
 
   // 목적지는 한글 이름표에서 먼저 (오픈스트리트맵에 외국 도시 한글 이름이 빠진 경우가 많다)
   const listed: Hit[] = mode === 'dest' ? findCities(q) : [];
   // 일본 명소를 한글로 치면 현지 이름으로도 찾는다 (Nominatim은 초당 1회라 현지 이름 쪽에 쓴다)
-  const jp = mode === 'poi' ? lookupJp(q) : [];
+  // 계획이 일본 근처일 때만 (국내 계획에서 '평화공원'이 히로시마로 고정되지 않게). 기준 지점이 없으면 지금처럼
+  const nearJapan = !near || (!inKorea(near) && near.lat >= 24 && near.lat <= 46 && near.lng >= 122.5 && near.lng <= 146);
+  const jp = mode === 'poi' && nearJapan ? lookupJp(q) : [];
   const ok = <T,>(p: Promise<T[]>) => p.catch(() => [] as T[]);
   const [k, p, o, ...local] = await Promise.all([
     ok(kakao(q, lat, lng)),
@@ -132,18 +141,21 @@ export async function GET(req: Request) {
     jp.length ? Promise.resolve([] as Hit[]) : ok(osm(q, mode, lat, lng)),
     ...jp.map((x, i) => {
       const b = jpBias(x, near);
-      return Promise.all([i === 0 ? ok(osm(x.q, 'poi', b?.lat, b?.lng)) : Promise.resolve([] as Hit[]), ok(photon(x.q, 'poi', b?.lat, b?.lng))]).then(([a, c]) => [...a, ...c]);
+      return Promise.all([i === 0 ? ok(osm(x.q, 'poi', b?.lat, b?.lng, true)) : Promise.resolve([] as Hit[]), ok(photon(x.q, 'poi', b?.lat, b?.lng))]).then(([a, c]) => [...a, ...c]);
     }),
   ]);
   // 사전 명소는 한글 이름을 붙여 맨 앞에
   const pins = jp.map((x, i) => pickJp(x, local[i], near)).filter((h): h is Hit => !!h);
+  // 동네가 정해진 명소를 못 찾았으면 그 동네 밖의 비슷한 이름은 버린다 ('야스라기테이' → 아이치현 '安らぎ')
+  const area = !pins.length ? jp.map((x) => x.area && JP_AREAS[x.area]).find(Boolean) : undefined;
+  const inArea = (h: Hit) => !area || km({ lat: area[0], lng: area[1] }, h) <= area[2] * 3;
   // 순서: 카카오(한국 가게) → Nominatim(한국어 이름) → Photon
-  const merged = mergeHits([...pins, ...listed, ...k, ...o, ...p, ...local.flat()], mode);
+  const merged = mergeHits([...pins, ...listed, ...k, ...o, ...p, ...local.flat()].filter(inArea), mode);
   const at = merged.findIndex((h) => !pins.some((x) => x.name === h.name && x.lat === h.lat && x.lng === h.lng));
   const pinned = at < 0 ? merged.length : at;
   const { hits: ranked, far } = rankHits(merged, mode === 'poi' ? near : undefined, mode, pinned);
   const hits = ranked.slice(0, 8);
   cache.set(key, { at: Date.now(), hits, far });
   if (cache.size > 500) cache.delete(cache.keys().next().value!);
-  return NextResponse.json(far ? { hits, far: true } : { hits }, { headers: { 'Cache-Control': 'public, s-maxage=3600' } });
+  return NextResponse.json(far ? { hits, far: true } : { hits }, { headers: { 'Cache-Control': hits.length ? 'public, s-maxage=3600' : 'public, s-maxage=60' } });
 }

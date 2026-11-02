@@ -200,8 +200,19 @@
   opacity: 1;
 }
 @media (hover: none) {
-  .itinerary .route-item:is(.is-move, .is-stay, .is-far) .ri-actions {
+  /* 위 규칙과 같은 우선순위로 (터치 화면엔 hover가 없어서 버튼이 늘 흐리게 남았다) */
+  .itinerary .route-item:is(.is-move, .is-stay, .is-far):not(.is-add, .is-update, .is-remove) .ri-actions {
     opacity: 1;
+  }
+  /* 터치: 손잡이·"이 아래에 추가"를 손가락으로 누를 수 있는 크기로 */
+  .itinerary .ri-grip {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .itinerary .ri-below {
+    width: 40px;
+    height: 40px;
+    bottom: -20px;
   }
 }
 
@@ -335,5 +346,15 @@
   .itin-day-head {
     position: relative;
     padding-right: 20px;
+  }
+}
+/* 먼 장소 배지: 왜 뺐는지 글자로 (툴팁은 터치·스크린리더에 안 보인다) */
+.ri-far small {
+  font-weight: 400;
+  font-size: 11px;
+}
+@media (max-width: 520px) {
+  .ri-far {
+    white-space: normal;
   }
 }

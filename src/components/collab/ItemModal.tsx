@@ -29,7 +29,8 @@ export function guessKind(title: string): Kind | null {
   if (/→|->|출발|도착|이동|환승|공항|버스|택시|열차|기차|신칸센|특급|지하철|전철|페리|렌터카|\bBT\b/.test(t)) return 'move';
   if (/카페|커피|디저트|찻집/.test(t)) return 'cafe';
   if (/체크인|체크아웃|숙박|입실|퇴실|호텔|료칸|에어비앤비|게스트하우스|짐 (보관|정리|회수)/.test(t)) return 'stay';
-  if (/점심|저녁|아침|뷔페|석식|조식|야식|식당|라멘|소바|우동|스시|초밥|야키니쿠|이자카야|만쥬|에키벤|맛집|먹기/.test(t)) return 'eat';
+  // '아침 산책'·'저녁 야경'처럼 때만 말하는 경우는 먹기가 아니다 (아침·저녁은 식사 말과 같이 올 때만)
+  if (/점심|(아침|저녁)\s*(식사|밥|뷔페)|뷔페|석식|조식|야식|식당|라멘|소바|우동|스시|초밥|야키니쿠|이자카야|만쥬|에키벤|맛집|먹기/.test(t)) return 'eat';
   if (/쇼핑|마켓|시장|돈키호테|백화점|아울렛|기념품/.test(t)) return 'shop';
   return null;
 }
@@ -121,7 +122,8 @@ function PlaceField({
   };
   const choose = (h: Hit) => {
     const dist = anchors.length ? Math.min(...anchors.map(([lat, lng]) => km({ lat, lng }, h))) : 0;
-    if (dist > FAR_KM) {
+    // 출국·귀국 길의 공항·항구는 멀어도 묻지 않는다 (해외 계획의 '김포')
+    if (dist > FAR_KM && !/공항|항구|여객터미널|airport|ferry/i.test(`${h.name} ${h.en || ''}`)) {
       setFar({ hit: h, dist });
       setOpen(false);
       return;
@@ -405,7 +407,8 @@ function CostField({ cost, cur, curs, onChange }: { cost: number | null; cur: st
 }
 
 // 이름 앞에 시각을 적으면 시간 칸으로 옮긴다: "13:07 점심", "16:40-17:30 체크인"
-const LEAD_TIME = /^\s*(\d{1,2}):([0-5]\d)(?:\s*[-–~→]\s*(\d{1,2}):([0-5]\d))?\s+(\S[\s\S]*)$/;
+// 이름 칸이 구분자(-–~→)로 시작하면 아직 끝 시각을 치는 중이라 떼지 않는다 ("16:40 - 17:30 체크인"을 한 글자씩 칠 때)
+const LEAD_TIME = /^\s*(\d{1,2}):([0-5]\d)(?:\s*[-–~→]\s*(\d{1,2}):([0-5]\d))?\s+(?![-–~→])(\S[\s\S]*)$/;
 const hhmm = (h: string, m: string) => (Number(h) < 24 ? `${h.padStart(2, '0')}:${m}` : null);
 
 export interface ItemModalProps {
@@ -417,7 +420,7 @@ export interface ItemModalProps {
   onClose: () => void;
   onSave: (item: Item) => void;
   /** "저장하고 다음 일정": 저장하되 창은 닫지 않는다 (새 일정만). 없으면 버튼을 숨긴다 */
-  onSaveNext?: (item: Item) => void;
+  onSaveNext?: (item: Item) => void | boolean | Promise<boolean | void>;
   nextOrder: (day: number | null) => number;
   /** 장소 검색을 이 근처로 (그날 앞 일정의 장소 등). 없으면 계획 목적지 */
   near?: [number, number] | null;
@@ -531,10 +534,23 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
     } else out.order = order;
     return out;
   };
-  const saveNext = () => {
+  /** 이름 칸: 새 일정이면 이름 앞 시각을 시간 칸으로 옮기고(조합 중엔 미룸), 종류를 짐작한다 */
+  const onTitle = (v: string, composing: boolean) => {
+    const m = !item && !composing ? v.match(LEAD_TIME) : null;
+    const t = m && hhmm(m[1], m[2]);
+    const en = m && m[3] ? hhmm(m[3], m[4]) : null;
+    const hit = !!(m && t && (!m[3] || en));
+    const title = hit ? m![5] : v;
+    // 종류를 직접 고르기 전엔 이름으로 짐작 (이동·먹기·숙소·쇼핑·카페)
+    const kind = !kindPicked.current ? { kind: guessKind(title) ?? ('see' as Kind) } : {};
+    if (hit) set({ title, time: t!, ...(en ? { end: en } : {}), ...kind });
+    else set({ title, ...kind });
+  };
+  const saveNext = async () => {
     const out = build();
     if (!out || !onSaveNext) return;
-    onSaveNext(out);
+    // 저장이 실패하면(서버 오류, 승객이 이름 묻기를 취소) 적은 내용을 그대로 둔다
+    if ((await onSaveNext(out)) === false) return;
     last.current = { day: out.day, order: out.order };
     kindPicked.current = false;
     setSuggest(null);
@@ -566,17 +582,9 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
             ref={titleEl}
             className="inp"
             value={d.title}
-            onChange={(e) => {
-              const v = e.target.value;
-              const m = v.match(LEAD_TIME);
-              const t = m && hhmm(m[1], m[2]);
-              const en = m && m[3] ? hhmm(m[3], m[4]) : null;
-              const title = m && t && (!m[3] || en) ? m[5] : v;
-              // 종류를 직접 고르기 전엔 이름으로 짐작 (이동·먹기·숙소·쇼핑·카페)
-              const kind = !kindPicked.current ? { kind: guessKind(title) ?? ('see' as Kind) } : {};
-              if (m && t && (!m[3] || en)) set({ title, time: t, ...(en ? { end: en } : {}), ...kind });
-              else set({ title, ...kind });
-            }}
+            onChange={(e) => onTitle(e.target.value, (e.nativeEvent as InputEvent).isComposing)}
+            // 한글 조합이 끝나면 그때 이름 앞 시각을 뗀다 (조합 중에 값을 바꾸면 글자가 깨진다)
+            onCompositionEnd={(e) => onTitle(e.currentTarget.value, false)}
             placeholder="예: 후시미 이나리 새벽 등산"
             autoFocus
             maxLength={80}

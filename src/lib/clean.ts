@@ -32,7 +32,7 @@ export function cleanItem(i: unknown): Item {
   return {
     id: str(o.id, 24) || Math.random().toString(36).slice(2, 10),
     day: o.day == null || o.day === '' ? null : num(o.day, 1, 60, 1),
-    time: /^\d{2}:\d{2}$/.test(String(o.time ?? '')) ? String(o.time) : '',
+    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(o.time ?? '')) ? String(o.time) : '',
     title: str(o.title, 80) || '이름 없는 일정',
     en: str(o.en, 80),
     kind: oneOf(o.kind, KIND_KEYS, 'see'),
@@ -40,7 +40,7 @@ export function cleanItem(i: unknown): Item {
     memo: str(o.memo, 400),
     cost: o.cost == null || o.cost === '' ? null : Math.round(Math.min(1e10, Math.max(0, Number(o.cost) || 0)) * 100) / 100,
     order: Number.isFinite(Number(o.order)) ? Number(o.order) : 0,
-    end: /^\d{2}:\d{2}$/.test(String(o.end ?? '')) ? String(o.end) : '',
+    end: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(o.end ?? '')) ? String(o.end) : '',
     tag: oneOf(o.tag, ITEM_TAGS, ''),
     cur: /^[A-Z]{3}$/.test(String(o.cur ?? '')) && o.cur !== 'KRW' ? String(o.cur) : '',
   };

@@ -346,6 +346,11 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
   const view = (id: string) => rows.find((r) => r.item.id === id)?.item;
   const sameDay = (day: number | null) => live.filter((r) => r.item.day === day).map((r) => r.item);
 
+  /** 이 순서대로 order를 0, 1, 2…로 다시 매기는 변경들 (order가 겹친 일정끼리는 중간값을 낼 수 없어서) */
+  const seqOps = (seq: Item[]) => seq.map((x, i) => diffItem(x, { ...x, order: i })).filter(Boolean) as Op[];
+  // order가 같거나 너무 붙어 있으면 중간값으로 자리를 잡을 수 없다 (승객 두 명이 같은 날 끝에 추가한 제안이 둘 다 반영되면 생긴다)
+  const tight = (a?: Item, b?: Item) => !!a && !!b && b.order - a.order < 1e-6;
+
   const move = (id: string, dir: -1 | 1) => {
     const cur = view(id);
     if (!cur) return;
@@ -353,6 +358,11 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     const i = same.findIndex((x) => x.id === id);
     const other = same[i + dir];
     if (!other) return;
+    if (cur.order === other.order) {
+      const seq = same.slice();
+      [seq[i], seq[i + dir]] = [seq[i + dir], seq[i]];
+      return commit(seqOps(seq), '순서를 바꿨어요');
+    }
     commit([diffItem(cur, { ...cur, order: other.order }), diffItem(other, { ...other, order: cur.order })].filter(Boolean) as Op[], '순서를 바꿨어요');
   };
 
@@ -362,6 +372,11 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     if (!cur) return;
     const a = others[at - 1];
     const b = others[at];
+    if (tight(a, b)) {
+      const seq = others.slice();
+      seq.splice(at, 0, cur);
+      return commit(seqOps(seq), '순서를 바꿨어요');
+    }
     const order = a && b ? (a.order + b.order) / 2 : a ? a.order + 1 : b ? b.order - 1 : cur.order;
     const op = diffItem(cur, { ...cur, order });
     if (op) commit([op], '순서를 바꿨어요');
@@ -383,9 +398,15 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
   };
 
   /** 이 일정과 다음 일정 사이에 새 일정 */
-  const addBelow = (it: Item) => {
+  const addBelow = async (it: Item) => {
     const same = sameDay(it.day);
-    const nx = same[same.findIndex((x) => x.id === it.id) + 1];
+    const i = same.findIndex((x) => x.id === it.id);
+    const nx = same[i + 1];
+    if (tight(it, nx)) {
+      // 겹친 order를 먼저 0, 1, 2…로 정리하고 그 사이에 넣는다
+      if (!(await commit(seqOps(same), '순서 번호를 정리했어요'))) return;
+      return setEdit({ item: null, day: it.day, order: i + 0.5, upper: i + 1 });
+    }
     setEdit({ item: null, day: it.day, order: nx ? (it.order + nx.order) / 2 : it.order + 1, upper: nx ? nx.order : null });
   };
 
@@ -429,7 +450,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     return timed > 1 && list.some((it, i) => it.id !== next[i].id);
   };
   // 정렬 직후 잠깐 "되돌리기": 정렬 전 order를 기억해 둔다
-  const [sorted, setSorted] = useState<{ day: number | null; before: Record<string, number> } | null>(null);
+  const [sorted, setSorted] = useState<{ day: number | null; before: Record<string, number>; after: Record<string, number> } | null>(null);
   const sortTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const sortByTime = async (day: number | null) => {
     const { list, next } = timeSorted(day);
@@ -438,15 +459,16 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     const slots = strict ? list.map((i) => i.order) : list.map((_, i) => i);
     const ops = next.map((it, i) => diffItem(it, { ...it, order: slots[i] })).filter(Boolean) as Op[];
     if (!(await commit(ops, '시간순으로 정렬했어요'))) return;
-    setSorted({ day, before: Object.fromEntries(list.map((i) => [i.id, i.order])) });
+    setSorted({ day, before: Object.fromEntries(list.map((i) => [i.id, i.order])), after: Object.fromEntries(next.map((it, i) => [it.id, slots[i]])) });
     clearTimeout(sortTimer.current);
     sortTimer.current = setTimeout(() => setSorted(null), 10_000);
   };
   const unsort = async () => {
     if (!sorted) return;
+    // 화면이 아직 새로 고쳐지기 전이어도 되게, 정렬한 뒤의 order(after)를 기준으로 되돌린다
     const ops = Object.entries(sorted.before).flatMap(([id, order]) => {
       const cur = view(id);
-      const op = cur ? diffItem(cur, { ...cur, order }) : null;
+      const op = cur ? diffItem({ ...cur, order: sorted.after[id] ?? cur.order }, { ...cur, order }) : null;
       return op ? [op] : [];
     });
     setSorted(null);
@@ -596,13 +618,16 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                     </small>
                     <span className="itin-chev" aria-hidden="true" />
                   </button>
-                  {sorted && sorted.day === day ? (
-                    <button type="button" className="time-sort is-undo" onClick={unsort} disabled={busy}>
-                      ↩ 되돌리기
-                    </button>
-                  ) : day != null && outOfOrder(day) ? (
-                    <button type="button" className="time-sort" onClick={() => sortByTime(day)} disabled={busy}>
-                      ⏱ 시간순
+                  {/* 같은 버튼이 "시간순"에서 "되돌리기"로 바뀐다 (키보드 포커스가 그대로 남게) */}
+                  {(sorted && sorted.day === day) || (day != null && outOfOrder(day)) ? (
+                    <button
+                      key={`sort-${dayKey(day)}`}
+                      type="button"
+                      className={`time-sort${sorted && sorted.day === day ? ' is-undo' : ''}`}
+                      onClick={() => (sorted && sorted.day === day ? unsort() : sortByTime(day))}
+                      disabled={busy}
+                    >
+                      {sorted && sorted.day === day ? '↩ 되돌리기' : '⏱ 시간순'}
                     </button>
                   ) : null}
                 </h3>
@@ -638,7 +663,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                             {r.mark ? <span className={`ri-badge ${r.mark}`}>{r.mark === 'add' ? '추가 예정' : r.mark === 'remove' ? '삭제 예정' : '수정 예정'}</span> : null}
                             {far ? (
                               <span className="ri-far" title={`앞뒤 일정과 ${FAR_KM}km 넘게 떨어져 있어요. 장소를 다시 골라 보세요. 총 이동 거리와 지도 선에서는 뺐어요.`}>
-                                ⚠ 멀리 떨어진 장소
+                                ⚠ 멀리 떨어진 장소 <small>· 거리·지도 선에서 뺐어요</small>
                               </span>
                             ) : null}
                           </>
@@ -831,11 +856,13 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
           const last = [...rows].reverse().find((r) => r.item.day === d && r.item.place && r.item.id !== edit?.item?.id && (edit?.order == null || r.item.order < edit.order));
           return last ? ([last.item.place!.lat, last.item.place!.lng] as [number, number]) : null;
         })()}
-        onSaveNext={(next) => {
+        onSaveNext={async (next) => {
           const out = placeNew(next);
-          commit([{ type: 'add', item: out }], owner ? '추가했어요 · 다음 일정을 적어 주세요' : undefined);
+          // 저장이 실패하면 false → 일정 창이 적은 내용을 그대로 둔다
+          if (!(await commit([{ type: 'add', item: out }], owner ? '추가했어요 · 다음 일정을 적어 주세요' : undefined))) return false;
           // 이어서 적는 일정은 방금 넣은 일정 바로 아래로
           if (edit?.order != null && out.day === edit.day) setEditState((e) => (e ? { ...e, order: e.upper != null ? (out.order + e.upper) / 2 : out.order + 1 } : e));
+          return true;
         }}
         onClose={() => setEdit(null)}
         onSave={(next) => {

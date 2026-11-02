@@ -125,20 +125,29 @@ export function lookupJp(q: string, max = 2): JpPlace[] {
   return [];
 }
 
+// 딸린 시설(주차장·입구·카페 등)은 본 장소보다 뒤로 ('天成園第二駐車場'을 天成園으로 고르지 않게)
+const SUB = /駐車場|パーキング|parking|入口|出口|乗り場|バス停|カフェ|喫茶|売店|トイレ|屋上|別館|案内所/i;
+const sub = (h: Hit) => (SUB.test(h.name) ? 1 : 0);
+
 /** 현지 검색어로 찾은 결과 중 그 명소에 맞는 하나를 골라 한글 이름을 붙인다 */
 export function pickJp(p: JpPlace, found: Hit[], near?: Near): Hit | null {
   const a = p.area ? JP_AREAS[p.area] : null;
-  let pool = found.filter((h) => h.countryCode === 'JP' || !h.countryCode);
+  // 이름이 맞는 것만 (天成園을 찾는데 다른 동네의 '天成源'을 고르지 않게).
+  // 검색어가 "동네 이름 + 이름"이면 마지막 낱말(이름)이 결과 이름에 들어 있어야 한다 ('箱根湯本駅'은 안 됨)
+  const flat = (t: string) => t.replace(/\s+/g, '').toLowerCase();
+  const words = p.q.split(/\s+/).map(flat).filter(Boolean);
+  const main = words[words.length - 1] || flat(p.q);
+  const named = (h: Hit) => {
+    const n = flat(h.name);
+    return n.includes(main) || (main.length > 2 && main.includes(n) && n.length >= 2);
+  };
+  let pool = found.filter((h) => (h.countryCode === 'JP' || !h.countryCode) && named(h));
   if (a) {
     const c = { lat: a[0], lng: a[1] };
-    const inArea = pool.filter((h) => km(c, h) <= a[2]);
-    // 동네 안이 없으면 조금 넓게 (동네 중심이 대략이라)
-    pool = inArea.length ? inArea : pool.filter((h) => km(c, h) <= a[2] * 3);
-  } else {
-    // 동네를 모르는 곳은 이름이 맞는 것만 (비슷한 이름의 엉뚱한 가게를 고르지 않게)
-    const q = p.q.replace(/\s+/g, '').toLowerCase();
-    pool = pool.filter((h) => h.name.replace(/\s+/g, '').toLowerCase().includes(q));
-    if (near) pool = pool.filter((h) => km(near, h) <= FAR_KM).sort((x, y) => km(near, x) - km(near, y));
+    // 동네 중심에서 가까운 순. 동네 안이 없으면 조금만 넓게 (동네 중심이 대략이라)
+    pool = pool.filter((h) => km(c, h) <= a[2] * 1.5).sort((x, y) => sub(x) - sub(y) || km(c, x) - km(c, y));
+  } else if (near) {
+    pool = pool.filter((h) => km(near, h) <= FAR_KM).sort((x, y) => sub(x) - sub(y) || km(near, x) - km(near, y));
   }
   const h = pool[0];
   if (!h) return null;
