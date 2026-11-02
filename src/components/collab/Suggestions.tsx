@@ -6,9 +6,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Item, Plan } from '@/lib/types';
-import { changes, fieldText, FIELD_LABEL, KINDS, type PendingGroup } from '@/lib/proposals';
+import { KINDS, TAGS, type PendingGroup } from '@/lib/proposals';
 import { decideOps, withdrawOp } from '@/app/actions';
-import { ago, broadcast, dayLabel, toast, won } from './util';
+import { ago, broadcast, dayLabel, toast } from './util';
+import { changeRows, costText, timeText } from './OpCard';
 
 /** 제안한 사람들 "지민 외 1명" */
 export const whoOf = (g: PendingGroup) => {
@@ -21,14 +22,14 @@ export function summaryOf(g: PendingGroup, items: Item[], plan: Plan) {
   const op = g.primary.op;
   if (op.type === 'add') {
     const it = op.item;
-    return `${KINDS[it.kind].icon} '${it.title}' 추가 · ${dayLabel(plan, it.day).code}${it.time ? ` ${it.time}` : ''}`;
+    return `${KINDS[it.kind].icon} '${it.title}' 추가 · ${dayLabel(plan, it.day).code}${timeText(it) ? ` ${timeText(it)}` : ''}`;
   }
   const cur = items.find((i) => i.id === g.target);
   const name = cur?.title ?? (op.type === 'remove' ? op.before.title : (op.before.title ?? '일정'));
   if (op.type === 'remove') return `'${name}' 빼기`;
-  const ch = changes(op, items);
+  const ch = changeRows(op, items);
   if (!ch.length) return `'${name}' 순서 바꾸기`;
-  return `'${name}' ${ch.map((c) => `${FIELD_LABEL[c.field]} ${fieldText(c.field, c.to)}`).join(', ')}`;
+  return `'${name}' ${ch.map((c) => `${c.label} ${c.to}`).join(', ')}`;
 }
 
 /** 반영·거절·철회. 기장은 decideOps, 승객은 자기 것만 withdrawOp */
@@ -142,8 +143,13 @@ export function GhostRow({ g, owner, mine, ctl, onFocus }: { g: PendingGroup; ow
             {KINDS[it.kind].icon} {it.title}
           </strong>{' '}
           <span className="ri-badge add">추가 제안</span>
+          {it.tag && TAGS[it.tag] ? (
+            <span className={`ri-tag t-${it.tag}`}>
+              <span aria-hidden="true">{TAGS[it.tag].icon}</span> {TAGS[it.tag].label}
+            </span>
+          ) : null}
         </div>
-        <p className="ri-meta mono">{[it.time, it.place && it.place.name !== it.title ? `📍 ${it.place.name}` : '', it.cost ? won(it.cost) : ''].filter(Boolean).join(' · ')}</p>
+        <p className="ri-meta mono">{[timeText(it), it.place && it.place.name !== it.title ? `📍 ${it.place.name}` : '', it.cost ? costText(it.cost, it.cur) : ''].filter(Boolean).join(' · ')}</p>
         {it.memo ? <p>{it.memo}</p> : null}
         {g.lead && g.primary.message ? <p className="sg-msg">💬 {g.primary.message}</p> : null}
         <SuggWho g={g} />
@@ -161,7 +167,7 @@ export function SuggStrips({ groups, items, owner, mine, ctl }: { groups: Pendin
     <li className="ri-suggs" aria-label="이 일정에 대한 제안">
       {groups.map((g) => {
         const op = g.primary.op;
-        const ch = changes(op, items);
+        const ch = changeRows(op, items);
         return (
           <div key={g.key} className={`sg-strip ${op.type}`} data-sugg={g.key}>
             <div className="sg-main">
@@ -173,8 +179,8 @@ export function SuggStrips({ groups, items, owner, mine, ctl }: { groups: Pendin
                 <span className="sg-what">
                   <span className="ri-badge update">수정 제안</span>
                   {ch.map((c) => (
-                    <span key={c.field} className="sg-chg">
-                      {FIELD_LABEL[c.field]} <s>{fieldText(c.field, c.from)}</s> → <b>{fieldText(c.field, c.to)}</b>
+                    <span key={c.key} className="sg-chg">
+                      {c.label} <s>{c.from}</s> → <b>{c.to}</b>
                     </span>
                   ))}
                 </span>

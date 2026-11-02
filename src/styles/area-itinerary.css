@@ -1,1 +1,339 @@
 /* itinerary 영역 (멀티 에이전트 작업: 이 파일은 해당 영역 에이전트만 고친다) */
+
+/* ---------- 날짜 머리말: 눌러서 접고 펴기 ---------- */
+.itin-day {
+  scroll-margin-top: calc(var(--sticky-top, 0px) + 16px);
+}
+.itin-day-head {
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.itin-fold {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 2px 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border-radius: 8px;
+}
+.itin-fold:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.itin-fold small {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.itin-chev {
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  margin: 0 4px 0 2px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s;
+}
+.itin-day.is-closed .itin-chev {
+  transform: rotate(-45deg);
+}
+.itin-day.is-closed .itin-day-head {
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.itin:has(.itin-day.is-closed) {
+  gap: 18px;
+}
+.time-sort.is-undo {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+/* ---------- 날짜 칩: 바로 가기 ---------- */
+.itin-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 2px 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.itin-jump::-webkit-scrollbar {
+  display: none;
+}
+.ij-lbl {
+  flex: none;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  margin-right: 2px;
+}
+.ij-chip {
+  flex: none;
+  min-width: 40px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 700;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.ij-chip.is-open {
+  border-color: var(--dc, var(--accent));
+  box-shadow: inset 0 -2px 0 var(--dc, var(--accent));
+  color: var(--ink);
+}
+.ij-chip:hover {
+  background: var(--paper-2);
+}
+
+/* ---------- 순서 손잡이 (번호 자리) ---------- */
+.ri-grip {
+  position: relative;
+  display: block;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 0 6px;
+  touch-action: none;
+  cursor: grab;
+  border-radius: 6px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.ri-dots {
+  display: block;
+  width: 10px;
+  height: 14px;
+  margin-top: 4px;
+  opacity: 0;
+  background: radial-gradient(circle, var(--ink-3) 1.2px, transparent 1.6px) 0 0 / 5px 5px;
+  transition: opacity 0.2s;
+}
+.route-item:hover .ri-dots,
+.ri-grip:focus-visible .ri-dots {
+  opacity: 0.8;
+}
+@media (hover: none) {
+  .ri-dots {
+    opacity: 0.5;
+  }
+}
+.ri-grip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.itinerary .route-item.dragging {
+  z-index: 5;
+  background: var(--paper);
+  box-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.35);
+  transition: none;
+  cursor: grabbing;
+}
+.itinerary .route-item.drop-before {
+  box-shadow: inset 0 3px 0 var(--dc, var(--accent));
+}
+.itinerary .route-item.drop-after {
+  box-shadow: inset 0 -3px 0 var(--dc, var(--accent));
+}
+
+/* ---------- 이 아래에 추가 ---------- */
+.ri-below {
+  position: absolute;
+  left: 12px;
+  bottom: -11px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink-3);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.route-item:hover .ri-below,
+.route-item:focus-within .ri-below,
+.ri-below:focus-visible {
+  opacity: 1;
+}
+.ri-below:hover {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+/* 터치: 줄을 눌러 고른(.on) 뒤에만 보인다 (줄마다 떠 있으면 어수선하다) */
+@media (hover: none) {
+  .ri-below {
+    visibility: hidden;
+    width: 24px;
+    height: 24px;
+    bottom: -12px;
+  }
+  .route-item.on .ri-below,
+  .ri-below:focus-visible {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+/* 이동·숙소·경고 줄은 제안 표시(is-add 등)가 아니니 버튼을 평소처럼 흐리게 */
+.itinerary .route-item:is(.is-move, .is-stay, .is-far):not(.is-add, .is-update, .is-remove) .ri-actions {
+  opacity: 0.35;
+}
+.itinerary .route-item:is(.is-move, .is-stay, .is-far):is(:hover, :focus-within) .ri-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .itinerary .route-item:is(.is-move, .is-stay, .is-far) .ri-actions {
+    opacity: 1;
+  }
+}
+
+/* ---------- 상태 배지 · 경고 ---------- */
+.ri-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.ri-tag.t-booked {
+  color: var(--under);
+  background: color-mix(in oklab, var(--under) 10%, transparent);
+}
+.ri-tag.t-hope {
+  color: var(--tone-preparing);
+}
+.ri-tag.t-maybe {
+  color: var(--ink-3);
+  border-style: dashed;
+}
+.ri-far {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--over) 14%, transparent);
+  color: var(--over);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+
+/* ---------- 이동 구간: 작은 한 줄 ---------- */
+.itinerary .route-item.is-move {
+  padding-top: 7px;
+  padding-bottom: 7px;
+  align-items: center;
+}
+.route-item.is-move .ri-grip {
+  padding: 0;
+}
+.route-item.is-move .ri-dots {
+  display: none;
+}
+.ri-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.ri-line > * {
+  flex: none;
+}
+.ri-line strong {
+  font-weight: 600;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ri-line .ri-when,
+.ri-line .ri-cost {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.ri-line .ri-memo {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+.ri-flags {
+  margin-top: 2px;
+}
+.ri-flags > :first-child {
+  margin-left: 0;
+}
+.route-item.is-move .ri-btn {
+  height: 26px;
+}
+
+/* ---------- 숙소: 오늘 밤 ---------- */
+.itinerary .route-item.is-stay {
+  background: color-mix(in oklab, var(--dc, var(--accent)) 5%, transparent);
+}
+.itinerary .route-item.is-tonight {
+  box-shadow: inset 3px 0 0 var(--dc, var(--accent));
+}
+.ri-tonight {
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--dc, var(--accent-strong)) !important;
+  margin: 0 0 2px !important;
+}
+
+/* ---------- 모바일 ---------- */
+@media (max-width: 560px) {
+  .itinerary .route-item {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding-left: 6px;
+    padding-right: 4px;
+  }
+  .itinerary .ri-btn {
+    width: 28px;
+  }
+  .itin-fold small {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .itin-chev {
+    position: absolute;
+    right: 4px;
+    top: 10px;
+  }
+  .itin-day-head {
+    position: relative;
+    padding-right: 20px;
+  }
+}
