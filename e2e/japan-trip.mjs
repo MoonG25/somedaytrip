@@ -43,7 +43,6 @@ const kindOf = (r) => {
   if (/쇼핑|아키하바라/.test(s)) return 'shop';
   return 'see';
 };
-const MIN = ['00', '10', '15', '20', '30', '40', '45', '50'];
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -96,46 +95,80 @@ const searchPlace = async (q) => {
   lastSearch = Date.now(); searches++;
   const q0 = Date.now();
   await fill('.sdt-modal[open] input[aria-label="장소 검색"]', q);
-  try { await P.waitForSelector('.sdt-modal[open] .ac-list li', { timeout: 12000 }); } catch { log.latency.push([q, null]); return null; }
-  log.latency.push([q, Date.now() - q0]);
-  await P.waitForTimeout(400);
-  const hits = await P.$$eval('.sdt-modal[open] .ac-list li', (e) => e.map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
-  return hits.length && !/찾지 못|없어요/.test(hits[0]) ? hits : null;
+  // 진짜 결과 줄(data-i)이 오거나 "찾지 못했어요"가 뜰 때까지 (찾는 중… 안내는 결과가 아니다)
+  const done = await P.waitForFunction(() => {
+    const list = document.querySelector('.sdt-modal[open] .ac-list');
+    if (!list) return false;
+    if (list.querySelector('li[data-i]')) return 'hits';
+    const msg = list.querySelector('.ac-msg')?.textContent || '';
+    return msg && !/찾는 중/.test(msg) ? 'none' : false;
+  }, null, { timeout: 12000 }).then((h) => h.jsonValue()).catch(() => null);
+  log.latency.push([q, done ? Date.now() - q0 : null]);
+  if (done !== 'hits') return null;
+  return P.$$eval('.sdt-modal[open] .ac-list li[data-i]', (e) => e.map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
 };
+// 같은 날 다음 줄은 "저장하고 다음 일정"(Ctrl+Enter)으로 창을 닫지 않고 이어서 적는다 (사람이 가장 빠르게 넣는 방법)
+const KIND_LABEL = { eat: '먹기', cafe: '카페', shop: '쇼핑', move: '이동', stay: '숙소', etc: '기타' };
+const TAG_OF = (q) => (/희망/.test(q) ? '희망' : /선택/.test(q) ? '선택' : '');
+let open = false;
 for (const [n, r] of dayRows.entries()) {
   const a0 = acts; const s0 = Date.now(); const out = { n: n + 1, day: r.day, t: r.t, title: r.title };
-  await click(`.itin-day >> nth=${r.day - 1} >> .itin-add`);
-  await P.waitForSelector('.sdt-modal[open] .item-form');
-  await fill('.sdt-modal[open] .item-form input.inp >> nth=0', r.title.slice(0, 80));
-  const kind = kindOf(r); const kinds = { see: 0, eat: 1, cafe: 2, shop: 3, move: 4, stay: 5, etc: 6 };
-  if (kind !== 'see') await click(`.sdt-modal[open] .kind-chips .chip >> nth=${kinds[kind]}`);
-  out.kind = kind;
-  const tm = r.t.match(/^(\d{2}):(\d{2})/);
-  if (tm) {
-    await select('.sdt-modal[open] select[aria-label="시"]', tm[1]);
-    if (MIN.includes(tm[2])) { if (tm[2] !== '00') await select('.sdt-modal[open] select[aria-label="분"]', tm[2]); out.time = `${tm[1]}:${tm[2]}`; }
-    else { const near = [...MIN].reverse().find((m) => m <= tm[2]); await select('.sdt-modal[open] select[aria-label="분"]', near); out.time = `${tm[1]}:${near}`; out.timeLost = r.t; }
+  const last = !dayRows[n + 1] || dayRows[n + 1].day !== r.day;
+  if (!open) {
+    await click(`.itin-day >> nth=${r.day - 1} >> .itin-add`);
+    await P.waitForSelector('.sdt-modal[open] .item-form');
   }
-  const qualifier = r.t.replace(/^\d{2}:\d{2}/, '').trim();
-  // 장소: 이동 구간은 장소 없이, 그 밖은 이름으로 검색 → 안 되면 일본어
+  // 시각은 이름 앞에 적으면 시간 칸으로 들어간다 ("13:07 → 15:26 특급", "16:40~17:30 노천탕")
+  const tm = r.t.match(/^(\d{2}:\d{2})(?:\s*(?:→|~|–|-)\s*(\d{2}:\d{2}))?/);
+  const prefix = tm ? `${tm[1]}${tm[2] ? `-${tm[2]}` : ''} ` : '';
+  await fill('.sdt-modal[open] .item-form input.inp >> nth=0', (prefix + r.title).slice(0, 80));
+  if (tm) { out.time = tm[1]; if (tm[2]) out.end = tm[2]; }
+  const kind = kindOf(r);
+  // 일정 창이 이름으로 종류를 짐작한다 → 다를 때만 직접 고른다
+  await P.waitForTimeout(150);
+  const guessed = await P.$eval('.sdt-modal[open] [aria-label="종류"] [role=radio][aria-checked="true"]', (e) => e.textContent.trim()).catch(() => '');
+  const want = kind === 'see' ? '구경' : KIND_LABEL[kind];
+  if (!guessed.includes(want)) { await click(`.sdt-modal[open] [aria-label="종류"] [role=radio]:has-text("${want}")`); out.kindClick = true; }
+  out.kind = kind;
+  const qualifier = r.t.replace(/^\d{2}:\d{2}(\s*(→|~|–|-)\s*\d{2}:\d{2})?/, '').trim();
+  const tag = TAG_OF(qualifier);
+  if (tag) { await click(`.sdt-modal[open] [aria-label="상태"] [role=radio]:has-text("${tag}")`); out.tag = tag; }
+  // 장소: 이동 구간은 장소 없이, 그 밖은 한글 이름으로 검색 (안 나오면 넘어간다: 사람은 일본어 이름을 모른다)
   if (kind !== 'move' || /하네다|김포/.test(r.title)) {
     const key = Object.keys(JP).find((k) => r.title.includes(k));
     const ko = key || r.title.replace(/^(점심|저녁|숙박|아침)\s*·?\s*/, '').split(/[·(]/)[0].trim();
-    let hits = await searchPlace(ko); out.placeKo = ko; out.placeKoOk = !!hits;
-    if (!hits && key && JP[key] !== ko) { hits = await searchPlace(JP[key]); out.placeJp = JP[key]; out.placeJpOk = !!hits; }
-    if (hits) { await click('.sdt-modal[open] .ac-list li >> nth=0'); out.placeHit = hits[0].slice(0, 40); }
+    out.placeKo = ko;
+    // 이름으로 찾은 추천이 찾던 곳이면 한 번 눌러 고른다 (이름이 맞을 때만: 사람은 엉뚱한 추천을 고르지 않는다)
+    const sug = await P.waitForSelector('.sdt-modal[open] .place-suggest', { timeout: 4500 }).then((e) => e.textContent()).catch(() => null);
+    if (sug && (sug.includes(ko) || (key && sug.includes(key)))) {
+      await click('.sdt-modal[open] .place-suggest'); out.placeHit = sug.slice(0, 40); out.viaSuggest = true;
+    }
+    const hits = out.viaSuggest ? null : await searchPlace(ko); out.placeKoOk = !!hits || !!out.viaSuggest;
+    if (hits) {
+      await click('.sdt-modal[open] .ac-list li[data-i] >> nth=0');
+      // 여행지에서 먼 곳이라고 확인하면 사람은 다시 찾는다 (엉뚱한 곳을 받아들이지 않는다)
+      if (await P.isVisible('.sdt-modal[open] .far-warn').catch(() => false)) { out.farWarn = true; await click('.sdt-modal[open] .far-warn >> text=다시 찾기'); }
+      else out.placeHit = hits[0].slice(0, 40);
+    }
   }
-  const yen = [...r.info.matchAll(/¥([\d,]+)/g)].map((m) => m[1]);
-  if (yen.length) out.yen = yen.join('/');
+  const yen = [...r.info.matchAll(/¥([\d,]+)/g)].map((m) => Number(m[1].replace(/,/g, '')));
+  // 한 줄에 엔화 금액이 하나면 비용 칸에 (계획 통화가 엔이라 기본이 엔), 여러 개면 메모에만
+  if (yen.length === 1) { await fill('.sdt-modal[open] [aria-label="예상 비용"]', String(yen[0])); out.cost = yen[0]; }
+  else if (yen.length) out.yenInMemo = yen.length;
   const memo = [qualifier, r.info].filter(Boolean).join(' · ');
   out.memoLen = memo.length;
-  await fill('.sdt-modal[open] input[placeholder="예: 새벽 6시 반 출발"]', memo.slice(0, 400));
-  // 늦게 도착한 검색 목록이 저장 버튼을 덮고 있으면 바깥을 눌러 닫는다 (사람도 그렇게 한다)
-  // 장소 목록은 바깥을 눌러도 안 닫힌다 → 사람은 검색어를 지워서 닫는다 (발견 사항으로 기록)
-  if (await P.isVisible('.sdt-modal[open] .ac-list li')) { out.listCovered = true; await fill('.sdt-modal[open] input[aria-label="장소 검색"]', ''); await P.waitForTimeout(400); }
-  await click('.sdt-modal[open] button[type=submit]');
-  await P.waitForSelector('.sdt-modal[open] .item-form', { state: 'detached', timeout: 10000 }).catch(() => (out.saveFail = true));
-  await P.waitForFunction((k) => document.querySelectorAll('.itinerary .route-item').length >= k, n + 1, { timeout: 10000 }).catch(() => (out.renderFail = true));
+  await fill('.sdt-modal[open] [placeholder="예: 새벽 6시 반 출발"]', memo.slice(0, 400));
+  if (await P.isVisible('.sdt-modal[open] .ac-list li').catch(() => false)) out.listCovered = true; // 이제는 저장을 막지 않아야 한다
+  if (last) {
+    await click('.sdt-modal[open] button[type=submit]');
+    await P.waitForSelector('.sdt-modal[open] .item-form', { state: 'detached', timeout: 10000 }).catch(() => (out.saveFail = true));
+    open = false;
+  } else {
+    acts++; await P.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+    open = true;
+  }
+  await P.waitForFunction((k) => document.querySelectorAll('.itinerary .route-item:not(.is-ghost)').length >= k, n + 1, { timeout: 10000 }).catch(() => (out.renderFail = true));
+  if (open) await P.waitForFunction(() => !document.querySelector('.sdt-modal[open] .item-form input.inp')?.value, null, { timeout: 5000 }).catch(() => (out.nextFail = true));
   out.acts = acts - a0; out.sec = +((Date.now() - s0) / 1000).toFixed(1);
   log.rows.push(out);
   if ((n + 1) % 10 === 0) console.log(`  ${n + 1}/${dayRows.length} 줄 · 검색 ${searches}회`);
@@ -152,6 +185,9 @@ log.result = await P.evaluate(() => {
   }));
   return { days, pins: document.querySelectorAll('.route-map .leaflet-marker-icon').length, totalKm: document.querySelector('.route-km')?.textContent };
 });
+// 시각이 화면에 그대로 나오는지 (13:07 → 15:26처럼 끝 시각까지)
+const shown = await P.$$eval('.itinerary .route-item:not(.is-ghost)', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ')));
+log.timeMismatch = log.rows.filter((r) => r.time && !shown.some((t) => t.includes(r.time) && (!r.end || t.includes(r.end)) && t.includes(r.title.slice(0, 6)))).map((r) => `${r.time}${r.end ? '–' + r.end : ''} ${r.title.slice(0, 12)}`);
 await P.screenshot({ path: OUT + 'plan-full.png', fullPage: true });
 const it = await P.$('#itinerary'); await it.screenshot({ path: OUT + 'itinerary.png' });
 
@@ -192,7 +228,7 @@ log.steps.linkChips = await P.$$eval('.plan-links .pl-chip, .plan-links a', (e) 
 /* ---------- 7. 모바일 ---------- */
 const M = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, storageState: await ctx.storageState() })).newPage();
 await M.goto(planUrl); await M.waitForTimeout(2500);
-log.steps.mobile = { height: await M.evaluate(() => document.documentElement.scrollHeight), overflow: await M.evaluate(() => document.documentElement.scrollWidth > innerWidth) };
+log.steps.mobile = { height: await M.evaluate(() => document.documentElement.scrollHeight), itinerary: await M.evaluate(() => document.querySelector('#itinerary')?.offsetHeight || 0), overflow: await M.evaluate(() => document.documentElement.scrollWidth > innerWidth) };
 await M.screenshot({ path: OUT + 'mobile.png', fullPage: false });
 await (await M.$('.itin-day >> nth=1')).screenshot({ path: OUT + 'mobile-day2.png' });
 
@@ -203,14 +239,16 @@ fs.writeFileSync(OUT + 'result.json', JSON.stringify(log, null, 1));
 const rowsN = log.rows.length;
 const perRow = log.rows.reduce((s, r) => s + r.acts, 0) / rowsN;
 const covered = log.rows.filter((r) => r.listCovered).length;
-const lost = log.rows.filter((r) => r.timeLost).map((r) => r.timeLost);
+const lost = log.timeMismatch || [];
 const km = Number(String(log.result.totalKm || '0').replace(/[^\d.]/g, ''));
 const card = [
   ['줄당 조작 수', perRow.toFixed(1), perRow <= 4],
-  ['저장 버튼이 막힌 횟수', covered, covered === 0],
-  ['입력 못 한 시각', lost.length ? lost.join(', ') : 0, lost.length === 0],
+  ['저장 버튼이 막힌 횟수', log.rows.filter((r) => r.saveFail || r.renderFail || r.nextFail).length, log.rows.every((r) => !r.saveFail && !r.renderFail && !r.nextFail)],
+  ['화면에 틀리게 나온 시각', lost.length ? lost.slice(0, 5).join(', ') + (lost.length > 5 ? ` 외 ${lost.length - 5}` : '') : 0, lost.length === 0],
   ['총 이동 거리(km)', km, km > 0 && km < 1500],
-  ['모바일 페이지 높이(px)', log.steps.mobile.height, log.steps.mobile.height < 24746 / 3],
+  // 처음 측정: 페이지 24,811px 중 일정 영역 약 15,960px(나머지 소개·체크리스트 등 약 8,850px) → 목표는 일정 영역 1/3 이하
+  ['모바일 일정 영역 높이(px)', `${log.steps.mobile.itinerary} (페이지 ${log.steps.mobile.height})`, log.steps.mobile.itinerary > 0 && log.steps.mobile.itinerary <= 5320],
+  ['모바일 가로 넘침', log.steps.mobile.overflow ? '있음' : '없음', !log.steps.mobile.overflow],
   ['페이지 오류', errs.length, errs.length === 0],
 ];
 console.log('\n합격 기준');

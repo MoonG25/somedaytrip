@@ -15,3 +15,6 @@ supabase/.temp
 test-results
 playwright-report
 e2e/out
+
+# 멀티 에이전트 worktree
+.claude/

@@ -23,6 +23,29 @@ const manwon = (n: number) => {
 // 이보다 멀면 고르기 전에 한 번 묻는다 (동명 장소가 다른 도시에서 잡히는 일이 잦다)
 const FAR_KM = 300;
 
+/** 이름으로 종류 짐작 (새 일정에서 종류를 직접 고르기 전까지만) */
+export function guessKind(title: string): Kind | null {
+  const t = title.replace(/\s+/g, ' ');
+  if (/→|->|출발|도착|이동|환승|공항|버스|택시|열차|기차|신칸센|특급|지하철|전철|페리|렌터카|\bBT\b/.test(t)) return 'move';
+  if (/카페|커피|디저트|찻집/.test(t)) return 'cafe';
+  if (/체크인|체크아웃|숙박|입실|퇴실|호텔|료칸|에어비앤비|게스트하우스|짐 (보관|정리|회수)/.test(t)) return 'stay';
+  if (/점심|저녁|아침|뷔페|석식|조식|야식|식당|라멘|소바|우동|스시|초밥|야키니쿠|이자카야|만쥬|에키벤|맛집|먹기/.test(t)) return 'eat';
+  if (/쇼핑|마켓|시장|돈키호테|백화점|아울렛|기념품/.test(t)) return 'shop';
+  return null;
+}
+
+// 이름에서 장소 검색어를 뽑을 때 뺄 말 (이것만 남으면 장소를 추천하지 않는다)
+const GENERIC = /^(점심|저녁|아침|뷔페|석식|조식|야식|식사|체크인|체크아웃|숙박|입실|퇴실|산책|쇼핑|이동|휴식|짐|마지막 쇼핑|노천탕|대욕장|사우나|입욕|야경)$/;
+/** "점심 · 하츠하나 소바 본점 (대기 길면…)" → "하츠하나 소바 본점" */
+export function placeQuery(title: string) {
+  const q = title
+    .replace(/^(점심|저녁|아침|숙박|야식)\s*[·:]\s*/, '')
+    .split(/[·(,]/)[0]
+    .replace(/\s*(목표|희망|선택|예약)$/, '')
+    .trim();
+  return q.length >= 2 && !GENERIC.test(q) ? q : '';
+}
+
 /** 장소: 입력하는 동안 찾고(↑↓ Enter), 안 나오면 지도에서 찍는다 */
 function PlaceField({
   value,
@@ -427,12 +450,53 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
   const last = useRef<{ day: number | null; order: number } | null>(null);
   const titleEl = useRef<HTMLInputElement>(null);
   const memoEl = useRef<HTMLTextAreaElement>(null);
+  // 종류를 직접 고르면 그다음부턴 이름으로 짐작하지 않는다 (고치는 일정은 처음부터 직접 고른 것으로)
+  const kindPicked = useRef(false);
+  // 이름으로 찾은 장소 추천 (한 번 눌러 고르기)
+  const [suggest, setSuggest] = useState<Hit | null>(null);
   useEffect(() => {
     if (!open) return;
     last.current = null;
+    kindPicked.current = !!item;
+    setSuggest(null);
     setD(item ? { ...item } : blank(day, order ?? nextOrder(day)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item, day]);
+  // 이름을 적으면 그 이름으로 근처 장소를 찾아 추천한다 (장소를 아직 안 골랐고 이동이 아닐 때)
+  const q = d && !d.place && d.kind !== 'move' ? placeQuery(d.title) : '';
+  const base = near ?? plan.coords;
+  useEffect(() => {
+    setSuggest(null);
+    if (!q) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      // 이름 전체 → 앞 두 단어 → 첫 단어 순으로 찾는다 ("다이토칸 교대된 대욕장" → "다이토칸")
+      const words = q.split(/\s+/);
+      const tries = [...new Set([q, words.slice(0, 2).join(' '), words[0]])].filter((x) => x.length >= 2 && !GENERIC.test(x));
+      const pts = [base, ...(plan.via ?? []).map((v) => v.coords)].filter((x): x is [number, number] => !!x);
+      for (const one of tries) {
+        try {
+          const u = new URLSearchParams({ q: one, mode: 'poi' });
+          if (base) {
+            u.set('lat', String(base[0]));
+            u.set('lng', String(base[1]));
+          }
+          const r = await fetch(`/api/places?${u}`, { signal: ctrl.signal });
+          if (!r.ok) return;
+          const h = ((await r.json()).hits as Hit[] | undefined)?.[0];
+          // 여행지에서 먼 곳은 추천하지 않는다
+          if (h && (!pts.length || pts.some((p) => km({ lat: p[0], lng: p[1] }, h) <= FAR_KM))) return setSuggest(h);
+        } catch {
+          return;
+        }
+      }
+    }, 650);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, base?.[0], base?.[1]]);
   // 메모 칸은 내용에 맞춰 늘어난다
   useLayoutEffect(() => {
     const el = memoEl.current;
@@ -472,6 +536,8 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
     if (!out || !onSaveNext) return;
     onSaveNext(out);
     last.current = { day: out.day, order: out.order };
+    kindPicked.current = false;
+    setSuggest(null);
     setD(blank(out.day, out.order + 1));
     setRound((r) => r + 1);
   };
@@ -505,8 +571,11 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
               const m = v.match(LEAD_TIME);
               const t = m && hhmm(m[1], m[2]);
               const en = m && m[3] ? hhmm(m[3], m[4]) : null;
-              if (m && t && (!m[3] || en)) set({ title: m[5], time: t, ...(en ? { end: en } : {}) });
-              else set({ title: v });
+              const title = m && t && (!m[3] || en) ? m[5] : v;
+              // 종류를 직접 고르기 전엔 이름으로 짐작 (이동·먹기·숙소·쇼핑·카페)
+              const kind = !kindPicked.current ? { kind: guessKind(title) ?? ('see' as Kind) } : {};
+              if (m && t && (!m[3] || en)) set({ title, time: t, ...(en ? { end: en } : {}), ...kind });
+              else set({ title, ...kind });
             }}
             placeholder="예: 후시미 이나리 새벽 등산"
             autoFocus
@@ -516,7 +585,17 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
         </label>
         <div className="chips kind-chips" role="radiogroup" aria-label="종류">
           {(Object.keys(KINDS) as Kind[]).map((k) => (
-            <button key={k} type="button" className="chip" role="radio" aria-checked={d.kind === k} onClick={() => set({ kind: k })}>
+            <button
+              key={k}
+              type="button"
+              className="chip"
+              role="radio"
+              aria-checked={d.kind === k}
+              onClick={() => {
+                kindPicked.current = true;
+                set({ kind: k });
+              }}
+            >
               {KINDS[k].icon} {KINDS[k].label}
             </button>
           ))}
@@ -541,6 +620,22 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
         </div>
         <div className="lbl">
           장소 <span className="faint">(선택)</span>
+          {suggest && !d.place ? (
+            <button
+              type="button"
+              className="place-suggest"
+              aria-label={`추천 장소: ${suggest.name}`}
+              onClick={() => {
+                set({ place: { name: suggest.name, en: suggest.en || undefined, address: suggest.address, lat: +suggest.lat.toFixed(5), lng: +suggest.lng.toFixed(5) }, en: suggest.en || d.en });
+                setSuggest(null);
+              }}
+            >
+              <span aria-hidden="true">📍</span>
+              <b>{suggest.name}</b>
+              {suggest.address ? <small>{suggest.address}</small> : null}
+              <em>이 장소예요</em>
+            </button>
+          ) : null}
           <PlaceField
             value={d.place}
             near={near ?? plan.coords}

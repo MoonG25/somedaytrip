@@ -151,3 +151,34 @@
     flex-basis: 100%;
   }
 }
+
+/* 이름으로 찾은 장소 추천: 한 번 눌러 고른다 */
+.place-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1.5px dashed color-mix(in oklab, var(--accent) 50%, var(--line));
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--accent) 6%, var(--paper));
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.place-suggest small {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.place-suggest em {
+  margin-left: auto;
+  color: var(--accent-strong);
+  font-size: 12.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+.place-suggest:hover {
+  border-style: solid;
+}

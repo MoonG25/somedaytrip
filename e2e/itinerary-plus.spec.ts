@@ -2,18 +2,28 @@
 import type { Page } from '@playwright/test';
 import { test, expect, createPlan, newPerson, boardAsGuest, skipGate, setTime } from './fixtures';
 
-type Add = { day?: number; title: string; time?: string; place?: string; memo?: string; kind?: string; cost?: number };
+type Add = { day?: number; title: string; time?: string; end?: string; place?: string; memo?: string; kind?: string; cost?: number; cur?: string; tag?: string };
 
 /** 일정 창에 값 채우고 저장 (창은 이미 열려 있다) */
-async function fillItem(page: Page, { title, time, place, memo, kind, cost }: Add) {
+async function fillItem(page: Page, { title, time, end, place, memo, kind, cost, cur, tag }: Add) {
   await page.locator('.sdt-modal[open] .item-form').waitFor();
   await page.locator('.sdt-modal[open] .item-form input.inp').first().fill(title);
   if (kind) await page.locator('.sdt-modal[open] [aria-label="종류"] [role=radio]').filter({ hasText: kind }).click();
   if (time) await setTime(page, time);
+  if (end) {
+    const [h, m] = end.split(':');
+    await page.selectOption('.sdt-modal[open] select[aria-label="끝 시"]', h);
+    await page.selectOption('.sdt-modal[open] select[aria-label="끝 분"]', m);
+  }
+  if (tag) await page.locator('.sdt-modal[open] [aria-label="상태"] [role=radio]').filter({ hasText: tag }).click();
   if (place) {
     await page.fill('.sdt-modal[open] input[aria-label="장소 검색"]', place);
     await page.locator('.sdt-modal[open] .ac-list li[data-i]').first().click();
+    // 여행지에서 먼 곳이면 일정 창이 한 번 확인한다 (테스트는 그래도 고른다)
+    const far = page.locator('.sdt-modal[open] .far-warn');
+    if (await far.isVisible().catch(() => false)) await far.getByText('그래도 이 장소').click();
   }
+  if (cur) await page.locator('.sdt-modal[open] [aria-label="통화"] [role=radio]').filter({ hasText: cur }).click();
   if (cost) await page.locator('.sdt-modal[open] .money input').first().fill(String(cost));
   if (memo) await page.fill('.sdt-modal[open] [placeholder="예: 새벽 6시 반 출발"]', memo);
   await page.click('.sdt-modal[open] button[type=submit]');
@@ -156,14 +166,27 @@ test('이동 구간은 작은 한 줄, 눌러서 고치기', async ({ page }) =>
 
 test('비용은 통화 기호로, 날짜 합계', async ({ page }) => {
   await createPlan(page);
-  await add(page, { title: '라멘', cost: 12000 });
-  await add(page, { title: '전망대', cost: 30000 });
+  // 해외 계획의 새 일정은 기본이 현지 통화(엔)라서 원화를 골라 넣는다
+  await add(page, { title: '라멘', cost: 12000, cur: '원' });
+  await add(page, { title: '전망대', cost: 30000, cur: '원' });
   await expect(page.locator('.route-item').filter({ hasText: '라멘' }).locator('.ri-meta')).toContainText('₩12,000');
   await expect(page.locator('.itin-day').first().locator('.itin-fold small')).toContainText('₩42,000');
 });
 
 // 끝 시각·상태·현지 통화는 일정 창(영역 A)에 입력 칸이 생겨야 화면으로 넣을 수 있다
-test.skip('새 칸 표시: 끝 시각 · 상태 배지 · 현지 통화 비용', async () => {});
+test('새 칸 표시: 끝 시각 · 상태 배지 · 현지 통화 비용', async ({ page }) => {
+  await page.route('https://open.er-api.com/**', (r) => r.fulfill({ json: { rates: { JPY: 0.108 } } }));
+  await createPlan(page, { place: '도쿄' });
+  await add(page, { title: '특급 쿠사츠', time: '13:07', end: '15:26', tag: '예약 완료' });
+  await add(page, { title: '텐잔 토지쿄', time: '14:00', cost: 1450 });
+  const train = page.locator('.route-item').filter({ hasText: '특급 쿠사츠' });
+  await expect(train).toContainText('13:07');
+  await expect(train).toContainText('15:26');
+  await expect(train).toContainText('예약 완료');
+  const onsen = page.locator('.route-item').filter({ hasText: '텐잔' });
+  await expect(onsen).toContainText('¥1,450');
+  await expect(onsen).toContainText('₩');
+});
 
 test('먼 거리: 300km 넘게 떨어진 장소는 총 이동에서 빼고 경고', async ({ page }) => {
   await createPlan(page, { place: '도쿄' });
