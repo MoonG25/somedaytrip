@@ -1,14 +1,15 @@
-// 일정 지도: 트랙패드 핀치(ctrl+휠)로 바로 확대 · 화면이 새로 고쳐져도 보던 위치·확대가 그대로
+// 일정 지도: 트랙패드 핀치(ctrl+휠)로 바로 확대 · 화면이 새로 고쳐져도 보던 위치·확대가 그대로 · 날짜 필터 · 지도 종류
 import type { Page } from '@playwright/test';
 import { test, expect, createPlan, addItem } from './fixtures';
 
 // 타일은 밖에서 받지 않고 빈 그림으로 (주소의 z가 확대 단계)
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 const zoomOf = (page: Page) =>
-  page.locator('.route-map .leaflet-tile-container img').evaluateAll((imgs) => Math.max(...imgs.map((i) => Number((i as HTMLImageElement).src.match(/\/(\d+)\/\d+\/\d+\.png/)?.[1] || 0))));
+  page.locator('.route-map .leaflet-tile-container img').evaluateAll((imgs) => Math.max(...imgs.map((i) => Number((i as HTMLImageElement).src.match(/\/(\d+)\/\d+\/\d+(@2x)?\.png/)?.[1] || 0))));
+const stubTiles = (page: Page) => page.route(/basemaps\.cartocdn\.com|opentopomap\.org|arcgisonline\.com|tile\.openstreetmap\.org/, (r) => r.fulfill({ body: PNG, contentType: 'image/png' }));
 
 test('핀치로 확대하고, 일정을 더해도 지도가 처음으로 돌아가지 않는다', async ({ page }) => {
-  await page.route('https://tile.openstreetmap.org/**', (r) => r.fulfill({ body: PNG, contentType: 'image/png' }));
+  await stubTiles(page);
   await createPlan(page, { place: '도쿄' });
   await addItem(page, { day: 1, title: '센소지', place: '센소지' });
   const map = page.locator('.route-map');
@@ -31,4 +32,30 @@ test('핀치로 확대하고, 일정을 더해도 지도가 처음으로 돌아�
   await addItem(page, { day: 1, title: '저녁 산책' });
   await page.waitForTimeout(800);
   expect(await zoomOf(page)).toBe(z1);
+});
+
+test('지도에 보일 날을 고르고, 지도 종류를 바꾼다', async ({ page }) => {
+  await stubTiles(page);
+  await createPlan(page, { place: '도쿄' });
+  await addItem(page, { day: 1, title: '센소지', place: '센소지' });
+  await addItem(page, { day: 1, title: '츠키지', place: '츠키지' });
+  await addItem(page, { day: 2, title: '스카이트리', place: '스카이트리' });
+  const pins = page.locator('.route-map .leaflet-marker-icon');
+  await expect(pins).toHaveCount(3);
+  const days = page.locator('.map-days');
+  await expect(days.locator('[role=radio][aria-checked=true]')).toHaveText('전체');
+  await days.locator('[role=radio]', { hasText: 'DAY 01' }).click();
+  await expect(pins).toHaveCount(2);
+  await days.locator('[role=radio]', { hasText: 'DAY 02' }).click();
+  await expect(pins).toHaveCount(1);
+  // 다시 누르면 전체
+  await days.locator('[role=radio]', { hasText: 'DAY 02' }).click();
+  await expect(pins).toHaveCount(3);
+
+  // 지도 종류: 위성으로 바꾸면 기억한다
+  await page.locator('.map-base [data-base="sat"]').click();
+  await expect(page.locator('.map-base [data-base="sat"]')).toHaveAttribute('aria-checked', 'true');
+  await expect.poll(() => page.locator('.route-map .leaflet-tile-container img').evaluateAll((imgs) => imgs.some((i) => (i as HTMLImageElement).src.includes('arcgisonline')))).toBe(true);
+  await page.reload();
+  await expect(page.locator('.map-base [data-base="sat"]')).toHaveAttribute('aria-checked', 'true');
 });

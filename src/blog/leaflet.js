@@ -1,5 +1,5 @@
 // Leaflet을 여행 페이지에 처음 들어올 때만 불러온다 (동적 import).
-// 타일은 키가 필요 없는 OpenStreetMap 기본 타일. 테마 색은 CSS 필터로 입힌다 (pages.css의 .leaflet-tile-pane).
+// 바탕 지도는 키가 필요 없는 무료 타일 (OpenStreetMap 컬러 기본 · 지형 · 위성).
 let L;
 
 export async function loadLeaflet() {
@@ -17,22 +17,104 @@ export async function loadLeaflet() {
   return L;
 }
 
-const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+// 바탕 지도 (모두 키 없이 무료). 고른 것은 이 브라우저에 기억한다
+const OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+export const BASES = {
+  // OpenStreetMap 기본 (컬러). CARTO Voyager는 이제 키를 요구해서 쓰지 않는다
+  base: {
+    label: '일반',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: OSM,
+    maxZoom: 19,
+  },
+  // OpenTopoMap: 등고선·지형 (산간 여행)
+  topo: {
+    label: '지형',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: `${OSM} · SRTM | &copy; <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA)`,
+    subdomains: 'abc',
+    maxZoom: 17,
+  },
+  // Esri World Imagery: 위성 사진
+  sat: {
+    label: '위성',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics',
+    maxZoom: 19,
+  },
+};
+const BASE_KEY = 'sdt:mapbase';
+const savedBase = () => {
+  try {
+    const v = localStorage.getItem(BASE_KEY);
+    return v && BASES[v] ? v : 'base';
+  } catch {
+    return 'base';
+  }
+};
+
+function baseLayer(L, key) {
+  const b = BASES[key] || BASES.base;
+  return L.tileLayer(b.url, { attribution: b.attribution, subdomains: b.subdomains || 'abc', maxZoom: b.maxZoom });
+}
+
+/** 지도 오른쪽 위 "일반 · 지형 · 위성" 전환 */
+function baseSwitch(L, map, start, onPick) {
+  const Ctl = L.Control.extend({
+    onAdd() {
+      const box = L.DomUtil.create('div', 'map-base');
+      box.setAttribute('role', 'radiogroup');
+      box.setAttribute('aria-label', '지도 종류');
+      const paint = (cur) => box.querySelectorAll('button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.base === cur)));
+      for (const [k, b] of Object.entries(BASES)) {
+        const btn = L.DomUtil.create('button', '', box);
+        btn.type = 'button';
+        btn.setAttribute('role', 'radio');
+        btn.dataset.base = k;
+        btn.textContent = b.label;
+      }
+      paint(start);
+      L.DomEvent.disableClickPropagation(box);
+      L.DomEvent.on(box, 'click', (e) => {
+        const k = e.target.closest?.('[data-base]')?.dataset.base;
+        if (!k) return;
+        paint(k);
+        onPick(k);
+      });
+      return box;
+    },
+  });
+  new Ctl({ position: 'topright' }).addTo(map);
+}
 
 export function createMap(L, el, opts = {}) {
+  const { baseSwitch: withSwitch = false, ...rest } = opts;
   const map = L.map(el, {
     zoomControl: false,
     attributionControl: true,
     scrollWheelZoom: false,
     worldCopyJump: false,
     zoomSnap: 0.25,
-    ...opts,
+    ...rest,
   });
   L.control.zoom({ position: 'bottomright' }).addTo(map);
-  L.tileLayer(TILE_URL, {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>',
-  }).addTo(map);
+  let key = savedBase();
+  let tiles = baseLayer(L, key).addTo(map);
+  el.dataset.base = key;
+  if (withSwitch)
+    baseSwitch(L, map, key, (k) => {
+      if (k === key) return;
+      key = k;
+      try {
+        localStorage.setItem(BASE_KEY, k);
+      } catch {}
+      map.removeLayer(tiles);
+      tiles = baseLayer(L, k).addTo(map);
+      el.dataset.base = k;
+      tiles.bringToBack();
+      // 지형 지도는 17단계까지라 그보다 가까우면 맞춰 준다
+      if (map.getZoom() > BASES[k].maxZoom) map.setZoom(BASES[k].maxZoom);
+    });
 
   // 휠 줌은 지도를 클릭한 뒤에만 (페이지 스크롤을 가로채지 않도록)
   map.on('click', () => map.scrollWheelZoom.enable());

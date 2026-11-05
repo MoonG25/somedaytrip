@@ -415,9 +415,88 @@ b.bb-amt {
   }
 }
 
-/* 지도 타일: 흰 바탕에 맞춰 누런 기운을 뺀다 */
-:root:not([data-theme='dark']) .leaflet-tile-pane {
-  filter: grayscale(1) contrast(0.9) brightness(1.06);
+/* 지도 타일: 바탕 지도의 색을 그대로 쓴다 (예전 흑백 필터 끔). 어두운 테마에선 일반 지도만 어둡게 */
+.leaflet-tile-pane,
+:root[data-theme='dark'] .leaflet-tile-pane {
+  filter: none;
+}
+:root[data-theme='dark'] [data-base='base'] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
+}
+
+/* 지도 종류 전환 (오른쪽 위) */
+.map-base {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--paper) 92%, transparent);
+  box-shadow: 0 2px 10px rgb(16 16 24 / 0.16);
+}
+.map-base button {
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 999px;
+  font: 700 12px/1 var(--font-sans);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.map-base button[aria-checked='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* 지도에 보일 날 (왼쪽 위) */
+.map-days {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 190px;
+  z-index: 800;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+.map-days::-webkit-scrollbar {
+  display: none;
+}
+.map-days button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--paper) 92%, transparent);
+  box-shadow: 0 2px 10px rgb(16 16 24 / 0.16);
+  font: 700 12px/1 var(--font-mono);
+  color: var(--ink-2);
+}
+.map-days button i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dc);
+}
+.map-days button[aria-checked='true'] {
+  background: var(--dc, var(--ink));
+  color: #fff;
+}
+.map-days button[aria-checked='true'] i {
+  background: #fff;
+}
+.map-days button:first-child[aria-checked='true'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+@media (max-width: 560px) {
+  .map-days {
+    right: 10px;
+    top: 50px;
+  }
 }
 
 /* 푸터: 개인 링크(Elsewhere)를 빼서 세 칸 */

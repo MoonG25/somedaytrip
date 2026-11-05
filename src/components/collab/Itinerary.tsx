@@ -108,6 +108,8 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<{ L: any; map: any; layer: any } | null>(null);
   const markers = useRef(new Map<string, any>());
+  // 지도에 보일 날: 'all' = 전체, 숫자 = 그날만, null = 날짜 미정(후보)만
+  const [mapDay, setMapDay] = useState<'all' | number | null>('all');
 
   useEffect(() => setDraft(loadDraft(plan.id)), [plan.id]);
 
@@ -228,7 +230,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     loadLeaflet()
       .then((L: any) => {
         if (!alive || !mapEl.current) return;
-        const map = createMap(L, mapEl.current);
+        const map = createMap(L, mapEl.current, { baseSwitch: true });
         const layer = L.layerGroup().addTo(map);
         mapRef.current = { L, map, layer };
         // 동네 여행은 처음부터 동네 크기로
@@ -259,6 +261,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     markers.current.clear();
     const pts: [number, number][] = [];
     for (const day of days) {
+      if (mapDay !== 'all' && day !== mapDay) continue;
       const list = rows.filter((r) => r.item.day === day && r.item.place);
       // 먼 구간에서 선을 끊는다
       const lines: [number, number][][] = [[]];
@@ -302,13 +305,31 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     drawRef.current?.(!fittedRef.current);
     if (mapRef.current && withPlace.length) fittedRef.current = true;
   }, [rows, focus, withPlace.length, groups, showSugg]);
+  // 보일 날을 바꾸면 그날 장소에 맞춰 다시 맞춘다
+  const firstFilter = useRef(true);
+  useEffect(() => {
+    if (firstFilter.current) {
+      firstFilter.current = false;
+      return;
+    }
+    drawRef.current?.(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapDay]);
+  // 지도에서 고를 수 있는 날 (장소가 있는 날만)
+  const mapDays = useMemo(() => days.filter((d) => withPlace.some((r) => r.item.day === d)), [days, withPlace]);
+  // 보던 날의 장소가 다 없어지면 전체로
+  useEffect(() => {
+    if (mapDay !== 'all' && !mapDays.includes(mapDay)) setMapDay('all');
+  }, [mapDay, mapDays]);
 
   const focusItem = (id: string) => {
     setFocus(id);
-    const mk = markers.current.get(id);
+    const it = rows.find((r) => r.item.id === id)?.item;
     const m = mapRef.current;
-    if (mk && m) m.map.flyTo(mk.getLatLng(), Math.max(m.map.getZoom(), 14), { duration: 0.8 });
-    else toast('장소가 없는 일정이에요', '·');
+    if (!it?.place || !m) return toast('장소가 없는 일정이에요', '·');
+    // 다른 날만 보고 있었으면 그 일정의 날로 바꾼다
+    if (mapDay !== 'all' && mapDay !== it.day) setMapDay(it.day);
+    m.map.flyTo([it.place.lat, it.place.lng], Math.max(m.map.getZoom(), 14), { duration: 0.8 });
   };
 
   /* ---------- 바꾸기 ---------- */
@@ -808,6 +829,19 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
         <div className="route-map-wrap">
           <div className="route-map" ref={mapEl} aria-label="일정 지도" />
           <div className="map-loading mono">지도를 불러오는 중…</div>
+          {mapDays.length > 1 ? (
+            <div className="map-days" role="radiogroup" aria-label="지도에 보일 날">
+              <button type="button" role="radio" aria-checked={mapDay === 'all'} onClick={() => (mapDay === 'all' ? drawRef.current?.(true) : setMapDay('all'))} title="모든 장소가 보이게">
+                전체
+              </button>
+              {mapDays.map((d) => (
+                <button key={dayKey(d)} type="button" role="radio" aria-checked={mapDay === d} onClick={() => setMapDay(mapDay === d ? 'all' : d)} style={{ '--dc': dayColor(d) } as React.CSSProperties}>
+                  <i aria-hidden="true" />
+                  {d == null ? '후보' : `DAY ${String(d).padStart(2, '0')}`}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
