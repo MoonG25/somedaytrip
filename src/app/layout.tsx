@@ -9,6 +9,8 @@ import '@/styles/area-modal.css';
 import '@/styles/area-itinerary.css';
 import '@/styles/area-search.css';
 import '@/styles/area-ticket.css';
+// 흰 바탕 · 입력 컴포넌트 테마 (맨 뒤에서 덮는다)
+import '@/styles/theme.css';
 import Chrome from '@/components/Chrome';
 import { PLANE } from '@/blog/plans-lib.js';
 import { SITE } from '@/lib/site';
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F3EFE6' },
+    { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
     { media: '(prefers-color-scheme: dark)', color: '#0F0F12' },
   ],
   viewportFit: 'cover',

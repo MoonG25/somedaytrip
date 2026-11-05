@@ -2,24 +2,15 @@
 // 섬데트에서 바뀐 점
 //  - "가 볼 곳"은 React 협업 일정(Itinerary)이 맡는다
 //  - 체크리스트는 계획에 저장되고 기장만 체크한다 (모두에게 보임)
-//  - 여행 적금 병은 개인 것이라 이 브라우저에만 저장
-import { esc, fmtNum, fmtWon, fmtDot, clamp, lerp, reducedMotion } from './util.js';
+//  - 예산은 React(BudgetBoard)가 화면에서 바로 고친다. 가기 좋은 달·여행 적금은 뺐다
+import { esc, fmtNum, fmtWon, fmtDot } from './util.js';
 import { renderMarkdown } from './md.js';
 import { STATUS, SCOPE, totalBudget, groupBudget, flight, daysUntil, nights, planCenter, readiness, hasPlace } from './plans-lib.js';
 import { weatherAt, krwPer, fxLabel, tzOffsetHours, sunAt } from './live.js';
 import { createFlapEngine } from './splitflap.js';
-import { ticketHTML, bindTickets, monthsStrip, readyRing, donut, bindDonut } from './ticket.js';
+import { ticketHTML, bindTickets, readyRing } from './ticket.js';
 import { toast } from './toast.js';
 import { CHECK_SUGGEST } from '../lib/suggest';
-
-const JAR = 'M70 34 L130 34 L130 52 C 160 58 172 76 172 104 L172 206 C172 222 160 232 144 232 L56 232 C40 232 28 222 28 206 L28 104 C28 76 40 58 70 52 Z';
-
-function seasonNote(months, now) {
-  if (!months.length) return '아무 때나 좋아요.';
-  if (months.includes(now)) return '지금이 딱 가기 좋은 때예요.';
-  const ahead = Math.min(...months.map((m) => (m - now + 12) % 12));
-  return `가기 좋은 달까지 ${ahead}개월 남았어요.`;
-}
 
 export function renderPlanHero(p, { owner = false, nowMonth }) {
   const st = STATUS[p.status];
@@ -88,11 +79,6 @@ export function renderPlanStory(p, { nowMonth }) {
   <section class="container plan-facts">
     <header class="sec-head" data-reveal><div><p class="eyebrow">알아 둘 것</p><h2>Before you <em>go</em></h2></div></header>
     <div class="facts" data-stagger="60">
-      <div class="fact fact-season" data-reveal>
-        <p class="eyebrow">가기 좋은 달</p>
-        ${monthsStrip(p.months, { big: true })}
-        <p class="fact-note">${seasonNote(p.months, nowMonth)}</p>
-      </div>
       ${
         offset !== 0 || p.scope === 'abroad'
           ? `<div class="fact" data-reveal>
@@ -138,11 +124,10 @@ export function renderPlanStory(p, { nowMonth }) {
   </section>`;
 }
 
+/** 준비할 것 (모두의 체크리스트). 예산은 옆의 BudgetBoard가 그린다 */
 export function renderPrep(p, { owner = false, editable = true }) {
   const ready = readiness(p);
-  const total = totalBudget(p);
   return `
-  <section class="container plan-prep">
     <div class="prep-check" data-reveal>
       <header class="sec-head"><div><p class="eyebrow">준비할 것</p><h2>Check<em>list</em></h2></div>${readyRing(ready.pct, 48)}</header>
       ${
@@ -170,44 +155,10 @@ export function renderPrep(p, { owner = false, editable = true }) {
           : ''
       }
       <p class="faint check-note">${editable ? '모두의 체크리스트예요. 누구나 체크하고, 생각날 때마다 더해요.' : ''}</p>
-    </div>
-    <div class="prep-jar" data-reveal>
-      <header class="sec-head"><div><p class="eyebrow">여행 적금</p><h2>Travel <em>fund</em></h2></div></header>
-      <div class="jar-wrap">
-        <svg class="jar" viewBox="0 0 200 240" aria-hidden="true">
-          <defs><clipPath id="jar-clip"><path d="${JAR}"/></clipPath>
-            <linearGradient id="jar-water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--accent);stop-opacity:.9"/><stop offset="1" style="stop-color:var(--accent-strong)"/></linearGradient></defs>
-          <g clip-path="url(#jar-clip)">
-            <path class="jar-wave back" d=""/>
-            <path class="jar-wave front" d="" fill="url(#jar-water)"/>
-            <g class="jar-coins"></g>
-          </g>
-          <path class="jar-glass" d="${JAR}"/>
-          <rect class="jar-lid" x="62" y="18" width="76" height="18" rx="5"/>
-          <path class="jar-shine" d="M44 110 C 44 92 50 80 60 74"/>
-        </svg>
-        <div class="jar-info">
-          <b class="jar-pct h-serif num">0%</b>
-          <p class="num"><span data-saved>${fmtWon(0)}</span> / ${fmtWon(total)}</p>
-          <p class="jar-plan muted"></p>
-          <div class="jar-actions">
-            <button type="button" class="btn btn--sm" data-add="100000">+10만</button>
-            <button type="button" class="btn btn--sm" data-add="500000">+50만</button>
-            <label class="field jar-input"><input type="number" min="0" step="10000" value="0" aria-label="모은 금액(원)"><span class="faint">원</span></label>
-          </div>
-          <p class="faint check-note">내가 모은 돈은 이 브라우저에만 저장돼요.</p>
-        </div>
-      </div>
-    </div>
-    <div class="prep-budget" data-reveal>
-      <header class="sec-head"><div><p class="eyebrow">예상 경비 · 1인</p><h2><em>Budget</em></h2></div></header>
-      ${donut(p.budget || {})}
-      ${(p.travelers || 1) > 1 && total ? `<p class="group-total"><span class="eyebrow">${p.travelers}명 전체</span><b class="num">${fmtWon(groupBudget(p))}</b></p>` : ''}
-    </div>
-  </section>`;
+    </div>`;
 }
 
-/** 브라우저에서: 카운트다운 플랩 · 현지 시각 · 날씨 · 환율 · 체크리스트 · 적금 병 · 도넛 · 탑승권 */
+/** 브라우저에서: 카운트다운 플랩 · 현지 시각 · 날씨 · 환율 · 체크리스트 · 탑승권 */
 export function mountPlanPage(root, p, { owner = false, onCheck, onChecklist, navigate } = {}) {
   const cleanups = [];
   let alive = true;
@@ -377,122 +328,9 @@ export function mountPlanPage(root, p, { owner = false, onCheck, onChecklist, na
     prepBox?.removeEventListener('submit', onPrepSubmit);
   });
 
-  /* 여행 적금 병 (이 블록에 병이 있을 때만) */
-  if (root.querySelector('.jar')) mountJar(root, p, cleanups);
-
-  bindDonut(root);
-
   return () => {
     alive = false;
     root.querySelector('.checklist')?.removeEventListener('change', onChange);
     cleanups.forEach((fn) => fn());
   };
-}
-
-/** 여행 적금 병: 사인파 두 겹이 출렁이며 차오른다. 모은 돈은 이 브라우저에만 */
-function mountJar(root, p, cleanups) {
-  const total = totalBudget(p);
-  const front = root.querySelector('.jar-wave.front');
-  const backW = root.querySelector('.jar-wave.back');
-  const pctEl = root.querySelector('.jar-pct');
-  const planEl = root.querySelector('.jar-plan');
-  const input = root.querySelector('.jar-input input');
-  const KEY = 'sdt:saved';
-  const readSaved = () => {
-    try {
-      return JSON.parse(localStorage.getItem(KEY) || '{}')[p.id] || 0;
-    } catch {
-      return 0;
-    }
-  };
-  const writeSaved = (v) => {
-    try {
-      const all = JSON.parse(localStorage.getItem(KEY) || '{}');
-      all[p.id] = v;
-      localStorage.setItem(KEY, JSON.stringify(all));
-    } catch {}
-  };
-  let saved = readSaved();
-  input.value = saved;
-  let level = 0;
-  let t = 0;
-  let raf = 0;
-  let visible = false;
-  const TOP = 52;
-  const BOTTOM = 232;
-  const wave = (lvl, phase, amp) => {
-    const y0 = BOTTOM - (BOTTOM - TOP) * lvl;
-    let d = `M20 ${BOTTOM + 10} L20 ${y0.toFixed(1)}`;
-    for (let x = 20; x <= 180; x += 6) d += ` L${x} ${(y0 + Math.sin(x * 0.045 + phase) * amp).toFixed(1)}`;
-    return d + ` L180 ${BOTTOM + 10} Z`;
-  };
-  const updateJarText = () => {
-    const pct = total ? Math.min(100, Math.round((saved / total) * 100)) : 0;
-    pctEl.textContent = `${pct}%`;
-    root.querySelector('[data-saved]').textContent = fmtWon(saved);
-    const left = Math.max(0, total - saved);
-    const dleft = daysUntil(p.target);
-    if (!total) planEl.textContent = '예산을 정하면 얼마씩 모으면 될지 계산해 드려요.';
-    else if (!left) planEl.textContent = '다 모았어요! 🎉';
-    else if (dleft > 0) {
-      const months = Math.max(1, Math.ceil(dleft / 30));
-      planEl.textContent = `출발까지 매달 ${fmtWon(Math.ceil(left / months / 10000) * 10000)}씩 모으면 돼요.`;
-    } else planEl.textContent = `매달 30만 원씩이면 ${Math.ceil(left / 300000)}개월 뒤에 떠날 수 있어요.`;
-  };
-  const loop = () => {
-    const goal = total ? clamp(saved / total, 0, 1) : 0;
-    level = lerp(level, goal, 0.06);
-    t += 0.05;
-    const gap = Math.abs(goal - level);
-    const amp = gap < 0.002 ? 2 : 3 + gap * 30;
-    front.setAttribute('d', wave(level, t, amp));
-    backW.setAttribute('d', wave(level + 0.012, t * 1.3 + 2, amp * 0.8));
-    raf = visible && !reducedMotion() && gap >= 0.002 ? requestAnimationFrame(loop) : 0;
-  };
-  const kick = () => {
-    if (reducedMotion()) {
-      level = total ? clamp(saved / total, 0, 1) : 0;
-      front.setAttribute('d', wave(level, 0, 0));
-      backW.setAttribute('d', wave(level, 0, 0));
-    } else if (!raf && visible) raf = requestAnimationFrame(loop);
-  };
-  const jio = new IntersectionObserver(([e]) => {
-    visible = e.isIntersecting;
-    kick();
-  });
-  jio.observe(root.querySelector('.jar'));
-  cleanups.push(() => {
-    jio.disconnect();
-    cancelAnimationFrame(raf);
-  });
-  const coins = root.querySelector('.jar-coins');
-  const dropCoin = () => {
-    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    c.setAttribute('cx', String(80 + Math.random() * 40));
-    c.setAttribute('cy', '40');
-    c.setAttribute('r', '7');
-    c.setAttribute('class', 'jar-coin');
-    coins.append(c);
-    const y = BOTTOM - (BOTTOM - TOP) * level;
-    c.animate([{ transform: 'translateY(0)' }, { transform: `translateY(${y - 40}px)`, opacity: 1, offset: 0.85 }, { transform: `translateY(${y - 30}px)`, opacity: 0 }], {
-      duration: 700,
-      easing: 'cubic-bezier(.5,0,.9,.6)',
-    }).finished.then(() => c.remove());
-  };
-  const setAmount = (v, burst) => {
-    saved = Math.max(0, Math.round(v));
-    writeSaved(saved);
-    input.value = saved;
-    updateJarText();
-    if (burst && !reducedMotion()) dropCoin();
-    kick();
-    if (total && saved >= total && burst) toast('여행 경비를 다 모았어요!', '💰');
-  };
-  root.querySelector('.jar-actions').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-add]');
-    if (b) setAmount(saved + Number(b.dataset.add), true);
-  });
-  input.addEventListener('change', () => setAmount(Number(input.value) || 0, true));
-  updateJarText();
-
 }

@@ -1,7 +1,7 @@
 'use server';
 // 서버 액션: 화면에서 부르는 모든 쓰기. 기장 확인과 비밀번호 검사는 여기(서버)에서만 한다.
 import { revalidatePath } from 'next/cache';
-import type { Bundle, Item, Op, PlanInfo } from '@/lib/types';
+import type { BudgetItem, Bundle, Item, Op, PlanInfo } from '@/lib/types';
 import { cleanItem } from '@/lib/clean';
 import { repo, users, RepoError, isRepoError } from '@/server';
 import { authorIds, clearOwnerToken, currentUser, ownerToken, savedMine, setOwnerToken, setSavedMine, visitorId } from '@/server/auth';
@@ -144,6 +144,18 @@ export async function updatePlan(id: string, info: PlanInfo) {
     const plan = await repo().updateInfo(id, await token(id), info);
     touch(id);
     return { slug: plan.slug };
+  });
+}
+
+/** 예산만 고치기 (기장): 화면에서 바로. 지금 저장된 계획 정보에 예산·인원만 바꿔 끼운다 */
+export async function setBudget(id: string, budgetItems: BudgetItem[], travelers: number) {
+  return run(async () => {
+    const b = await repo().get(id);
+    if (!b) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
+    const { id: _i, slug: _s, version: _v, createdAt: _c, updatedAt: _u, sample: _x, copiedFrom: _f, ...info } = b.plan;
+    const plan = await repo().updateInfo(id, await token(id), { ...info, budgetItems, travelers } as PlanInfo);
+    touch(id);
+    return { budget: plan.budget, travelers: plan.travelers };
   });
 }
 

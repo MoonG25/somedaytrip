@@ -246,7 +246,9 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
       destroyMap(mapRef.current?.map);
       mapRef.current = null;
     };
-  }, [plan.coords]);
+    // 좌표 값이 같으면 지도를 다시 만들지 않는다 (새로 고칠 때마다 새 배열이 와서 보던 위치·확대가 초기화됐다)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan.coords?.join(',')]);
 
   const drawRef = useRef<(fit: boolean) => void>(null);
   drawRef.current = (fit: boolean) => {

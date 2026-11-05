@@ -137,36 +137,34 @@ test('예산을 현지 통화로 적으면 환율로 원화로 바꿔 저장', a
   // 1원 = 0.108엔 → 1엔 ≈ 9.26원
   await page.route('https://open.er-api.com/**', (r) => r.fulfill({ json: { result: 'success', base_code: 'KRW', rates: { KRW: 1, JPY: 0.108 } } }));
   await createPlan(page, { place: '오사카' });
-  await page.click('[data-task=budget]');
-  await expect(page.locator('.pf-rate')).toContainText('1엔 ≈ 9.3원');
-  await page.click('.sdt-modal[open] .pf-cur [role=radio]:has-text("엔")');
-  await page.click('.sdt-modal[open] .chip:has-text("항공")');
-  const amt = page.locator('.pf-row').nth(0).locator('input.num');
-  await expect(amt).toHaveAttribute('aria-label', '금액 (엔)');
+  const bb = page.locator('#budget');
+  await expect(bb.locator('.bb-cur')).toContainText('1엔 ≈ 9.3원');
+  await bb.locator('.bb-cur [role=radio]:has-text("엔")').click();
+  await bb.locator('.chip:has-text("항공")').click();
+  const amt = bb.locator('.bb-row').nth(0).locator('.bb-amt input');
+  await expect(amt).toHaveAttribute('aria-label', /엔/);
   await amt.fill('17751');
   await expect(amt).toHaveValue('17,751');
-  await expect(page.locator('.pf-conv')).toHaveText('¥17,751 → ₩164,361');
-  await expect(page.locator('.pf-total')).toContainText('164,361');
-  await page.click('.sdt-modal[open] .modal-actions .btn--solid');
+  await expect(bb.locator('.bb-row').nth(0).locator('.bb-note')).toContainText('₩164,361');
+  await expect(bb.locator('.bb-sum')).toContainText('164,361');
+  await expect(bb.locator('.bb-status')).toContainText('저장했어요');
   await expect(page.locator('.ticket--big')).toContainText('164,361');
-  // 다시 열면 원화로 저장돼 있다
-  await page.click('[data-task=budget]');
-  await expect(page.locator('.pf-row').nth(0).locator('input.num')).toHaveValue('164,361');
+  // 원화로 저장돼 있다
+  await page.reload();
+  await expect(page.locator('#budget .bb-row').nth(0).locator('.bb-amt input')).toHaveValue('164,361');
 });
 
-test('환율을 못 받으면 현지 통화 입력을 막고 안내', async ({ page }) => {
+test('환율을 못 받으면 원화로만 적는다', async ({ page }) => {
   await page.route('https://open.er-api.com/**', (r) => r.fulfill({ status: 500, body: 'down' }));
   await createPlan(page, { place: '오사카' });
-  await page.click('[data-task=budget]');
-  await expect(page.locator('.pf-rate')).toContainText('원화로만');
-  await expect(page.locator('.sdt-modal[open] .pf-cur [role=radio]:has-text("엔")')).toBeDisabled();
-  await page.click('.sdt-modal[open] .chip:has-text("항공")');
-  await expect(page.locator('.pf-row').nth(0).locator('input.num')).toHaveAttribute('aria-label', '금액');
+  const bb = page.locator('#budget');
+  await bb.locator('.chip:has-text("항공")').click();
+  await expect(bb.locator('.bb-row').nth(0).locator('.bb-amt input')).toHaveAttribute('aria-label', /원\)/);
+  await expect(bb.locator('.bb-cur')).toHaveCount(0);
 });
 
 test('원화로 여행하는 계획은 통화 고르기가 없다', async ({ page }) => {
   await createPlan(page, { place: '강릉' });
-  await page.click('[data-task=budget]');
-  await expect(page.locator('.sdt-modal[open] .pf-rows')).toBeAttached();
-  await expect(page.locator('.pf-cur')).toHaveCount(0);
+  await expect(page.locator('#budget .bb-add')).toBeAttached();
+  await expect(page.locator('.bb-cur')).toHaveCount(0);
 });

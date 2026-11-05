@@ -65,7 +65,6 @@ export function ticketHTML(p, { big = false, fit = null, mine = false, preview =
           <div><dt>예산${(p.travelers || 1) > 1 ? ' · 1인' : ''}</dt><dd class="num">${fmtWon(totalBudget(p))}</dd></div>
           <div><dt>${tf.dt}</dt><dd>${tf.dd}</dd></div>
         </dl>
-        ${monthsStrip(p.months)}
         ${p.status === 'booked' ? `<span class="tk-stamp" aria-hidden="true">CONFIRMED<small>예약 완료</small></span>` : ''}
         ${p.status === 'done' ? `<span class="tk-stamp tk-stamp--arrived" aria-hidden="true">ARRIVED<small>도착 · 다녀옴</small></span>` : ''}
       </div>

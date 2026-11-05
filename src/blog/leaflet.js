@@ -37,8 +37,42 @@ export function createMap(L, el, opts = {}) {
   // 휠 줌은 지도를 클릭한 뒤에만 (페이지 스크롤을 가로채지 않도록)
   map.on('click', () => map.scrollWheelZoom.enable());
   map.on('mouseout', () => map.scrollWheelZoom.disable());
+  pinchZoom(map, el);
 
   return map;
+}
+
+/**
+ * 트랙패드 핀치(두 손가락 벌리기·오므리기)는 클릭하지 않아도 바로 지도를 확대·축소한다.
+ * 크롬·엣지·파이어폭스는 핀치를 ctrl+휠로, 사파리는 gesture 이벤트로 보낸다. 페이지 확대로 새지 않게 막는다.
+ */
+function pinchZoom(map, el) {
+  let want = null;
+  let idle = 0;
+  const zoomTo = (e, z) => map.setZoomAround(map.mouseEventToContainerPoint(e), Math.max(map.getMinZoom(), Math.min(map.getMaxZoom(), z)), { animate: false });
+  el.addEventListener(
+    'wheel',
+    (e) => {
+      if (!e.ctrlKey || map.scrollWheelZoom.enabled()) return;
+      e.preventDefault();
+      // 한 번의 움직임은 작아서 확대 단계(zoomSnap)에 묻힌다: 손을 떼기 전까지 모아서 적용
+      want = (want ?? map.getZoom()) - e.deltaY * 0.012;
+      clearTimeout(idle);
+      idle = setTimeout(() => (want = null), 250);
+      zoomTo(e, want);
+    },
+    { passive: false }
+  );
+  let start = 0;
+  el.addEventListener('gesturestart', (e) => {
+    e.preventDefault();
+    start = map.getZoom();
+  });
+  el.addEventListener('gesturechange', (e) => {
+    e.preventDefault();
+    zoomTo(e, start + Math.log2(e.scale || 1));
+  });
+  el.addEventListener('gestureend', (e) => e.preventDefault());
 }
 
 export function destroyMap(map) {

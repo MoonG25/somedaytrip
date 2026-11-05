@@ -3015,7 +3015,8 @@ html[data-authed] .auth-in {
   opacity: 0.4;
   pointer-events: none;
 }
-.ck-add {
+.ck-add,
+.bb-add {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -3024,7 +3025,8 @@ html[data-authed] .auth-in {
   border: 1.5px dashed var(--line-strong);
   border-radius: 12px;
 }
-.ck-add input {
+.ck-add input,
+.bb-add input {
   flex: 1;
   min-width: 0;
   height: 36px;
@@ -3034,7 +3036,8 @@ html[data-authed] .auth-in {
   font: inherit;
   outline: none;
 }
-.ck-add:focus-within {
+.ck-add:focus-within,
+.bb-add:focus-within {
   border-color: var(--accent);
 }
 .ck-suggest {

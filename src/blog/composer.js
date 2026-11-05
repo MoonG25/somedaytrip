@@ -150,7 +150,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
       <legend><span class="step-no mono">02</span>언제?<span class="step-done" aria-hidden="true">✓</span></legend>
       <div class="choice-cards two" role="radiogroup" aria-label="날짜">
         <button type="button" role="radio" aria-checked="false" class="choice" data-when="date"><span class="choice-ico">📅</span><b>날짜를 정했어요</b><small>달력에서 가는 날과 오는 날을 골라요</small></button>
-        <button type="button" role="radio" aria-checked="false" class="choice" data-when="someday"><span class="choice-ico">🌙</span><b>아직 몰라요 · 언젠가</b><small>가기 좋은 달과 며칠짜리인지만 정해요</small></button>
+        <button type="button" role="radio" aria-checked="false" class="choice" data-when="someday"><span class="choice-ico">🌙</span><b>아직 몰라요 · 언젠가</b><small>며칠짜리인지만 정해요</small></button>
       </div>
       <div class="when-pane" data-pane="date" hidden>
         <div class="cal" aria-label="여행 날짜 고르기"></div>
@@ -164,10 +164,6 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
         </div>
       </div>
       <div class="when-pane" data-pane="someday" hidden>
-        <div class="field-block">
-          ${lbl('가기 좋은 달', '끌어서 여러 달 선택')}
-          <div class="month-pick" role="group" aria-label="가기 좋은 달">${Array.from({ length: 12 }, (_, i) => `<button type="button" data-month="${i + 1}" aria-pressed="false">${i + 1}<small>월</small></button>`).join('')}</div>
-        </div>
         <div class="field-block">
           ${lbl('며칠짜리 여행?')}
           <div class="days-pick">
@@ -595,7 +591,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
   const progress = root.querySelector('.step-progress');
   const STEPS = [
     ['where', '어디로', () => d.title && d.place],
-    ['when', '언제', () => whenMode === 'date' ? !!d.target : whenMode === 'someday' && d.months.length > 0],
+    ['when', '언제', () => whenMode === 'date' ? !!d.target : whenMode === 'someday'],
     ...(quick
       ? [['how', '몇 명', () => !!whenMode]]
       : [
@@ -914,8 +910,6 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     if (m === 'someday') {
       d.target = null;
       if (d.status !== 'done') d.status = 'dream';
-      d.months = d.months.length > 2 || !initial ? d.months : d.months;
-      syncMonths();
     } else {
       if (d.status === 'dream') d.status = 'planning';
       requestAnimationFrame(segSync);
@@ -933,43 +927,6 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     if (s) d.days = Math.min(60, Math.max(1, d.days + Number(s.dataset.days)));
     if (q) d.days = Number(q.dataset.quick);
     if (s || q) update();
-  });
-
-  /* 달: 끌어서 여러 개 */
-  const monthsEl = root.querySelector('.month-pick');
-  const syncMonths = () => monthsEl.querySelectorAll('[data-month]').forEach((b) => b.setAttribute('aria-pressed', String(d.months.includes(Number(b.dataset.month)))));
-  let paint = null;
-  const toggleMonth = (b, m0) => {
-    const m = Number(b.dataset.month);
-    const has = d.months.includes(m);
-    if (m0 === 'add' && !has) d.months = [...d.months, m];
-    if (m0 === 'remove' && has) d.months = d.months.filter((x) => x !== m);
-    d.months.sort((x, y) => x - y);
-    syncMonths();
-    update();
-  };
-  monthsEl.addEventListener('pointerdown', (e) => {
-    const b = e.target.closest('[data-month]');
-    if (!b) return;
-    e.preventDefault();
-    paint = d.months.includes(Number(b.dataset.month)) ? 'remove' : 'add';
-    toggleMonth(b, paint);
-    monthsEl.setPointerCapture(e.pointerId);
-  });
-  monthsEl.addEventListener('pointermove', (e) => {
-    if (!paint) return;
-    const b = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-month]');
-    if (b && monthsEl.contains(b)) toggleMonth(b, paint);
-  });
-  const endPaint = () => (paint = null);
-  monthsEl.addEventListener('pointerup', endPaint);
-  monthsEl.addEventListener('pointercancel', endPaint);
-  monthsEl.addEventListener('keydown', (e) => {
-    const b = e.target.closest('[data-month]');
-    if (b && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault();
-      toggleMonth(b, d.months.includes(Number(b.dataset.month)) ? 'remove' : 'add');
-    }
   });
 
   /* ---------- 03 예산 (할 일 목록처럼) ---------- */
@@ -1056,9 +1013,15 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     const per = e.target.closest('[data-per]');
     if (per) {
       const b = budget[Number(per.closest('.b-row').dataset.i)];
+      // 금액도 바로 바꿔 계산한다: 다 같이 40만(2명) → 1인당 20만, 1인당 20만 → 다 같이 40만
+      const n = ppl();
+      b.amount = b.per === 'group' ? Math.round(b.amount / n) : b.amount * n;
       b.per = b.per === 'group' ? 'person' : 'group';
       per.textContent = perLabel(b.per);
       per.setAttribute('aria-pressed', String(b.per === 'group'));
+      const amt = per.closest('.b-row').querySelector('.b-amt');
+      amt.value = fmtMoney(b.amount);
+      amt.setAttribute('aria-label', `${b.name} 금액 (${perLabel(b.per)})`);
       paintShares();
       update();
       return;
@@ -1539,7 +1502,6 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
     syncScope();
     drawDest();
     syncVis();
-    syncMonths();
     drawScenes();
     drawBudget();
     drawStops();

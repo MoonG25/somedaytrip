@@ -10,6 +10,7 @@ import { renderPlanHero, renderPlanStory, renderPrep } from '@/blog/plan-page.js
 import { seoulMonth } from '@/blog/util.js';
 import LegacyBlock from '@/components/LegacyBlock';
 import PlanShell from '@/components/collab/PlanShell';
+import BudgetBoard from '@/components/collab/BudgetBoard';
 import { ago } from '@/components/collab/util';
 import { opCounts } from '@/lib/proposals';
 import { SITE } from '@/lib/site';
@@ -93,7 +94,10 @@ export default async function PlanPage({ params }: Props) {
       <PlanShell plan={b.plan} items={b.items} owner={owner} open={open.length} proposals={b.proposals.length} pending={pending} mine={mine} account={user ? { nick: user.nick, owns: byAccount, saved } : null}>
         <LegacyBlock html={renderPlanStory(p, { nowMonth })} plan={p} owner={owner} />
       </PlanShell>
-      <LegacyBlock html={renderPrep(p, { owner })} plan={p} owner={owner} />
+      <section className="container plan-prep">
+        <LegacyBlock html={renderPrep(p, { owner })} plan={p} owner={owner} />
+        <BudgetBoard plan={b.plan} owner={owner} />
+      </section>
 
       <section className="container plan-collab" id="proposals">
         <header className="sec-head">

@@ -1,0 +1,412 @@
+/* ==========================================================================
+   섬데트 테마: 흰 바탕 + 입력 컴포넌트 (모든 스타일 뒤에 불러서 덮는다)
+   - 바탕은 흰색, 카드는 얇은 선으로만 나눈다
+   - 입력칸은 옅은 회색으로 채우고, 누르면 흰 바탕 + 진한 테두리
+   ========================================================================== */
+
+:root {
+  --paper: #ffffff;
+  --paper-2: #f5f5f4;
+  --paper-3: #e9e9e7;
+  --ink: #16161a;
+  --ink-2: #46464e;
+  --ink-3: #6b6b74;
+  --line: color-mix(in oklab, var(--ink) 10%, transparent);
+  --line-strong: color-mix(in oklab, var(--ink) 20%, transparent);
+  --field: #f4f4f3;
+  --field-hover: #ededec;
+  --ring: 0 0 0 3px color-mix(in oklab, var(--ink) 9%, transparent);
+  --shadow-sm: 0 1px 2px rgb(16 16 24 / 0.05);
+  --shadow: 0 1px 2px rgb(16 16 24 / 0.04), 0 12px 32px -14px rgb(16 16 24 / 0.16);
+  --shadow-lg: 0 24px 64px -20px rgb(16 16 24 / 0.28);
+}
+:root[data-theme='dark'] {
+  --field: color-mix(in oklab, var(--ink) 7%, var(--paper));
+  --field-hover: color-mix(in oklab, var(--ink) 11%, var(--paper));
+  --ring: 0 0 0 3px color-mix(in oklab, var(--ink) 14%, transparent);
+}
+/* 흰 바탕에선 종이 질감(노이즈)이 얼룩처럼 보인다 */
+:root:not([data-theme='dark']) .grain {
+  display: none;
+}
+
+/* ---------- 입력칸 ---------- */
+.inp,
+.textarea,
+.money input,
+.tp-sel,
+.field,
+.auth-form input:not([type='checkbox']):not([type='radio']) {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background-color: var(--field);
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.inp:hover,
+.textarea:hover,
+.money input:hover,
+.tp-sel:hover,
+.field:hover {
+  background-color: var(--field-hover);
+}
+.inp:focus,
+.textarea:focus,
+.money input:focus,
+.tp-sel:focus,
+.field:focus-within,
+.auth-form input:not([type='checkbox']):not([type='radio']):focus {
+  border-color: var(--ink);
+  background-color: var(--paper);
+  box-shadow: var(--ring);
+}
+.inp::placeholder,
+.textarea::placeholder,
+.money input::placeholder,
+.ck-add input::placeholder,
+.bb-add input::placeholder {
+  color: color-mix(in oklab, var(--ink-3) 75%, transparent);
+}
+.lbl {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* "+ 추가" 줄: 점선 대신 옅은 칸 */
+.ck-add,
+.bb-add {
+  border: 1px solid transparent;
+  background: var(--field);
+}
+.ck-add:focus-within,
+.bb-add:focus-within {
+  border-color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--ring);
+}
+
+/* ---------- 버튼 · 칩 ---------- */
+.btn:not(.btn--solid) {
+  border-color: var(--line-strong);
+}
+.btn:not(.btn--solid):hover {
+  border-color: var(--ink);
+}
+.chip {
+  border-color: var(--line-strong);
+  background: var(--paper);
+}
+.b-per {
+  border-color: var(--line-strong);
+  background: var(--paper);
+}
+.segmented,
+.days-pick .stepper {
+  border-color: transparent;
+  background: var(--field);
+}
+.days-pick .stepper button:hover {
+  background: var(--paper);
+}
+
+/* ---------- 창 ---------- */
+.sdt-modal {
+  border-radius: 20px;
+  border-color: var(--line);
+}
+.sdt-modal::backdrop {
+  background: rgb(16 16 24 / 0.35);
+}
+
+/* ---------- 계획: 한 줄 소개 (위아래 큰 여백 · 큰 글씨를 줄여 앞뒤와 어울리게) ---------- */
+.plan-why {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  align-items: start;
+  gap: clamp(20px, 3vw, 48px);
+  padding-block: clamp(28px, 4vw, 48px) 0;
+}
+.plan-why .plan-quote {
+  margin: 0;
+  padding-left: 18px;
+  border-left: 3px solid var(--accent);
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1.3;
+}
+.plan-why .plan-intro .prose {
+  font-size: 15.5px;
+}
+.plan-why .review-tags {
+  margin-top: 12px;
+}
+.plan-why .review-tags:empty {
+  display: none;
+}
+/* 소개 글이 없으면 인용문이 한 줄을 다 쓴다 */
+.plan-why:has(.plan-intro:empty),
+.plan-why:not(:has(.plan-intro .prose)):not(:has(.review-tags li)) {
+  grid-template-columns: 1fr;
+}
+.plan-facts {
+  padding-top: clamp(40px, 5vw, 72px);
+}
+
+/* 알아 둘 것: 칸 수가 계획마다 달라서 자동으로 채운다 */
+.facts {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.facts .fact,
+.facts .fact:last-child {
+  grid-column: auto;
+}
+
+/* ---------- 계획: 준비할 것 + 예상 경비 (두 칸) ---------- */
+.plan-prep {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .plan-prep {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- 예상 경비 (BudgetBoard) ---------- */
+.bb {
+  --c1: var(--accent);
+  --c2: var(--ink);
+  --c3: color-mix(in oklab, var(--accent) 45%, var(--paper));
+  --c4: var(--ink-3);
+  --c5: color-mix(in oklab, var(--ink) 25%, var(--paper));
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.bb .sec-head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+.bb-status {
+  font-size: 12.5px;
+}
+.bb-status.ok::before {
+  content: '✓ ';
+  color: var(--accent-strong);
+}
+.bb-sum {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.bb-sum > div:not(.stepper) {
+  display: grid;
+  gap: 2px;
+}
+.bb-sum b {
+  font-size: clamp(24px, 2.4vw, 30px);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.bb-ppl {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--field);
+}
+.bb-ppl button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+}
+.bb-ppl button:hover:not(:disabled) {
+  background: var(--paper);
+}
+.bb-ppl button:disabled {
+  opacity: 0.35;
+}
+.bb-ppl output {
+  min-width: 44px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+.bb-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bb-bar i {
+  min-width: 3px;
+}
+.bb-cur {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.seg-mini {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--field);
+}
+.seg-mini button {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.seg-mini button[aria-checked='true'] {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.bb-rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bb-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 150px 92px 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.bb-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.bb-name {
+  min-width: 0;
+  height: 38px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 38px;
+  outline: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+input.bb-name:hover {
+  background: var(--field);
+}
+input.bb-name:focus {
+  border-color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--ring);
+}
+.b-per.is-static {
+  display: inline-flex;
+  align-items: center;
+  cursor: default;
+}
+.bb-amt {
+  position: relative;
+  display: block;
+}
+.bb-amt input {
+  width: 100%;
+  height: 38px;
+  padding: 0 32px 0 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: var(--field);
+  text-align: right;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+  outline: none;
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.bb-amt input:hover {
+  background: var(--field-hover);
+}
+.bb-amt input:focus {
+  border-color: var(--ink);
+  background: var(--paper);
+  box-shadow: var(--ring);
+}
+.bb-amt span {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+b.bb-amt {
+  text-align: right;
+  font-size: 15px;
+}
+.bb-note {
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+.bb-pct {
+  font-family: var(--font-mono);
+  opacity: 0.8;
+}
+.bb-del {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--ink-3);
+  font-size: 13px;
+}
+.bb-del:hover {
+  background: var(--field);
+  color: var(--ink);
+}
+.bb-add {
+  margin-top: 4px;
+}
+.bb-sugg .chip {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+@media (max-width: 560px) {
+  .bb-row {
+    grid-template-columns: 10px minmax(0, 1fr) auto 32px;
+    row-gap: 4px;
+  }
+  .bb-amt {
+    grid-column: 2 / 4;
+  }
+  .bb-note {
+    grid-column: 2 / 4;
+    grid-row: 3;
+    text-align: left;
+  }
+  .bb-row .bb-del {
+    grid-column: 4;
+    grid-row: 1;
+  }
+}
+
+/* 지도 타일: 흰 바탕에 맞춰 누런 기운을 뺀다 */
+:root:not([data-theme='dark']) .leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.9) brightness(1.06);
+}
