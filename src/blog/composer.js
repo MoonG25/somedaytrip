@@ -286,7 +286,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
               : `<div class="owner-box">
             <p class="owner-lede"><b>🔑 비밀번호를 아는 사람이 이 계획의 기장이에요.</b> 제안 수락·거절, 직접 수정, 삭제를 할 수 있어요. 다른 기기에서도 비밀번호만 넣으면 기장으로 돌아와요. <b>잊으면 되찾을 수 없어요.</b></p>
             <div class="grid2">
-              <label class="field-block">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 문" autocomplete="nickname"></label>
+              <label class="field-block">${lbl('기장 이름', '친구들에게 보여요')}<input class="inp" name="ownerName" maxlength="20" placeholder="예: 민지" autocomplete="nickname"></label>
               <label class="field-block">${lbl('비밀번호', '4자 이상')}<span class="pw-wrap"><input class="inp" type="password" name="pw" autocomplete="new-password"><button type="button" class="pw-show" data-pw-show aria-pressed="false">보기</button></span></label>
             </div>
             <div class="pw-meter" data-s="-1"><i></i><span>친구들과 같이 쓰는 비밀번호는 피하세요</span></div>

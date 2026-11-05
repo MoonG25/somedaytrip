@@ -64,7 +64,9 @@ export default function PlanShell({
     if (new URLSearchParams(location.search).get('welcome')) {
       setWelcome(true);
       setModal('share');
-      history.replaceState(null, '', location.pathname);
+      // 주소의 ?welcome=1은 Next 라우터로 지운다 (history.replaceState로 지우면 라우터 정보가 어긋나
+      // 다음 새로 고침(첫 일정 추가 등) 때 화면이 맨 위로 튀었다). 스크롤은 그대로
+      router.replace(location.pathname, { scroll: false });
     }
   }, [plan.id, plan.visibility, isOwner]);
 

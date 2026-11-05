@@ -752,14 +752,34 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                             )}
                             {isMove ? (
                               <div className="ri-body">
+                                {/* 이동: 제목이 먼저 (두 줄까지), 요금·메모는 아래 줄. 긴 경로 메모는 눌러서 펼친다 */}
                                 <div className="ri-title ri-line">
                                   {timeText(it) ? <span className="ri-when mono">{timeText(it)}</span> : null}
                                   <strong>
                                     {KINDS.move.icon} {it.title}
                                   </strong>
-                                  {it.cost ? <span className="ri-cost mono">{money(it)}</span> : null}
-                                  {it.memo ? <span className="ri-memo faint">{it.memo}</span> : null}
                                 </div>
+                                {it.cost || it.memo ? (
+                                  (() => {
+                                    const first = it.memo.split('\n')[0];
+                                    const long = it.memo.includes('\n') || it.memo.length > 48;
+                                    const cost = it.cost ? <span className="ri-cost mono">{money(it)}</span> : null;
+                                    return long ? (
+                                      <details className="ri-more" onClick={(e) => e.stopPropagation()}>
+                                        <summary>
+                                          {cost}
+                                          <span className="ri-memo faint">{first}</span>
+                                        </summary>
+                                        <p className="ri-memo-full">{it.memo}</p>
+                                      </details>
+                                    ) : (
+                                      <div className="ri-sub">
+                                        {cost}
+                                        {it.memo ? <span className="ri-memo faint">{it.memo}</span> : null}
+                                      </div>
+                                    );
+                                  })()
+                                ) : null}
                                 {tag || r.mark || far ? <div className="ri-flags">{badges}</div> : null}
                               </div>
                             ) : (

@@ -53,6 +53,8 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
   const month = seoulMonth();
   const mineSet = new Set(mine);
   const departing = sorted.filter((p) => p.status !== 'done');
+  // 계획이 하나도 없으면(첫 방문) 빈 전광판·0 숫자 대신 첫 탑승권 안내. 요소는 남겨 두고 숨긴다 (움직임 코드가 찾는다)
+  const empty = !list.length;
   return html`
 <section class="container page-head plans-head">
   <div class="page-head-row">
@@ -62,13 +64,30 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
       <p class="lede" data-reveal>언젠가 갈 여행을 미리 짜 두고, 시간이 생기면 떠나요. 링크를 보내면 친구가 일정을 <b>제안</b>하고, 기장이 <b>수락</b>하면 반영돼요. 해외여행이 아니어도, 동네 한 바퀴도 좋아요.</p>
       <div class="hero-cta" data-reveal><a class="btn btn--solid" href="/new" data-magnetic>+ 계획 쓰기</a><a class="btn btn--ghost" href="#how">어떻게 같이 짜나요?</a></div>
     </div>
-    <dl class="plans-stats" data-stagger="70">
+    <dl class="plans-stats" data-stagger="70" ${empty ? 'hidden' : ''}>
       ${Object.entries(STATUS).map(([k, s]) => `<div class="tone-${k}" data-reveal><dt>${s.ko}</dt><dd class="h-serif num">${counts[k]}</dd></div>`)}
     </dl>
   </div>
 </section>
 
-<section class="container">
+<section class="container first-trip" ${empty ? '' : 'hidden'}>
+  <a class="ft-card" href="/new" data-reveal>
+    <div class="ft-pass" aria-hidden="true">
+      <span class="eyebrow">Someday Air · Boarding pass</span>
+      <div class="ft-route"><b>SEL</b><i class="ft-arc"></i><b class="ft-q">???</b></div>
+      <span class="ft-dash"></span>
+      <span class="mono ft-gate">GATE 01 · 언젠가</span>
+    </div>
+    <div class="ft-text">
+      <p class="eyebrow">Your first boarding pass</p>
+      <h2>어디로 <em>떠날까요?</em></h2>
+      <p class="muted">목적지만 고르면 탑승권이 나와요. 날짜는 몰라도 괜찮아요. 링크를 보내면 친구들이 가 볼 곳을 같이 채워요.</p>
+      <span class="btn btn--solid">+ 첫 탑승권 만들기</span>
+    </div>
+  </a>
+</section>
+
+<section class="container board-sec" ${empty ? 'hidden' : ''}>
   <div class="board" data-reveal>
     <header class="board-head">
       <div class="board-title"><svg viewBox="-10 -8 20 16" aria-hidden="true"><path d="M8 0 L2 -1.2 L-2 -7 L-4 -7 L-2.2 -1.2 L-6 -1 L-7.6 -3 L-8.6 -3 L-7.8 0 L-8.6 3 L-7.6 3 L-6 1 L-2.2 1.2 L-4 7 L-2 7 L2 1.2 Z"/></svg><b>DEPARTURES</b><span>떠날 곳</span></div>
@@ -82,7 +101,7 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
   </div>
 </section>
 
-<section class="container matcher-sec">
+<section class="container matcher-sec" ${empty ? 'hidden' : ''}>
   <form class="matcher" data-reveal>
     <div class="m-title"><p class="eyebrow">I have time!</p><h2>시간 <em>났다!</em></h2><p class="muted">남는 날, 달, 예산을 넣으면 지금 떠날 수 있는 곳을 찾아요.</p></div>
     <label class="m-field">
@@ -108,7 +127,7 @@ export function renderPlansPage({ list, mine = [], sort = 'status', status = 'al
   <p class="matcher-result" aria-live="polite"></p>
 </section>
 
-<section class="container plans-list">
+<section class="container plans-list" ${empty ? 'hidden' : ''}>
   <header class="sec-head" data-reveal>
     <div><p class="eyebrow">Boarding passes</p><h2>All <em>plans</em></h2></div>
     <a class="btn btn--solid btn--sm" href="/new" data-magnetic>+ 계획 쓰기</a>

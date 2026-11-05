@@ -533,3 +533,179 @@ b.bb-amt {
   stroke-width: 3;
   opacity: 0.75;
 }
+
+/* ---------- 일정: 이동 줄 (제목이 먼저, 요금·경로 메모는 아래) ---------- */
+.route-item.is-move .ri-line {
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+  row-gap: 2px;
+  font-size: 14px;
+}
+.route-item.is-move .ri-line strong {
+  flex: 1 1 12em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  color: var(--ink);
+}
+.ri-sub,
+.ri-more > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.ri-sub .ri-cost,
+.ri-more .ri-cost {
+  flex: none;
+  font-size: 12px;
+}
+.ri-sub .ri-memo,
+.ri-more > summary .ri-memo {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ri-more > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.ri-more > summary::-webkit-details-marker {
+  display: none;
+}
+.ri-more > summary::after {
+  content: '경로 ▾';
+  flex: none;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.ri-more[open] > summary::after {
+  content: '접기 ▴';
+}
+.ri-more[open] > summary .ri-memo {
+  display: none;
+}
+.ri-memo-full {
+  margin: 6px 0 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--paper-2);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  white-space: pre-line;
+}
+/* 일반 일정 메모도 줄바꿈을 살린다 */
+.route-item .ri-body > p:last-child {
+  white-space: pre-line;
+}
+
+/* ---------- 홈: 계획이 하나도 없을 때 첫 탑승권 안내 ---------- */
+.ft-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: clamp(20px, 4vw, 56px);
+  padding: clamp(20px, 3vw, 36px);
+  border-radius: 28px;
+  background: linear-gradient(160deg, color-mix(in oklab, #cfe3f1 50%, var(--paper)), var(--paper) 70%);
+  box-shadow: 0 0 0 1px var(--line), 0 24px 50px -30px rgb(20 30 50 / 0.3);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.4s var(--ease-out), box-shadow 0.4s;
+}
+.ft-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 1px var(--line-strong), 0 30px 60px -30px rgb(20 30 50 / 0.36);
+}
+.ft-pass {
+  display: grid;
+  gap: 14px;
+  padding: 22px 24px;
+  border: 2px dashed var(--line-strong);
+  border-radius: 22px;
+  background: var(--paper);
+}
+.ft-route {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ft-route b {
+  font-size: clamp(36px, 5vw, 56px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.ft-route .ft-q {
+  color: var(--ink-3);
+}
+.ft-arc {
+  flex: 1;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--ink-3) 0 4px, transparent 4px 9px);
+  position: relative;
+}
+.ft-arc::after {
+  content: '✈';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -55%);
+  font-size: 20px;
+  color: var(--accent);
+  animation: ft-fly 3.2s var(--ease-in-out) infinite;
+}
+@keyframes ft-fly {
+  0%,
+  100% {
+    left: 18%;
+  }
+  50% {
+    left: 82%;
+  }
+}
+.ft-dash {
+  border-top: 1px dashed var(--line-strong);
+}
+.ft-gate {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.ft-text {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.ft-text h2 {
+  font-size: clamp(28px, 3.4vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.ft-text h2 em {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  color: var(--accent);
+}
+.ft-text .btn {
+  margin-top: 6px;
+}
+@media (max-width: 760px) {
+  .ft-card {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ft-arc::after {
+    animation: none;
+  }
+}
