@@ -526,3 +526,10 @@ b.bb-amt {
   font-weight: 600;
   color: var(--ink-2);
 }
+
+/* 전날 묵은 곳 → 다음 날 첫 장소 (도시 사이 이동): 점을 더 성기게 */
+.route-plan.route-overnight {
+  stroke-dasharray: 1 9;
+  stroke-width: 3;
+  opacity: 0.75;
+}

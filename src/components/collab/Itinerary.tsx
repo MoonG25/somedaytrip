@@ -260,8 +260,31 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     layer.clearLayers();
     markers.current.clear();
     const pts: [number, number][] = [];
+    // 날마다 첫·마지막 장소: 전날 마지막(묵은 곳) → 다음 날 첫 장소를 잇는다 (하코네 → 쿠사츠 같은 도시 이동)
+    const ends = new Map<number, { first: [number, number]; last: [number, number]; lastTitle: string }>();
+    for (const d of days) {
+      if (d == null) continue;
+      const l = rows.filter((r) => r.item.day === d && r.item.place && r.mark !== 'remove' && !route.warn.has(r.item.id));
+      if (l.length) ends.set(d, { first: [l[0].item.place!.lat, l[0].item.place!.lng], last: [l[l.length - 1].item.place!.lat, l[l.length - 1].item.place!.lng], lastTitle: l[l.length - 1].item.title });
+    }
     for (const day of days) {
       if (mapDay !== 'all' && day !== mapDay) continue;
+      if (day != null && ends.has(day)) {
+        const prevDay = [...ends.keys()].filter((k) => k < day).pop();
+        const prev = prevDay != null ? ends.get(prevDay)! : null;
+        const to = ends.get(day)!.first;
+        const d = prev ? km({ lat: prev.last[0], lng: prev.last[1] }, { lat: to[0], lng: to[1] }) : 0;
+        if (prev && d > 0.05 && d <= FAR_KM) {
+          L.polyline([prev.last, to], { className: 'route-plan route-overnight', weight: 2.5, dashArray: '2 8', interactive: false, color: dayColor(day) }).addTo(layer);
+          // 그날만 볼 때는 어디서 출발하는지(전날 마지막 장소)도 작게 보여 준다
+          if (mapDay !== 'all') {
+            L.circleMarker(prev.last, { radius: 6, weight: 2, color: dayColor(prevDay!), fillColor: '#fff', fillOpacity: 1 })
+              .bindTooltip(`전날에서 출발 · ${prev.lastTitle}`, { direction: 'top', offset: [0, -6] })
+              .addTo(layer);
+            pts.push(prev.last);
+          }
+        }
+      }
       const list = rows.filter((r) => r.item.day === day && r.item.place);
       // 먼 구간에서 선을 끊는다
       const lines: [number, number][][] = [[]];

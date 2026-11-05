@@ -44,10 +44,16 @@ test('지도에 보일 날을 고르고, 지도 종류를 바꾼다', async ({ p
   await expect(pins).toHaveCount(3);
   const days = page.locator('.map-days');
   await expect(days.locator('[role=radio][aria-checked=true]')).toHaveText('전체');
+  // 전날 마지막 장소 → 다음 날 첫 장소를 잇는 선 (도시 사이 이동)
+  await expect(page.locator('.route-map path.route-overnight')).toHaveCount(1);
   await days.locator('[role=radio]', { hasText: 'DAY 01' }).click();
   await expect(pins).toHaveCount(2);
+  // 첫날만 보면 전날이 없으니 이어지는 선도 없다
+  await expect(page.locator('.route-map path.route-overnight')).toHaveCount(0);
   await days.locator('[role=radio]', { hasText: 'DAY 02' }).click();
   await expect(pins).toHaveCount(1);
+  // 그날만 봐도 어디서 출발하는지 선과 점으로 보인다
+  await expect(page.locator('.route-map path.route-overnight')).toHaveCount(1);
   // 다시 누르면 전체
   await days.locator('[role=radio]', { hasText: 'DAY 02' }).click();
   await expect(pins).toHaveCount(3);
