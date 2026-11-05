@@ -140,10 +140,19 @@
 .plan-why .review-tags:empty {
   display: none;
 }
-/* 소개 글이 없으면 인용문이 한 줄을 다 쓴다 */
-.plan-why:has(.plan-intro:empty),
-.plan-why:not(:has(.plan-intro .prose)):not(:has(.review-tags li)) {
-  grid-template-columns: 1fr;
+/* 인용문·소개 중 하나만 있으면 한 칸으로 (빈 칸이 자리를 차지해 태그가 가운데 뜨지 않게) */
+.plan-why.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.plan-why.is-single .plan-intro {
+  max-width: 760px;
+}
+/* 한 줄 소개 없이 태그·소개만: 작게, 위 줄과 붙여서 */
+.plan-why.no-quote {
+  padding-top: 18px;
+}
+.plan-why.no-quote .review-tags:first-child {
+  margin-top: 0;
 }
 .plan-facts {
   padding-top: clamp(40px, 5vw, 72px);

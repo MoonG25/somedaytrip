@@ -67,12 +67,16 @@ export function renderPlanStory(p, { nowMonth }) {
   return `
   ${
     p.why || intro || p.tags?.length
-      ? `<section class="container plan-why">
-    ${p.why ? `<blockquote class="plan-quote h-serif" data-split>“${esc(p.why)}”</blockquote>` : '<div></div>'}
-    <div class="plan-intro">
+      ? `<section class="container plan-why${p.why && (intro || p.tags?.length) ? '' : ' is-single'}${p.why ? '' : ' no-quote'}">
+    ${p.why ? `<blockquote class="plan-quote h-serif" data-split>“${esc(p.why)}”</blockquote>` : ''}
+    ${
+      intro || p.tags?.length
+        ? `<div class="plan-intro">
       ${intro ? `<div class="prose" data-reveal>${intro}</div>` : ''}
-      <ul class="review-tags" role="list" data-reveal>${(p.tags || []).map((t) => `<li class="tag">#${esc(t)}</li>`).join('')}</ul>
-    </div>
+      ${p.tags?.length ? `<ul class="review-tags" role="list" data-reveal>${p.tags.map((t) => `<li class="tag">#${esc(t)}</li>`).join('')}</ul>` : ''}
+    </div>`
+        : ''
+    }
   </section>`
       : ''
   }
