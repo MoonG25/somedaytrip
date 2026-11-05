@@ -44,6 +44,7 @@ export function renderPlanHero(p, { owner = false, nowMonth }) {
     <div class="plan-hero-top">
       <a href="/" class="back-link link-u">← 떠날 곳</a>
       <div class="plan-badges">
+        ${(p.tags || []).length ? `<ul class="plan-tags" role="list" aria-label="태그">${p.tags.map((t) => `<li>#${esc(t)}</li>`).join('')}</ul>` : ''}
         ${p.sample ? '<span class="badge-sample">예시 계획</span>' : ''}
         <span class="vis-badge ${p.visibility}">${p.visibility === 'public' ? '🌍 전체 공개' : '🔗 링크 공개'}</span>
         ${p.scope !== 'abroad' ? `<span class="vis-badge">${SCOPE[p.scope].icon} ${SCOPE[p.scope].ko} 여행</span>` : ''}
@@ -66,17 +67,10 @@ export function renderPlanStory(p, { nowMonth }) {
   const intro = p.intro ? renderMarkdown(p.intro).html : '';
   return `
   ${
-    p.why || intro || p.tags?.length
-      ? `<section class="container plan-why${p.why && (intro || p.tags?.length) ? '' : ' is-single'}${p.why ? '' : ' no-quote'}">
+    p.why || intro
+      ? `<section class="container plan-why${p.why && intro ? '' : ' is-single'}${p.why ? '' : ' no-quote'}">
     ${p.why ? `<blockquote class="plan-quote h-serif" data-split>“${esc(p.why)}”</blockquote>` : ''}
-    ${
-      intro || p.tags?.length
-        ? `<div class="plan-intro">
-      ${intro ? `<div class="prose" data-reveal>${intro}</div>` : ''}
-      ${p.tags?.length ? `<ul class="review-tags" role="list" data-reveal>${p.tags.map((t) => `<li class="tag">#${esc(t)}</li>`).join('')}</ul>` : ''}
-    </div>`
-        : ''
-    }
+    ${intro ? `<div class="plan-intro"><div class="prose" data-reveal>${intro}</div></div>` : ''}
   </section>`
       : ''
   }

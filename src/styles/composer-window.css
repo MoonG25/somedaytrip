@@ -1,0 +1,222 @@
+/* ==========================================================================
+   계획 쓰기: 창가 자리
+   - 위쪽 하늘색은 고른 풍경의 시간대를 따른다 (--sky-a/b, composer.js가 넣는다)
+   - 오른쪽 비행기 창: 목적지를 고르면 블라인드가 올라가고 그 풍경이 보인다
+   - 질문은 하늘 위에 떠 있는 카드
+   ========================================================================== */
+
+.window-head {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+  align-items: center;
+  gap: clamp(24px, 5vw, 80px);
+  padding-bottom: clamp(32px, 5vw, 64px);
+  /* 하늘: 가로로는 화면 끝까지, 위로는 헤더 밑까지 (border-image는 가로 스크롤을 만들지 않는다) */
+  border-image: linear-gradient(180deg, color-mix(in oklab, var(--sky-a, #cfe3f1) 55%, var(--paper)), color-mix(in oklab, var(--sky-b, #eef5f9) 45%, var(--paper)) 55%, var(--paper)) fill 0 / / 200px 100vmax 0;
+  transition: border-image 0.8s;
+}
+.window-head .display {
+  font-size: clamp(56px, 9vw, 150px);
+}
+.window-head .lede {
+  max-width: 560px;
+}
+
+/* ---------- 비행기 창 ---------- */
+.window {
+  justify-self: end;
+  width: 100%;
+  max-width: 340px;
+}
+.window-frame {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  padding: 16px;
+  border-radius: 46% / 36%;
+  background: linear-gradient(160deg, #fbfbfc, #e4e6ea);
+  box-shadow:
+    0 30px 60px -28px rgb(20 30 50 / 0.45),
+    inset 0 2px 0 rgb(255 255 255 / 0.9),
+    inset 0 -3px 8px rgb(0 0 0 / 0.08);
+}
+:root[data-theme='dark'] .window-frame {
+  background: linear-gradient(160deg, #2a2b31, #1a1b20);
+}
+.window-view {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 44% / 34%;
+  background: linear-gradient(180deg, var(--sky-a, #cfe3f1), var(--sky-b, #eef5f9));
+  box-shadow: inset 0 0 0 3px rgb(0 0 0 / 0.06), inset 0 10px 24px rgb(0 0 0 / 0.18);
+  isolation: isolate;
+}
+.window-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.08);
+  transition: opacity 0.9s ease, transform 1.4s var(--ease-out);
+}
+.window-scene.is-in {
+  opacity: 1;
+  transform: none;
+}
+.window-view::after {
+  /* 유리 반사 */
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: linear-gradient(125deg, rgb(255 255 255 / 0.28) 0 18%, transparent 18% 32%, rgb(255 255 255 / 0.12) 32% 36%, transparent 36%);
+  pointer-events: none;
+}
+
+/* 구름: 천천히 지나간다 */
+.cloud {
+  position: absolute;
+  z-index: 1;
+  width: 46%;
+  height: 12%;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.75);
+  filter: blur(8px);
+  animation: cloud-pass 26s linear infinite;
+}
+.cloud.c1 {
+  top: 18%;
+  animation-delay: -4s;
+}
+.cloud.c2 {
+  top: 46%;
+  width: 34%;
+  opacity: 0.6;
+  animation-duration: 34s;
+  animation-delay: -18s;
+}
+.cloud.c3 {
+  top: 70%;
+  width: 56%;
+  opacity: 0.5;
+  animation-duration: 42s;
+  animation-delay: -30s;
+}
+@keyframes cloud-pass {
+  from {
+    transform: translateX(240%);
+  }
+  to {
+    transform: translateX(-140%);
+  }
+}
+
+/* 블라인드: 처음엔 거의 내려와 있고, 목적지를 고르면 올라간다 */
+.window-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: repeating-linear-gradient(180deg, #f6f6f4 0 9px, #ecece9 9px 10px);
+  transform: translateY(-22%);
+  transition: transform 1.1s var(--ease-out);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 0.12);
+}
+.window-shade i {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  width: 44px;
+  height: 6px;
+  margin-left: -22px;
+  border-radius: 999px;
+  background: #cfcfcb;
+}
+:root[data-theme='dark'] .window-shade {
+  background: repeating-linear-gradient(180deg, #2b2c31 0 9px, #26272c 9px 10px);
+}
+.window.is-open .window-shade {
+  transform: translateY(-93%);
+}
+.window-place {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14%;
+  z-index: 4;
+  text-align: center;
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  color: #fff;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.45);
+  opacity: 0;
+  transition: opacity 0.6s 0.5s;
+}
+.window.is-open .window-place {
+  opacity: 1;
+}
+
+/* ---------- 질문 카드 ---------- */
+.composer-form .cstep {
+  margin-bottom: 18px;
+  padding: clamp(20px, 2.6vw, 30px);
+  border-radius: 24px;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--line), 0 18px 40px -26px rgb(20 30 50 / 0.28);
+}
+.composer-form .cstep legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 4px;
+}
+.composer-form .cstep.done {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 35%, var(--line)), 0 18px 40px -26px rgb(20 30 50 / 0.28);
+}
+.composer-sticky .preview-ticket {
+  filter: drop-shadow(0 24px 40px rgb(20 30 50 / 0.18));
+}
+
+@media (max-width: 900px) {
+  /* 좁은 화면: 창은 제목 오른쪽에 작게, 소개 글은 한 줄을 다 쓴다 */
+  .window-head {
+    grid-template-columns: minmax(0, 1fr) clamp(88px, 26vw, 140px);
+    column-gap: 16px;
+    row-gap: 0;
+    align-items: start;
+  }
+  .wh-text {
+    display: contents;
+  }
+  .wh-text > * {
+    grid-column: 1;
+  }
+  .wh-text > .lede {
+    grid-column: 1 / -1;
+  }
+  .window {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: center;
+    max-width: none;
+  }
+  .window-frame {
+    padding: 8px;
+  }
+  .window-place {
+    display: none;
+  }
+  .window-head .display {
+    font-size: clamp(44px, 13vw, 72px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cloud {
+    animation: none;
+  }
+  .window-shade,
+  .window-scene {
+    transition: none;
+  }
+}

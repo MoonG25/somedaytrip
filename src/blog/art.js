@@ -277,7 +277,8 @@ export function cover(kind, seed, paletteName) {
 const SW = 800;
 const SH = 600;
 
-const TIMES = {
+/** 시간대 색 (풍경 · 작성 화면 하늘색) */
+export const SKY = {
   dawn: { sky: ['#F4B9A0', '#F6E6D6'], sun: '#FFF3E2', far: '#D3AFB6', near: '#3B2C40', water: '#E9C2B2' },
   day: { sky: ['#7FB8E0', '#E6F2F5'], sun: '#FFFAEA', far: '#A6C0CC', near: '#20382F', water: '#5E9EC0' },
   dusk: { sky: ['#33244F', '#F28A5C'], sun: '#FFD27E', far: '#94607A', near: '#1C1424', water: '#C06A66' },
@@ -285,6 +286,8 @@ const TIMES = {
   autumn: { sky: ['#F2AE5A', '#F7E3C4'], sun: '#FFF5E2', far: '#CF8656', near: '#4E1C16', water: '#DE9C6C' },
   mist: { sky: ['#BFC9C6', '#EEF0EA'], sun: '#FFFFFF', far: '#B5C2BC', near: '#2D3E37', water: '#A9BDBA' },
 };
+
+const TIMES = SKY;
 
 function ridge(r, y0, amp, rough = 0.55) {
   let pts = [y0 + r.range(-amp, amp), y0 + r.range(-amp, amp)];

@@ -419,3 +419,31 @@ b.bb-amt {
 :root:not([data-theme='dark']) .leaflet-tile-pane {
   filter: grayscale(1) contrast(0.9) brightness(1.06);
 }
+
+/* 푸터: 개인 링크(Elsewhere)를 빼서 세 칸 */
+@media (min-width: 761px) {
+  .footer-top {
+    grid-template-columns: 1.4fr 1fr 1fr;
+  }
+}
+
+/* 태그: 탑승권 위 줄(공개 범위 배지 옆)에 짐표처럼 */
+.plan-badges {
+  align-items: center;
+}
+.plan-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-tags li {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}

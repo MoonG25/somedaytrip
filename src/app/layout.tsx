@@ -11,6 +11,7 @@ import '@/styles/area-search.css';
 import '@/styles/area-ticket.css';
 // 흰 바탕 · 입력 컴포넌트 테마 (맨 뒤에서 덮는다)
 import '@/styles/theme.css';
+import '@/styles/composer-window.css';
 import Chrome from '@/components/Chrome';
 import { PLANE } from '@/blog/plans-lib.js';
 import { SITE } from '@/lib/site';
@@ -171,21 +172,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </li>
                 <li>
                   <span className="faint">반영은 기장만 (계획 비밀번호 또는 계정)</span>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3>Elsewhere</h3>
-              <ul>
-                <li>
-                  <a href="https://github.com/MoonG25/somedaytrip" target="_blank" rel="noopener">
-                    GitHub
-                  </a>
-                </li>
-                <li>
-                  <a href="https://moonglog.vercel.app" target="_blank" rel="noopener">
-                    moon.log
-                  </a>
                 </li>
               </ul>
             </div>

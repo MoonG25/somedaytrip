@@ -13,10 +13,10 @@
 // 발권 카드에서 기장 이름·비밀번호를 정하면 스텁을 뜯고 계획 화면으로 들어간다.
 // 예산·가 볼 곳·준비물·소개는 계획 화면의 "탑승 준비"에서 친구들과 같이 채운다. 고치기는 전체 단계 그대로.
 import { esc, fmtWon, reducedMotion, isoDate, addDaysIso, daysBetween, seoulToday } from './util.js';
-import { scene } from './art.js';
+import { scene, SKY } from './art.js';
 import { STATUS, flagOf, nights } from './plans-lib.js';
 import { weatherAt } from './live.js';
-import { ticketHTML, tearStub } from './ticket.js';
+import { ticketHTML, tearStub, planCover } from './ticket.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from './leaflet.js';
 import { toast } from './toast.js';
 import { reverse, nameOf, enOf, geoPending, geoIdle, CURRENCY, SCENES, SCENE_KO, TIMES } from './geo.js';
@@ -89,15 +89,27 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
   const n = (i) => String(i - (noPlaces && i >= 5 ? 1 : 0) - (i >= 6 ? 1 : 0)).padStart(2, '0');
   const off = quick ? ' hidden' : '';
   return `
-<section class="container page-head composer-head">
-  <a href="/" class="back-link link-u">← 떠날 곳</a>
-  <p class="eyebrow" data-reveal>${editing ? 'Edit plan · 계획 고치기' : mode === 'copy' ? 'Copy plan · 이 계획으로 시작하기' : 'New plan · 계획 쓰기'}</p>
-  <h1 class="display" data-split>Plan a <em>trip</em></h1>
-  <p class="lede" data-reveal>${
-    editing
-      ? '기장만 고칠 수 있어요. 가 볼 곳과 일정은 계획 화면에서 바로 고쳐요.'
-      : '어디로, 언제, 몇 명만 정하면 탑승권이 나와요. 가 볼 곳·예산·준비물은 발권한 뒤 링크를 받은 친구들과 <b>같이</b> 채워요.'
-  }</p>
+<section class="container page-head composer-head window-head">
+  <div class="wh-text">
+    <a href="/" class="back-link link-u">← 떠날 곳</a>
+    <p class="eyebrow" data-reveal>${editing ? 'Edit plan · 계획 고치기' : mode === 'copy' ? 'Copy plan · 이 계획으로 시작하기' : 'Window seat · 계획 쓰기'}</p>
+    <h1 class="display" data-split>Window <em>seat.</em></h1>
+    <p class="lede" data-reveal>${
+      editing
+        ? '기장만 고칠 수 있어요. 가 볼 곳과 일정은 계획 화면에서 바로 고쳐요.'
+        : '창밖으로 보고 싶은 풍경을 골라 보세요. 어디로, 언제, 몇 명만 정하면 탑승권이 나와요. 가 볼 곳·예산·준비물은 링크를 받은 친구들과 <b>같이</b> 채워요.'
+    }</p>
+  </div>
+  <div class="window" aria-hidden="true">
+    <div class="window-frame">
+      <div class="window-view">
+        <img class="window-scene" alt="" decoding="async">
+        <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
+        <span class="window-shade"><i></i></span>
+        <span class="window-place mono"></span>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="container composer">
@@ -292,7 +304,7 @@ export function renderComposer({ mode = 'new', copiedCount = 0, account = null }
 
   <div class="composer-side">
     <div class="composer-sticky">
-      <h2 class="eyebrow">Live preview · 미리보기</h2>
+      <h2 class="eyebrow">Boarding pass · 탑승권 미리보기</h2>
       <div class="preview-ticket"></div>
       <ol class="step-progress" role="list" aria-label="작성 진행"></ol>
       <div class="composer-actions">
@@ -601,6 +613,26 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
           ['share', '공개', () => true],
         ]),
   ];
+  /* 창가 자리: 목적지를 고르면 블라인드가 올라가고 그 풍경이 보인다. 하늘색은 풍경 시간대를 따른다 */
+  const win = root.querySelector('.window');
+  const winImg = root.querySelector('.window-scene');
+  const winPlace = root.querySelector('.window-place');
+  const paintWindow = (p) => {
+    if (!win) return;
+    const open = !!d.place;
+    const src = open ? planCover(p) : planCover({ ...p, cover: { scene: 'sea', time: 'day' } });
+    if (winImg.getAttribute('src') !== src) {
+      winImg.classList.remove('is-in');
+      winImg.onload = () => winImg.classList.add('is-in');
+      winImg.setAttribute('src', src);
+    }
+    win.classList.toggle('is-open', open);
+    winPlace.textContent = open ? [d.placeEn && d.placeEn.toUpperCase(), d.place].filter(Boolean).join(' · ') : '';
+    const sky = SKY[d.cover?.time] || SKY.day;
+    root.style.setProperty('--sky-a', open ? sky.sky[0] : '#cfe3f1');
+    root.style.setProperty('--sky-b', open ? sky.sky[1] : '#eef5f9');
+  };
+
   let queued = false;
   const update = () => {
     if (queued) return;
@@ -614,6 +646,7 @@ export function mountComposer(root, { mode = 'new', initial = null, onSubmit, ac
       }
       const p = { ...d, id: 'preview-' + mode, href: '', title: d.title || '새 여행 계획', place: d.place || '어딘가', months: d.months || [] };
       preview.innerHTML = ticketHTML(p, { preview: true });
+      paintWindow(p);
       preview.querySelector('.ticket')?.classList.add('is-in');
       const total = perTotal();
       const group = groupTotalOf();
