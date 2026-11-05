@@ -3,7 +3,7 @@
 import 'server-only';
 import postgres from 'postgres';
 import type { HistoryEntry, Plan, PlanInfo, Proposal } from '@/lib/types';
-import { BaseRepo, RepoError, sampleRows, type Row } from './repo';
+import { BaseRepo, RepoError, type Row } from './repo';
 import { cleanInfo } from '@/lib/clean';
 
 type Sql = postgres.Sql | postgres.TransactionSql;
@@ -57,25 +57,10 @@ const NO_SECRET = { secret: { salt: '', hash: '', iter: 0 }, tokens: [], fails: 
 
 export class PgRepo extends BaseRepo {
   private sql: postgres.Sql;
-  private seeded: Promise<void> | null = null;
-
   constructor(url: string) {
     super();
     // 풀러(트랜잭션 모드)라서 prepared statement는 끈다. 서버리스라 연결은 조금만
     this.sql = postgres(url, { prepare: false, max: 3, idle_timeout: 20, connect_timeout: 10, ssl: 'require' });
-  }
-
-  /** 예시 계획이 하나도 없으면 넣는다 (첫 실행) */
-  private seed() {
-    this.seeded ??= (async () => {
-      const [{ n }] = await this.sql`select count(*)::int as n from plans where sample`;
-      if (n > 0) return;
-      for (const r of await sampleRows()) await this.sql.begin((tx) => this.insertRow(tx, r, true));
-    })().catch((e) => {
-      this.seeded = null;
-      throw e;
-    });
-    return this.seeded;
   }
 
   private async load(tx: Sql, id: string, lock: boolean): Promise<Row | null> {
@@ -124,12 +109,10 @@ export class PgRepo extends BaseRepo {
   }
 
   protected async read(id: string) {
-    await this.seed();
     return this.load(this.sql, id, false);
   }
 
   protected async mutate<T>(id: string, fn: (r: Row) => T | Promise<T>): Promise<T> {
-    await this.seed();
     return this.sql.begin(async (tx) => {
       const r = await this.load(tx, id, true);
       if (!r) throw new RepoError('계획을 찾을 수 없어요', 'not_found');
@@ -148,7 +131,6 @@ export class PgRepo extends BaseRepo {
   }
 
   protected async insert(r: Row) {
-    await this.seed();
     await this.sql.begin((tx) => this.insertRow(tx, r));
   }
 
@@ -166,7 +148,6 @@ export class PgRepo extends BaseRepo {
   }
 
   protected async readMany(ids: string[]) {
-    await this.seed();
     if (!ids.length) return [];
     const [plans, prs] = await Promise.all([
       this.sql`select * from plans where id = any(${ids})`,
@@ -176,7 +157,6 @@ export class PgRepo extends BaseRepo {
   }
 
   protected async readPublic(limit: number) {
-    await this.seed();
     const plans = await this.sql`select * from plans where visibility = 'public' order by updated_at desc limit ${limit}`;
     return plans.map((p) => ({ plan: toPlan(p), items: p.items, proposals: [], history: [], ...NO_SECRET }) as Row);
   }

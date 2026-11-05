@@ -45,11 +45,19 @@ test('기장: 수속에서 비밀번호 → 기장으로 입장 (틀리면 안�
   await ctx.close();
 });
 
-test('홈에서 탑승권을 뜯고 오면 수속을 건너뛴다', async ({ page }) => {
-  await page.goto('/');
-  await page.locator('.tickets .ticket .ticket-link').first().click();
-  await page.waitForURL(/\/p\//);
-  await expect(page.locator('.boarding-gate')).toBeHidden();
+test('홈에서 탑승권을 뜯고 오면 수속을 건너뛴다', async ({ page, browser }) => {
+  // 기장이 전체 공개로 바꾼 계획이 홈에 뜬다
+  const { id } = await createPlan(page);
+  await page.goto(`/p/${id}/edit`);
+  await page.click('[data-vis="public"]');
+  await page.click('.composer-actions [data-save]');
+  await page.waitForURL((u) => !u.pathname.endsWith('/edit'));
+  const { page: g, ctx } = await newPerson(browser);
+  await g.goto('/');
+  await g.locator(`.tickets .ticket .ticket-link[href^="/p/${id}"]`).click();
+  await g.waitForURL(/\/p\//);
+  await expect(g.locator('.boarding-gate')).toBeHidden();
+  await ctx.close();
 });
 
 test('승객 탑승 직후 저장 권유는 계획마다 한 번', async ({ page, browser }) => {

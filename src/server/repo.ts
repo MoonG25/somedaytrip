@@ -13,7 +13,6 @@ import { applyOps, describeOps, findConflicts, opCounts, sortItems } from '@/lib
 import { cleanInfo, cleanItem, cleanOps, planSlug } from '@/lib/clean';
 import { CHECK_LEN, CHECK_MAX } from '@/lib/suggest';
 import { checkSecret, makeSecret, sha256, uid, type Secret } from './secret';
-import { SAMPLES } from './samples.js';
 
 export class RepoError extends Error {
   constructor(
@@ -510,8 +509,8 @@ export class FileRepo extends BaseRepo {
       try {
         this.db = JSON.parse(await readFile(this.file, 'utf8'));
       } catch {
-        // 처음 실행: 예시 계획을 넣어 둔다
-        this.db = { rows: Object.fromEntries((await sampleRows()).map((r) => [r.plan.id, r])) };
+        // 처음 실행: 빈 저장소
+        this.db = { rows: {} };
         await this.save();
       }
       return this.db!;
@@ -588,39 +587,4 @@ export class FileRepo extends BaseRepo {
       .sort((a, b) => b.plan.updatedAt - a.plan.updatedAt)
       .slice(0, limit);
   }
-}
-
-/** moon.log 예시 계획 → 전체 공개 예시 계획. 기장 비밀번호는 SDT_SAMPLE_PASSWORD(없으면 아무도 모르는 값) */
-export async function sampleRows(): Promise<Row[]> {
-  const secret = await makeSecret(process.env.SDT_SAMPLE_PASSWORD || uid(24));
-  const now = Date.now();
-  return (SAMPLES as Record<string, unknown>[]).map((raw, n) => {
-    const s = raw as { slug: string; stops?: { name: string; en?: string; coords: [number, number]; note?: string }[]; addedAt?: string };
-    const info = cleanInfo({ ...raw, scope: 'abroad', ownerName: '섬데트', visibility: 'public' });
-    const stops = s.stops || [];
-    const items: Item[] = stops.map((st, i) =>
-      cleanItem({
-        id: `${s.slug.slice(0, 6)}${i}`,
-        day: Math.min(info.days, Math.floor((i * info.days) / Math.max(stops.length, 1)) + 1),
-        title: st.name,
-        en: st.en || '',
-        kind: 'see',
-        place: { name: st.name, en: st.en, lat: st.coords[0], lng: st.coords[1] },
-        memo: st.note || '',
-        order: i,
-      })
-    );
-    const at = s.addedAt ? Date.parse(s.addedAt) : now - n * 86400000;
-    const plan: Plan = { ...info, id: s.slug, slug: planSlug(info), version: 1, createdAt: at, updatedAt: at, sample: true };
-    return {
-      plan,
-      items,
-      proposals: [],
-      history: [{ id: uid(8), at, kind: 'created', actor: '섬데트', summary: `'${info.title}' 예시 계획`, version: 1 }],
-      secret,
-      tokens: [],
-      fails: { count: 0, until: 0 },
-      recent: {},
-    };
-  });
 }

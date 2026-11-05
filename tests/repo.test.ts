@@ -16,11 +16,8 @@ describe('FileRepo', () => {
     r = new FileRepo(mkdtempSync(path.join(tmpdir(), 'sdt-')));
   });
 
-  it('처음 실행하면 예시 계획 8개가 전체 공개로 들어간다', async () => {
-    const list = await r.listPublic();
-    expect(list.length).toBe(8);
-    expect(list.every((b) => b.plan.sample && b.plan.visibility === 'public')).toBe(true);
-    expect(list.find((b) => b.plan.id === 'kyoto-autumn-plan')!.items.length).toBeGreaterThan(3);
+  it('처음 실행하면 비어 있다 (예시 계획을 넣지 않는다)', async () => {
+    expect(await r.listPublic()).toEqual([]);
   });
 
   it('화면에 넘기는 묶음에는 비밀번호 해시와 토큰이 없다', async () => {

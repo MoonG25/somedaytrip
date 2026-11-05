@@ -222,7 +222,7 @@ npm install
 npm run dev          # http://localhost:3100
 ```
 
-`DATABASE_URL`이 없으면 **개발용 JSON 파일**(`.data/db.json`)을 써요. 처음 실행하면 예시 계획 8개가 들어가요.
+`DATABASE_URL`이 없으면 **개발용 JSON 파일**(`.data/db.json`)을 써요.
 
 <details>
 <summary><b>Supabase에 연결하기</b></summary>
@@ -240,7 +240,6 @@ npm run dev          # http://localhost:3100
 | 환경 변수 | 설명 |
 |---|---|
 | `DATABASE_URL` | Supabase Postgres 주소. 없으면 JSON 파일 저장소 |
-| `SDT_SAMPLE_PASSWORD` | 예시 계획의 기장 비밀번호 (선택). 없으면 아무도 모르는 값 |
 | `NEXT_PUBLIC_SITE_URL` | 사이트 주소 (선택, 기본 `https://somedaytrip.vercel.app`) |
 </details>
 
@@ -298,4 +297,4 @@ npm run build
 
 <br>
 
-<p align="center"><sub>Made with ✈ in Seoul · 예시 계획의 좌표는 실제 장소 기준이에요</sub></p>
+<p align="center"><sub>Made with ✈ in Seoul</sub></p>
