@@ -26,53 +26,64 @@ export default function AccountPanel({ user, owned, joined, mail }: { user: { ni
         </p>
       </div>
 
-      <section className="acc-sec">
-        <h2>이메일 인증</h2>
-        {user.verified ? (
-          <p>✓ 인증된 이메일이에요. 알림과 비밀번호 찾기를 쓸 수 있어요.</p>
-        ) : (
-          <>
-            <p className="muted">인증하면 새 제안 알림과 비밀번호 찾기를 쓸 수 있어요. 가입할 때 보낸 메일의 링크를 눌러 주세요.</p>
-            {mail ? (
-              <button
-                type="button"
-                className="btn btn--sm"
-                onClick={async () => {
-                  const r = await resendVerify();
-                  toast(r.ok ? (r.data.sent ? '인증 메일을 다시 보냈어요' : '이미 인증됐어요') : r.error, r.ok ? '✉️' : '!');
-                }}
-              >
-                ✉️ 인증 메일 다시 보내기
-              </button>
-            ) : (
-              <p className="faint">지금은 메일 발송을 준비 중이에요. 준비되면 여기서 인증할 수 있어요.</p>
-            )}
-          </>
-        )}
-      </section>
-
-      <section className="acc-sec">
-        <h2>알림</h2>
-        <label className="switch">
-          <input
-            type="checkbox"
-            checked={notify && user.verified}
-            disabled={!user.verified}
-            onChange={async (e) => {
-              const on = e.target.checked;
-              setN(on);
-              const r = await setNotify(on);
-              if (!r.ok) {
-                setN(!on);
-                return toast(r.error, '!');
-              }
-              toast(on ? '알림을 켰어요' : '알림을 껐어요', on ? '🔔' : '🔕');
-            }}
-          />
-          <span className="switch-ui" aria-hidden="true" />새 제안이 오거나 내 제안이 반영되면 메일로 알려 주기
-        </label>
-        {!user.verified ? <p className="faint">이메일을 인증하면 켤 수 있어요.</p> : null}
-      </section>
+      {/* 메일을 보내지 않는 동안엔 인증·알림 대신 한 줄 안내 (인증된 계정은 그대로) */}
+      {!mail && !user.verified ? (
+        <section className="acc-sec">
+          <h2>메일</h2>
+          <p className="muted">지금은 섬데트가 메일을 보내지 않아요. 비밀번호를 잊으면 되찾을 수 없으니, 로그인된 기기에서 필요할 때 여기서 바꿔 주세요.</p>
+        </section>
+      ) : (
+        <>
+        <section className="acc-sec">
+          <h2>이메일 인증</h2>
+          {user.verified ? (
+            <p>✓ 인증된 이메일이에요. 알림과 비밀번호 찾기를 쓸 수 있어요.</p>
+          ) : (
+            <>
+              <p className="muted">인증하면 새 제안 알림과 비밀번호 찾기를 쓸 수 있어요. 가입할 때 보낸 메일의 링크를 눌러 주세요.</p>
+              {mail ? (
+                <button
+                  type="button"
+                  className="btn btn--sm"
+                  onClick={async () => {
+                    const r = await resendVerify();
+                    toast(r.ok ? (r.data.sent ? '인증 메일을 다시 보냈어요' : '이미 인증됐어요') : r.error, r.ok ? '✉️' : '!');
+                  }}
+                >
+                  ✉️ 인증 메일 다시 보내기
+                </button>
+              ) : (
+                <p className="faint">지금은 메일 발송을 준비 중이에요. 준비되면 여기서 인증할 수 있어요.</p>
+              )}
+            </>
+          )}
+        </section>
+  
+        <section className="acc-sec">
+          <h2>알림</h2>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={notify && user.verified}
+              disabled={!user.verified}
+              onChange={async (e) => {
+                const on = e.target.checked;
+                setN(on);
+                const r = await setNotify(on);
+                if (!r.ok) {
+                  setN(!on);
+                  return toast(r.error, '!');
+                }
+                toast(on ? '알림을 켰어요' : '알림을 껐어요', on ? '🔔' : '🔕');
+              }}
+            />
+            <span className="switch-ui" aria-hidden="true" />새 제안이 오거나 내 제안이 반영되면 메일로 알려 주기
+          </label>
+          {!user.verified ? <p className="faint">이메일을 인증하면 켤 수 있어요.</p> : null}
+        </section>
+  
+        </>
+      )}
 
       <section className="acc-sec acc-actions">
         <button type="button" className="btn btn--sm" onClick={() => setModal('pw')}>

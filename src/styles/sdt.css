@@ -2763,6 +2763,10 @@ html[data-authed] .auth-in {
   color: var(--ink-2);
   font-size: 14px;
 }
+.auth-note {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
 .account {
   display: grid;
   gap: 18px;
