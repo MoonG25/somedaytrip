@@ -201,6 +201,8 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     const homes = [plan.coords, ...(plan.via || []).map((v) => v.coords)].filter(Boolean) as [number, number][];
     const away = (p: { lat: number; lng: number }) => (homes.length ? Math.min(...homes.map(([lat, lng]) => km(p, { lat, lng }))) : 0);
     let total = 0;
+    // 여행지(목적지·들르는 도시)에서 먼 장소: 출국·귀국 공항 등. 지도 맞춤에서 뺀다 (화면이 한국까지 빠지지 않게)
+    const outside = new Set(rows.filter((r) => r.item.place && homes.length && away(r.item.place) > FAR_KM).map((r) => r.item.id));
     for (const day of days) {
       if (day == null) continue;
       let prev: Item | null = null;
@@ -221,7 +223,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
         prev = it;
       }
     }
-    return { gap, cut, warn, total };
+    return { gap, cut, warn, outside, total };
   }, [rows, days, plan.coords, plan.via]);
 
   /* ---------- 지도 ---------- */
@@ -260,6 +262,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
     layer.clearLayers();
     markers.current.clear();
     const pts: [number, number][] = [];
+    const spare: [number, number][] = []; // 맞춤에서 뺀 장소 (그것밖에 없으면 이걸로 맞춘다)
     // 날마다 첫·마지막 장소: 전날 마지막(묵은 곳) → 다음 날 첫 장소를 잇는다 (하코네 → 쿠사츠 같은 도시 이동)
     const ends = new Map<number, { first: [number, number]; last: [number, number]; lastTitle: string }>();
     for (const d of days) {
@@ -305,7 +308,8 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
           if (route.cut.has(r.item.id)) lines.push([]);
           lines[lines.length - 1].push(ll);
           // 멀리 떨어진 장소는 지도 맞춤에서 뺀다 (지도가 한없이 멀어지지 않게)
-          if (!route.warn.has(r.item.id)) pts.push(ll);
+          if (!route.warn.has(r.item.id) && !route.outside.has(r.item.id)) pts.push(ll);
+          else spare.push(ll);
         }
       });
       if (day != null) for (const line of lines) if (line.length > 1) L.polyline(line, { className: 'route-plan', weight: 2.5, interactive: false, color: dayColor(day) }).addTo(layer);
@@ -321,6 +325,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
           mk.getElement()?.style.setProperty('--dc', dayColor(day));
         }
     }
+    if (fit && !pts.length) pts.push(...spare);
     if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: plan.scope === 'local' ? 16 : 14, animate: false });
   };
   const fittedRef = useRef(false);
