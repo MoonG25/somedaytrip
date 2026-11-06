@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GoMode, Item, Op, Plan, Proposal } from '@/lib/types';
-import { diffItem, describeOps, findConflicts, GO, KINDS, opCounts, pendingGroups, stage, stagedView, TAGS, type Mark, type PendingGroup } from '@/lib/proposals';
+import { diffItem, describeOps, findConflicts, GO, guessGo, KINDS, opCounts, pendingGroups, stage, stagedView, TAGS, type Mark, type PendingGroup } from '@/lib/proposals';
 import { curOf, fmtMoney, fmtWithKRW, sumKRW } from '@/lib/money';
 import { optimizeRoute, routeKm } from '@/blog/plans-lib.js';
 import { loadLeaflet, createMap, destroyMap, pinIcon } from '@/blog/leaflet.js';
@@ -51,14 +51,6 @@ type Row = { item: Item; mark: Mark; fields: string[] };
 const SHOW_KEY = 'sdt:sugg';
 const foldKey = (id: string) => `sdt:fold:${id}`;
 const dayKey = (day: number | null) => (day == null ? 'someday' : String(day));
-/** 예전 '이동' 줄에서 가는 방법 짐작 */
-const guessGo = (moves: Item[]): GoMode => {
-  const t = moves.map((m) => m.title + ' ' + m.memo).join(' ');
-  if (/✈|항공|비행|공항 *→|→ *.*공항|\b[A-Z]{2}\d{2,4}\b/.test(t)) return 'flight';
-  if (/택시|렌터카|자동차|드라이브/.test(t)) return 'car';
-  if (/도보|걸어/.test(t) && !/열차|버스|지하철|선\b|신칸센/.test(t)) return 'walk';
-  return moves.length ? 'transit' : '';
-};
 const GO_ORDER: GoMode[] = ['', 'walk', 'transit', 'car', 'flight'];
 /** 이만큼 넘게 떨어진 연속 일정은 잘못 고른 장소로 보고 거리·지도 선에서 뺀다 */
 const FAR_KM = 300;
@@ -737,65 +729,86 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                       /** 앞 장소 → 다음 장소 연결 줄: 가는 방법 · 구글 길찾기 (예전 이동 줄의 시각·요금은 작게) */
                       const legOf = (from: Item | null, moves: Row[], to: Row | null) => {
                         const live = moves.filter((m) => m.mark !== 'remove');
-                        const dest = to?.item.place || [...live].reverse().find((m) => m.item.place)?.item.place || null;
                         if (!from && !moves.length) return null;
-                        if (!moves.length && (!from?.place || !dest)) return null;
-                        // 가는 방법은 도착 직전 구간 기준 (비행기로 내린 뒤 열차를 타면 열차)
-                        const go: GoMode = to?.item.go || guessGo(live.slice(-1).map((m) => m.item));
-                        const g = go ? GO[go as Exclude<GoMode, ''>] : null;
-                        // 출발지: 앞 장소, 없으면(여행 첫 구간) 앞선 이동 줄의 도착지 (비행기 → 공항)
-                        // (김포 → 비행기 → 하네다 → 열차 → 텐세이엔이면 길찾기는 하네다에서)
-                        const origin = (live.length > 1 ? live[live.length - 2].item.place : null) || from?.place || null;
+                        const same = (a?: { lat: number; lng: number } | null, b?: { lat: number; lng: number } | null) => !!a && !!b && Math.abs(a.lat - b.lat) < 1e-4 && Math.abs(a.lng - b.lng) < 1e-4;
+                        // 구간: 예전 이동 줄 하나가 한 구간. 마지막 이동의 도착지와 다음 장소가 다르면 한 구간 더
+                        type Hop = { move: Row | null; to: { lat: number; lng: number; name: string } | null };
+                        const hops: Hop[] = live.map((m) => ({ move: m, to: m.item.place }));
+                        const lastTo = hops.length ? hops[hops.length - 1].to : from?.place || null;
+                        if (to?.item.place && !same(lastTo, to.item.place)) hops.push({ move: null, to: to.item.place });
+                        if (!hops.length) {
+                          if (!moves.length) return null;
+                          hops.push({ move: null, to: to?.item.place || null });
+                        }
                         const km = to && to.mark !== 'remove' ? route.gap.get(to.item.id) : undefined;
-                        const dir = origin && dest && go !== 'flight' ? googleDirections(origin, dest, g?.gmode) : null;
-                        const first = moves[0]?.item;
                         const canMode = !!to && !(to.mark && !owner) && to.mark !== 'remove';
-                        const nextGo = GO_ORDER[(GO_ORDER.indexOf(go) + 1) % GO_ORDER.length];
-                        return (
-                          <li key={`leg-${moves[0]?.item.id || ''}-${to?.item.id || 'end'}`} className={`ri-leg${moves.some((m) => m.mark) ? ` is-${moves.find((m) => m.mark)!.mark}` : ''}`} data-leg={first?.id || ''}>
-                            <span className="leg-rail" aria-hidden="true" />
-                            {canMode ? (
-                              <button
-                                type="button"
-                                className="leg-mode"
-                                onClick={() => {
-                                  const op = diffItem(to!.item, { ...to!.item, go: nextGo });
-                                  if (op) commit([op], nextGo ? `${GO[nextGo as Exclude<GoMode, ''>].label}로 바꿨어요` : '가는 방법을 비웠어요');
-                                }}
-                                aria-label={`가는 방법: ${g ? g.label : '정하지 않음'} (누르면 바꿔요)`}
-                                title="눌러서 가는 방법 바꾸기"
-                              >
-                                {g ? g.icon : '·'}
-                              </button>
-                            ) : (
-                              <span className="leg-mode" aria-hidden="true">
-                                {g ? g.icon : '·'}
-                              </span>
-                            )}
-                            <span className="leg-text">
-                              {live.map((m) => (
-                                <button key={m.item.id} type="button" className="leg-move" onClick={() => setEdit({ item: m.item, day: m.item.day })} title={m.item.memo || m.item.title}>
-                                  {timeText(m.item) ? <span className="mono">{timeText(m.item)}</span> : null}
-                                  <span className="leg-title">{m.item.title}</span>
-                                  {m.item.tag ? <span className={`ri-tag t-${m.item.tag}`}>{TAGS[m.item.tag].icon}</span> : null}
-                                  {m.item.cost ? <span className="mono faint">{money(m.item)}</span> : null}
+                        const out: React.ReactNode[] = [];
+                        let origin: { lat: number; lng: number } | null = from?.place || null;
+                        hops.forEach((h, k) => {
+                          const last = k === hops.length - 1;
+                          // 가는 방법: 마지막 구간은 다음 장소에 적은 값이 먼저, 나머지는 예전 이동 줄에서 짐작
+                          const go: GoMode = (last && to?.item.go) || (h.move ? guessGo([h.move.item]) : '');
+                          const g = go ? GO[go as Exclude<GoMode, ''>] : null;
+                          const dir = origin && h.to && go !== 'flight' ? googleDirections(origin, h.to, g?.gmode) : null;
+                          const m = h.move?.item;
+                          const nextGo = GO_ORDER[(GO_ORDER.indexOf(go) + 1) % GO_ORDER.length];
+                          out.push(
+                            <li key={`leg-${m?.id || 'x'}-${to?.item.id || 'end'}-${k}`} className={`ri-leg${h.move?.mark ? ` is-${h.move.mark}` : ''}`} data-leg={m?.id || ''}>
+                              <span className="leg-rail" aria-hidden="true" />
+                              {last && canMode ? (
+                                <button
+                                  type="button"
+                                  className="leg-mode"
+                                  onClick={() => {
+                                    const op = diffItem(to!.item, { ...to!.item, go: nextGo });
+                                    if (op) commit([op], nextGo ? `${GO[nextGo as Exclude<GoMode, ''>].label}로 바꿨어요` : '가는 방법을 비웠어요');
+                                  }}
+                                  aria-label={`가는 방법: ${g ? g.label : '정하지 않음'} (누르면 바꿔요)`}
+                                  title="눌러서 가는 방법 바꾸기"
+                                >
+                                  {g ? g.icon : '·'}
                                 </button>
-                              ))}
-                              {!to && dest ? <span className="leg-dest">→ {dest.name}</span> : null}
-                              {!live.length && km != null && km >= 0.05 ? <span className="leg-km mono">{distanceLabel(km)}</span> : null}
-                            </span>
-                            {dir ? (
-                              <a className="leg-dir" href={dir} target="_blank" rel="noopener noreferrer" aria-label={`${from?.title || ''}에서 ${to?.item.title || dest?.name || ''}까지 구글 길찾기`}>
-                                길찾기
-                              </a>
-                            ) : null}
-                            {owner && live.length === 1 ? (
-                              <button type="button" className="ri-btn leg-del" onClick={() => remove(live[0].item.id)} aria-label={`${live[0].item.title} 지우기`}>
-                                ✕
-                              </button>
-                            ) : null}
-                          </li>
-                        );
+                              ) : (
+                                <span className="leg-mode" aria-hidden="true">
+                                  {g ? g.icon : '·'}
+                                </span>
+                              )}
+                              <span className="leg-text">
+                                {m ? (
+                                  <button type="button" className="leg-move" onClick={() => setEdit({ item: m, day: m.day })} title={m.memo || m.title}>
+                                    {timeText(m) ? <span className="mono">{timeText(m)}</span> : null}
+                                    <span className="leg-title">{m.title}</span>
+                                    {m.tag ? <span className={`ri-tag t-${m.tag}`}>{TAGS[m.tag].icon}</span> : null}
+                                    {m.cost ? <span className="mono faint">{money(m)}</span> : null}
+                                  </button>
+                                ) : null}
+                                {last && !to && h.to ? <span className="leg-dest">→ {h.to.name}</span> : null}
+                                {last && !live.length && km != null && km >= 0.05 ? <span className="leg-km mono">{distanceLabel(km)}</span> : null}
+                              </span>
+                              {dir ? (
+                                <a className="leg-dir" href={dir} target="_blank" rel="noopener noreferrer" aria-label={`${h.to?.name || ''}까지 구글 길찾기`}>
+                                  길찾기
+                                </a>
+                              ) : null}
+                              {owner && m && h.move?.mark !== 'remove' ? (
+                                <button type="button" className="ri-btn leg-del" onClick={() => remove(m.id)} aria-label={`${m.title} 지우기`}>
+                                  ✕
+                                </button>
+                              ) : null}
+                            </li>
+                          );
+                          // 중간에 내린 곳 (하네다공항 등): 번호 없는 경유지
+                          if (!last && h.to && !same(h.to, to?.item.place)) {
+                            out.push(
+                              <li key={`via-${m?.id || k}`} className="ri-via">
+                                <span className="via-dot" aria-hidden="true" />
+                                <span className="via-name">{h.to.name}</span>
+                              </li>
+                            );
+                          }
+                          origin = h.to || origin;
+                        });
+                        return out;
                       };
                       const rowOf = (r: Row, i: number) => {
                         const it = r.item;
@@ -991,14 +1004,14 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                           pend.push(r);
                           return;
                         }
-                        if (day != null) out.push(legOf(prev, pend, r));
+                        if (day != null) out.push(...(legOf(prev, pend, r) || []));
                         out.push(rowOf(r, i));
                         const strips = showSugg ? stripsByItem.get(r.item.id) : undefined;
                         if (strips?.length) out.push(<SuggStrips key={`s-${r.item.id}`} groups={strips} items={items} owner={owner} mine={mineSet} ctl={ctl} />);
                         if (r.item.place && r.mark !== 'remove') prev = r.item;
                         pend = [];
                       });
-                      if (pend.length) out.push(legOf(prev, pend, null));
+                      if (pend.length) out.push(...(legOf(prev, pend, null) || []));
                       out.push(...tail.map(ghost));
                       return out;
                     })()}

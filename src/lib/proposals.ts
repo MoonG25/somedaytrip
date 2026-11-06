@@ -38,6 +38,19 @@ export const GO: Record<Exclude<GoMode, ''>, { label: string; icon: string; gmod
   flight: { label: '비행기', icon: '✈' },
 };
 
+/** 예전 '이동' 줄에서 가는 방법 짐작 */
+export const guessGo = (moves: Pick<Item, 'title' | 'memo'>[]): GoMode => {
+  const t = moves.map((m) => m.title + ' ' + m.memo).join(' ');
+  // 비행기는 제목으로만 (메모의 '공항역' 같은 말로 열차를 비행기로 보지 않게)
+  const title = moves.map((m) => m.title).join(' ');
+  if (/✈|항공편|비행기|\b[A-Z]{2}\d{2,4}\b/.test(title)) return 'flight';
+  // 열차·버스 이름이 하나라도 있으면 대중교통 (메모에 '역까지 도보'가 같이 있어도)
+  if (/열차|전철|지하철|버스|신칸센|특급|JR|게이큐|메트로|오에도|[가-힣]선(?![가-힣])|역/.test(t)) return 'transit';
+  if (/택시|렌터카|자동차|드라이브/.test(t)) return 'car';
+  if (/도보|걸어/.test(t)) return 'walk';
+  return moves.length ? 'transit' : '';
+};
+
 export const TAGS: Record<Exclude<ItemTag, ''>, { label: string; icon: string }> = {
   booked: { label: '예약 완료', icon: '✓' },
   hope: { label: '희망', icon: '☆' },
