@@ -160,6 +160,8 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
 
   /* ---------- 날짜 접기 ---------- */
   const [closed, setClosed] = useState<Set<string>>(new Set());
+  // 펼친 메모 (긴 메모는 두 줄만 보이고 눌러서 펼친다)
+  const [openMemo, setOpenMemo] = useState<Set<string>>(new Set());
   useEffect(() => {
     let saved: unknown = null;
     try {
@@ -742,7 +744,9 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                         const go: GoMode = to?.item.go || guessGo(live.slice(-1).map((m) => m.item));
                         const g = go ? GO[go as Exclude<GoMode, ''>] : null;
                         // 출발지: 앞 장소, 없으면(여행 첫 구간) 앞선 이동 줄의 도착지 (비행기 → 공항)
-                        const origin = from?.place || (live.length > 1 ? live[live.length - 2].item.place : null);
+                        // (김포 → 비행기 → 하네다 → 열차 → 텐세이엔이면 길찾기는 하네다에서)
+                        const origin = (live.length > 1 ? live[live.length - 2].item.place : null) || from?.place || null;
+                        const km = to && to.mark !== 'remove' ? route.gap.get(to.item.id) : undefined;
                         const dir = origin && dest && go !== 'flight' ? googleDirections(origin, dest, g?.gmode) : null;
                         const first = moves[0]?.item;
                         const canMode = !!to && !(to.mark && !owner) && to.mark !== 'remove';
@@ -778,6 +782,7 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                                 </button>
                               ))}
                               {!to && dest ? <span className="leg-dest">→ {dest.name}</span> : null}
+                              {!live.length && km != null && km >= 0.05 ? <span className="leg-km mono">{distanceLabel(km)}</span> : null}
                             </span>
                             {dir ? (
                               <a className="leg-dir" href={dir} target="_blank" rel="noopener noreferrer" aria-label={`${from?.title || ''}에서 ${to?.item.title || dest?.name || ''}까지 구글 길찾기`}>
@@ -794,7 +799,6 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                       };
                       const rowOf = (r: Row, i: number) => {
                         const it = r.item;
-                        const gap = r.mark !== 'remove' ? route.gap.get(it.id) : undefined;
                         const far = r.mark !== 'remove' && route.warn.has(it.id);
                         const li = liveList.indexOf(r);
                         const fixed = !!r.mark && !owner; // 바구니에서 고친 줄: 되돌리기·고치기만
@@ -882,17 +886,44 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                             ) : (
                               <div className="ri-body">
                                 {tonight?.id === it.id ? <p className="ri-tonight">🛏 오늘 밤 묵는 곳</p> : null}
+                                {/* 시각이 먼저, 이름은 짧게. 거리는 앞 연결 줄로 옮겼다 */}
                                 <div className="ri-title">
+                                  {timeText(it) ? <span className="ri-time mono">{timeText(it)}</span> : null}
                                   <strong>
                                     {KINDS[it.kind].icon} {it.title}
                                   </strong>{' '}
-                                  {it.en ? <span className="serif faint">{it.en}</span> : null}
                                   {badges}
                                 </div>
-                                <p className="ri-meta mono">
-                                  {[timeText(it), it.place && it.place.name !== it.title ? `📍 ${it.place.name}` : '', money(it), gap != null ? `↳ ${distanceLabel(gap)}` : ''].filter(Boolean).join(' · ')}
-                                </p>
-                                {it.memo ? <p>{it.memo}</p> : null}
+                                {(it.place && it.place.name !== it.title) || it.cost ? (
+                                  <p className="ri-meta">{[it.place && it.place.name !== it.title ? `📍 ${it.place.name}` : '', money(it)].filter(Boolean).join(' · ')}</p>
+                                ) : null}
+                                {it.memo ? (
+                                  (() => {
+                                    const long = it.memo.includes('\n') || it.memo.length > 60;
+                                    const open = openMemo.has(it.id);
+                                    return (
+                                      <p
+                                        className={`ri-note${long ? ' is-long' : ''}${open ? ' is-open' : ''}`}
+                                        onClick={
+                                          long
+                                            ? (e) => {
+                                                e.stopPropagation();
+                                                setOpenMemo((m) => {
+                                                  const n = new Set(m);
+                                                  if (n.has(it.id)) n.delete(it.id);
+                                                  else n.add(it.id);
+                                                  return n;
+                                                });
+                                              }
+                                            : undefined
+                                        }
+                                        title={long ? (open ? '접기' : '메모 펼치기') : undefined}
+                                      >
+                                        {it.memo}
+                                      </p>
+                                    );
+                                  })()
+                                ) : null}
                               </div>
                             )}
                             <div className="ri-actions" onClick={(e) => e.stopPropagation()}>
@@ -915,12 +946,12 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
                               ) : (
                                 <>
                                   {li > 0 ? (
-                                    <button type="button" className="ri-btn" onClick={() => move(it.id, -1)} aria-label="위로">
+                                    <button type="button" className="ri-btn ri-up" onClick={() => move(it.id, -1)} aria-label="위로">
                                       ↑
                                     </button>
                                   ) : null}
                                   {li >= 0 && li < liveList.length - 1 ? (
-                                    <button type="button" className="ri-btn" onClick={() => move(it.id, 1)} aria-label="아래로">
+                                    <button type="button" className="ri-btn ri-down" onClick={() => move(it.id, 1)} aria-label="아래로">
                                       ↓
                                     </button>
                                   ) : null}

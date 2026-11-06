@@ -840,3 +840,49 @@ button.leg-mode:hover {
 .leg-move .mono {
   white-space: nowrap;
 }
+
+/* ---------- 일정 줄: 시각 먼저 · 짧은 메타 · 긴 메모는 두 줄 ---------- */
+.route-item .ri-title {
+  display: block;
+}
+.ri-time {
+  display: inline-block;
+  margin-right: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dc, var(--ink));
+  letter-spacing: -0.02em;
+}
+.route-item .ri-meta {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.ri-note {
+  font-size: 13.5px !important;
+  color: var(--ink-2);
+  white-space: pre-line;
+}
+.ri-note.is-long:not(.is-open) {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  cursor: pointer;
+}
+.ri-note.is-long {
+  cursor: pointer;
+}
+.ri-note.is-long:not(.is-open)::after {
+  content: '';
+}
+.leg-km {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+/* 좁은 화면: ↑↓는 숨긴다 (번호를 끌거나 화살표 키로 옮긴다) */
+@media (max-width: 760px) {
+  .route-item .ri-up,
+  .route-item .ri-down {
+    display: none;
+  }
+}
