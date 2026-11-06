@@ -541,8 +541,10 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
     const en = m && m[3] ? hhmm(m[3], m[4]) : null;
     const hit = !!(m && t && (!m[3] || en));
     const title = hit ? m![5] : v;
-    // 종류를 직접 고르기 전엔 이름으로 짐작 (이동·먹기·숙소·쇼핑·카페)
-    const kind = !kindPicked.current ? { kind: guessKind(title) ?? ('see' as Kind) } : {};
+    // 종류를 직접 고르기 전엔 이름으로 짐작 (먹기·숙소·쇼핑·카페)
+    // '이동'은 따로 적지 않는다 (장소 사이 연결 줄이 맡는다): 이동처럼 보이는 이름도 장소로
+    const guess = guessKind(title);
+    const kind = !kindPicked.current ? { kind: guess && guess !== 'move' ? guess : ('see' as Kind) } : {};
     if (hit) set({ title, time: t!, ...(en ? { end: en } : {}), ...kind });
     else set({ title, ...kind });
   };
@@ -592,7 +594,7 @@ export default function ItemModal({ open, plan, item, day, owner, onClose, onSav
           {!item ? <small className="faint title-hint">시각부터 적으면 시간 칸에 들어가요 · 예: 13:07 점심</small> : null}
         </label>
         <div className="chips kind-chips" role="radiogroup" aria-label="종류">
-          {(Object.keys(KINDS) as Kind[]).map((k) => (
+          {(Object.keys(KINDS) as Kind[]).filter((k) => k !== 'move' || d.kind === 'move').map((k) => (
             <button
               key={k}
               type="button"

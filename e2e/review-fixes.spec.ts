@@ -29,12 +29,12 @@ test('고치는 일정은 이름 앞 시각을 떼지 않고, "아침 산책"은
   await expect(page.locator('.sdt-modal[open] select[aria-label="시"]')).toHaveValue('09');
 });
 
-test('터치 화면: 이동 줄의 고치기·지우기 버튼이 흐리게 남지 않는다', async ({ page, browser }) => {
+test('터치 화면: 일정 줄의 고치기·지우기 버튼이 흐리게 남지 않는다', async ({ page, browser }) => {
   const { url } = await createPlan(page);
   await addItem(page, { title: '하네다 → 요코하마' });
   const { page: m, ctx } = await newPerson(browser, { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, storageState: await page.context().storageState() });
   await m.goto(url);
-  const actions = m.locator('.route-item.is-move .ri-actions').first();
+  const actions = m.locator('.route-item .ri-actions').first();
   await expect(actions).toBeVisible();
   expect(Number(await actions.evaluate((e) => getComputedStyle(e).opacity))).toBe(1);
   await ctx.close();

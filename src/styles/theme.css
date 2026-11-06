@@ -709,3 +709,134 @@ b.bb-amt {
     animation: none;
   }
 }
+
+/* ---------- 일정: 장소 사이 연결 줄 (가는 방법 · 구글 길찾기) ---------- */
+.ri-leg {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 2px 10px 2px 20px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.leg-rail {
+  position: absolute;
+  left: 29px;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dotted color-mix(in oklab, var(--dc, var(--ink-3)) 55%, transparent);
+}
+.leg-mode {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--line);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink-3);
+}
+button.leg-mode {
+  cursor: pointer;
+}
+button.leg-mode:hover {
+  box-shadow: 0 0 0 1px var(--ink);
+}
+.leg-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+  flex: 1;
+  margin-left: 4px;
+}
+.leg-move {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  text-align: left;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.leg-move:hover .leg-title {
+  text-decoration: underline;
+}
+.leg-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.leg-move .ri-tag {
+  font-size: 10.5px;
+  padding: 1px 5px;
+}
+.leg-dest {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.leg-dir {
+  flex: none;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--field);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1a73e8;
+  text-decoration: none;
+}
+.leg-dir:hover {
+  background: color-mix(in oklab, #1a73e8 12%, var(--paper));
+}
+.leg-del {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  opacity: 0.5;
+}
+.ri-leg:hover .leg-del {
+  opacity: 1;
+}
+.ri-leg.is-remove .leg-text {
+  text-decoration: line-through;
+}
+/* 연결 줄이 생겼으니 장소 줄 사이 구분선은 없앤다 */
+.itinerary .route-list > .route-item {
+  border-bottom-color: transparent;
+}
+/* 연결 줄의 긴 글자가 목록 폭을 밀지 않게 */
+.ri-leg,
+.leg-text,
+.leg-move {
+  min-width: 0;
+}
+.leg-text {
+  overflow: hidden;
+}
+.leg-move {
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+.route-list {
+  min-width: 0;
+  max-width: 100%;
+}
+.route-grid > .itin,
+.itin-day,
+.itin-body {
+  min-width: 0;
+}
+.leg-move .mono {
+  white-space: nowrap;
+}

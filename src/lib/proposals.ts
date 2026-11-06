@@ -2,7 +2,7 @@
 //
 // 변경 하나(Op)는 "무엇을, 원래 어땠는데, 어떻게 바꾸자"를 담는다.
 // 수락할 때 지금 계획과 비교해서, 그 사이 같은 칸을 누가 바꿨으면 충돌로 본다 (3-way 비교).
-import type { Item, ItemField, ItemTag, Kind, Op, Proposal } from './types';
+import type { GoMode, Item, ItemField, ItemTag, Kind, Op, Proposal } from './types';
 
 export const KINDS: Record<Kind, { label: string; icon: string }> = {
   see: { label: '구경', icon: '📍' },
@@ -27,6 +27,15 @@ export const FIELD_LABEL: Record<ItemField, string> = {
   end: '끝 시각',
   tag: '상태',
   cur: '통화',
+  go: '가는 방법',
+};
+
+/** 앞 장소에서 가는 방법 (구글 길찾기 travelmode) */
+export const GO: Record<Exclude<GoMode, ''>, { label: string; icon: string; gmode?: string }> = {
+  walk: { label: '걸어서', icon: '🚶', gmode: 'walking' },
+  transit: { label: '대중교통', icon: '🚆', gmode: 'transit' },
+  car: { label: '차·택시', icon: '🚕', gmode: 'driving' },
+  flight: { label: '비행기', icon: '✈' },
 };
 
 export const TAGS: Record<Exclude<ItemTag, ''>, { label: string; icon: string }> = {
@@ -198,6 +207,7 @@ export function fieldText(k: ItemField, v: unknown): string {
   if (k === 'place') return (v as Item['place'])!.name;
   if (k === 'cost') return `${Number(v).toLocaleString('ko-KR')}`;
   if (k === 'tag') return TAGS[v as Exclude<ItemTag, ''>]?.label ?? '—';
+  if (k === 'go') return GO[v as Exclude<GoMode, ''>] ? `${GO[v as Exclude<GoMode, ''>].icon} ${GO[v as Exclude<GoMode, ''>].label}` : '—';
   return String(v);
 }
 

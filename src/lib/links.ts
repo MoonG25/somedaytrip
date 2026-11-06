@@ -49,3 +49,9 @@ export function normalizeUrl(raw: string): string | null {
 
 /** 장소 좌표 → 구글맵에서 그 위치 열기 */
 export const googleMapsAt = (lat: number, lng: number) => `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+/** 두 장소 사이 구글 길찾기 (키 없이 여는 주소). mode: walking · transit · driving, 없으면 구글이 고른다 */
+export function googleDirections(from: { lat: number; lng: number }, to: { lat: number; lng: number }, mode?: string) {
+  const p = (x: { lat: number; lng: number }) => `${x.lat.toFixed(6)},${x.lng.toFixed(6)}`;
+  return `https://www.google.com/maps/dir/?api=1&origin=${p(from)}&destination=${p(to)}${mode ? `&travelmode=${mode}` : ''}`;
+}

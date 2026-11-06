@@ -1,6 +1,6 @@
 // 브라우저에서 온 값은 믿지 않는다. 서버가 저장하기 전에 모양과 길이를 맞춘다.
 import { defaultLabel, normalizeUrl } from './links';
-import type { BudgetItem, Item, ItemTag, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
+import type { GoMode, BudgetItem, Item, ItemTag, Kind, Op, Place, PlanInfo, Scope, Status, Visibility } from './types';
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v : v == null ? '' : String(v)).trim().slice(0, max);
 const num = (v: unknown, min: number, max: number, fallback: number) => {
@@ -43,8 +43,11 @@ export function cleanItem(i: unknown): Item {
     end: /^([01]\d|2[0-3]):[0-5]\d$/.test(String(o.end ?? '')) ? String(o.end) : '',
     tag: oneOf(o.tag, ITEM_TAGS, ''),
     cur: /^[A-Z]{3}$/.test(String(o.cur ?? '')) && o.cur !== 'KRW' ? String(o.cur) : '',
+    go: oneOf(o.go, GO_MODES, ''),
   };
 }
+
+export const GO_MODES = ['walk', 'transit', 'car', 'flight', ''] as const satisfies readonly GoMode[];
 
 export const ITEM_TAGS = ['booked', 'hope', 'maybe', ''] as const satisfies readonly ItemTag[];
 

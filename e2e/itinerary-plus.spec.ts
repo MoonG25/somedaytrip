@@ -1,4 +1,4 @@
-// 긴 시간표 다루기: 시간순 정렬(시간 없는 줄은 제자리) · 이 아래에 추가 · 끌어서 옮기기 · 날짜 접기·칩 · 이동 한 줄 · 새 칸 표시 · 먼 거리
+// 긴 시간표 다루기: 시간순 정렬(시간 없는 줄은 제자리) · 이 아래에 추가 · 끌어서 옮기기 · 날짜 접기·칩 · 장소 사이 연결 줄 · 새 칸 표시 · 먼 거리
 import type { Page } from '@playwright/test';
 import { test, expect, createPlan, newPerson, boardAsGuest, skipGate, setTime } from './fixtures';
 
@@ -146,22 +146,26 @@ test('모바일: 첫날만 펴고 나머지 접기 · 날짜 칩으로 이동 ·
   await ctx.close();
 });
 
-test('이동 구간은 작은 한 줄, 눌러서 고치기', async ({ page }) => {
+test('장소 사이 연결 줄: 구글 길찾기 · 가는 방법은 눌러서 바꾼다', async ({ page }) => {
   await createPlan(page);
-  await add(page, { title: '센소지 구경', time: '10:00', memo: '아침 일찍' });
-  await add(page, { title: '아사쿠사 → 오시아게', kind: '이동', time: '11:30', memo: '도에이 아사쿠사선 한 정거장, 걸어도 20분 정도라 날씨 좋으면 걸어가요' });
-  const mv = page.locator('.route-item.is-move');
-  await expect(mv).toHaveCount(1);
-  await expect(mv.locator('.ri-line')).toContainText('11:30');
-  await expect(mv.locator('.ri-line')).toContainText('아사쿠사 → 오시아게');
-  await expect(mv.locator('.ri-memo')).toContainText('도에이');
-  const hMove = (await mv.boundingBox())!.height;
-  const hSee = (await page.locator('.route-item:not(.is-move)').first().boundingBox())!.height;
-  expect(hMove).toBeLessThan(hSee);
-  await mv.hover();
-  await mv.locator('[aria-label=고치기]').click();
-  await expect(page.locator('.sdt-modal[open] .item-form input.inp').first()).toHaveValue('아사쿠사 → 오시아게');
-  await page.keyboard.press('Escape');
+  await add(page, { title: '센소지', time: '10:00', place: '센소지' });
+  await add(page, { title: '스카이트리', place: '스카이트리' });
+  // 새 일정 창에는 '이동' 종류가 없다 (이동은 장소 사이 연결 줄이 맡는다)
+  await page.locator('.itin-day').first().locator('.itin-add').click();
+  await expect(page.locator('.sdt-modal[open] [aria-label="종류"] [role=radio]').filter({ hasText: '이동' })).toHaveCount(0);
+  await page.click('.sdt-modal[open] .sdt-modal-head button');
+  const leg = page.locator('.ri-leg');
+  await expect(leg).toHaveCount(1);
+  const dir = leg.locator('.leg-dir');
+  await expect(dir).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&origin=35\.7148\d*,139\.7967\d*&destination=35\.7101\d*,139\.8107/);
+  // 가는 방법: 비어 있음 → 걸어서 (길찾기도 도보로)
+  await leg.locator('button.leg-mode').click();
+  await expect(leg.locator('.leg-mode')).toHaveText('🚶');
+  await expect(dir).toHaveAttribute('href', /travelmode=walking/);
+  await page.reload();
+  await expect(page.locator('.ri-leg .leg-mode')).toHaveText('🚶');
+  // 번호는 장소에만
+  await expect(page.locator('.route-item .ri-no')).toHaveText(['01', '02']);
 });
 
 test('비용은 통화 기호로, 날짜 합계', async ({ page }) => {
@@ -205,8 +209,8 @@ test('먼 거리: 300km 넘게 떨어진 장소는 총 이동에서 빼고 경�
 
 test('먼 거리 예외: 공항 이동 구간은 거리에서만 빼고 경고하지 않는다', async ({ page }) => {
   await createPlan(page, { place: '도쿄' });
-  await add(page, { title: '✈ 강릉 출발', kind: '이동', place: '강릉' });
-  await add(page, { title: '하네다공항 도착', kind: '이동', place: '하네다' });
+  await add(page, { title: '✈ 강릉 출발', place: '강릉' });
+  await add(page, { title: '하네다공항 도착', place: '하네다' });
   await add(page, { title: '센소지', place: '센소지' });
   await expect(page.locator('.route-item.is-far')).toHaveCount(0);
   const km = Number((await page.locator('.route-km').textContent())!.replace(/[^\d.]/g, ''));

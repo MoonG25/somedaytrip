@@ -15,6 +15,9 @@ export interface Place {
   lng: number;
 }
 
+/** 앞 장소에서 이 장소로 가는 방법 (구글 길찾기 수단). ''이면 정하지 않음 */
+export type GoMode = 'walk' | 'transit' | 'car' | 'flight' | '';
+
 /** 일정 하나의 확정 정도. ''이면 표시 안 함 */
 export type ItemTag = 'booked' | 'hope' | 'maybe' | '';
 
@@ -29,6 +32,8 @@ export interface Item {
   tag?: ItemTag;
   /** cost의 통화 (ISO 코드, ''·없음 = 원화 KRW). 예: 'JPY' */
   cur?: string;
+  /** 앞 장소에서 여기로 가는 방법 (선택, 예전 일정엔 없다) */
+  go?: GoMode;
   title: string;
   en: string;
   kind: Kind;
