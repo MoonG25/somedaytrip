@@ -1,4 +1,4 @@
-// 긴 시간표 다루기: 시간순 정렬(시간 없는 줄은 제자리) · 이 아래에 추가 · 끌어서 옮기기 · 날짜 접기·칩 · 장소 사이 연결 줄 · 새 칸 표시 · 먼 거리
+// 긴 시간표 다루기: 시간순 정렬(시간 없는 줄은 제자리) · 이 아래에 추가 · 끌어서 옮기기 · 날짜 접기·칩 · 일정 사이 이동수단 · 새 칸 표시 · 먼 거리
 import type { Page } from '@playwright/test';
 import { test, expect, createPlan, newPerson, boardAsGuest, skipGate, setTime } from './fixtures';
 
@@ -146,26 +146,27 @@ test('모바일: 첫날만 펴고 나머지 접기 · 날짜 칩으로 이동 ·
   await ctx.close();
 });
 
-test('장소 사이 연결 줄: 구글 길찾기 · 가는 방법은 눌러서 바꾼다', async ({ page }) => {
+test('일정 사이 이동수단: 눌러서 고르면 구글 길찾기도 그 수단으로', async ({ page }) => {
   await createPlan(page);
   await add(page, { title: '센소지', time: '10:00', place: '센소지' });
   await add(page, { title: '스카이트리', place: '스카이트리' });
-  // 새 일정 창에는 '이동' 종류가 없다 (이동은 장소 사이 연결 줄이 맡는다)
+  // 새 일정 창에는 '이동' 종류가 없다 (이동은 일정 사이 이동수단 칸이 맡는다)
   await page.locator('.itin-day').first().locator('.itin-add').click();
   await expect(page.locator('.sdt-modal[open] [aria-label="종류"] [role=radio]').filter({ hasText: '이동' })).toHaveCount(0);
   await page.click('.sdt-modal[open] .sdt-modal-head button');
-  const leg = page.locator('.ri-leg');
-  await expect(leg).toHaveCount(1);
-  const dir = leg.locator('.leg-dir');
-  await expect(dir).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&origin=35\.7148\d*,139\.7967\d*&destination=35\.7101\d*,139\.8107/);
-  // 가는 방법: 비어 있음 → 걸어서 (길찾기도 도보로)
-  await leg.locator('button.leg-mode').click();
-  await expect(leg.locator('.leg-mode')).toHaveText('🚶');
-  await expect(dir).toHaveAttribute('href', /travelmode=walking/);
+  const go = page.locator('.ri-go');
+  await expect(go).toHaveCount(1);
+  await expect(go.locator('.go-pick')).toHaveText('+ 이동수단');
+  await go.locator('.go-pick').click();
+  await go.locator('.go-menu [role=radio]', { hasText: '걸어서' }).click();
+  await expect(go.locator('.go-pick')).toContainText('걸어서');
+  await expect(go.locator('.leg-dir')).toHaveAttribute('href', /google\.com\/maps\/dir\/\?api=1&origin=35\.7148\d*,139\.7967\d*&destination=35\.7101\d*,139\.8107\d*&travelmode=walking/);
   await page.reload();
-  await expect(page.locator('.ri-leg .leg-mode')).toHaveText('🚶');
-  // 번호는 장소에만
-  await expect(page.locator('.route-item .ri-no')).toHaveText(['01', '02']);
+  await expect(page.locator('.ri-go .go-pick')).toContainText('걸어서');
+  // 지우기
+  await page.locator('.ri-go .go-pick').click();
+  await page.locator('.ri-go .go-clear').click();
+  await expect(page.locator('.ri-go .go-pick')).toHaveText('+ 이동수단');
 });
 
 test('비용은 통화 기호로, 날짜 합계', async ({ page }) => {

@@ -919,3 +919,73 @@ button.leg-mode:hover {
   font-weight: 650;
   color: var(--ink);
 }
+
+/* ---------- 일정 사이: 이동수단 하나 ---------- */
+.ri-go {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 30px;
+  padding: 2px 10px 2px 46px;
+}
+.ri-go .leg-rail {
+  left: 29px;
+}
+.go-pick {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  opacity: 0.75;
+}
+button.go-pick {
+  cursor: pointer;
+}
+button.go-pick:hover {
+  opacity: 1;
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.ri-go.has-go .go-pick {
+  border-style: solid;
+  border-color: var(--line);
+  background: var(--field);
+  color: var(--ink-2);
+  opacity: 1;
+}
+.go-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.go-menu button {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.go-menu button[aria-checked='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+.go-menu .go-clear {
+  border-style: dashed;
+  color: var(--ink-3);
+}
+/* 비어 있는 이동수단 칸은 옅게 (마우스를 올리거나 누를 때 또렷하게) */
+.ri-go:not(.has-go):not(:hover):not(:focus-within) .go-pick {
+  opacity: 0.45;
+}
+/* 메모는 한 줄만 (눌러서 펼친다) */
+.ri-note.is-long:not(.is-open) {
+  -webkit-line-clamp: 1;
+}
