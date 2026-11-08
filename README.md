@@ -79,7 +79,7 @@ sequenceDiagram
 
 ## 🖼 화면
 
-화면은 [moon.log](https://moonglog.vercel.app)의 Plans(가고 싶은 곳) 디자인을 그대로 가져왔어요.
+화면은 [wangmok.log(구 moon.log)](https://wangmoklog.vercel.app)의 Plans(가고 싶은 곳) 디자인을 그대로 가져왔어요.
 
 <table>
   <tr>
@@ -183,7 +183,7 @@ sequenceDiagram
 | 배포 | Vercel · 함수 리전 `icn1` (서울) |
 | 지도 · 장소 | [Leaflet](https://leafletjs.com) · OpenStreetMap 타일 · [Nominatim](https://nominatim.org) |
 | 실시간 정보 | [Open-Meteo](https://open-meteo.com) 날씨 · [ExchangeRate-API](https://www.exchangerate-api.com) 환율 |
-| 디자인 | [moon.log](https://moonglog.vercel.app) Plans: 스플릿 플랩 전광판, 탑승권, 생성 풍경 그림 |
+| 디자인 | [wangmok.log(구 moon.log)](https://wangmoklog.vercel.app) Plans: 스플릿 플랩 전광판, 탑승권, 생성 풍경 그림 |
 | 기타 | [qrcode](https://github.com/soldair/node-qrcode) · Instrument Serif · JetBrains Mono · Pretendard |
 
 <details>
@@ -270,7 +270,7 @@ npm run build
 
 - **시작일**: 2026-10-19
 - **상태**: 🔬 진행 중 · v0.2 배포 완료
-- **출발점**: [moon.log](https://github.com/MoonG25/blog)의 Plans를 떼어 내서, 여러 사람이 같이 짜는 서비스로 만들었다. 블로그는 그대로 두었다.
+- **출발점**: [wangmok.log(구 moon.log)](https://wangmoklog.vercel.app)의 Plans를 떼어 내서, 여러 사람이 같이 짜는 서비스로 만들었다. 블로그는 그대로 두었다.
 - **흐름**
   1. **v0.1**: Vite판, 서버 없음 (태그 `v0.1.0-vite`)
   2. **v0.2**: 검색 노출을 위해 Next.js로 전환했다. 메인 컨셉을 세계여행으로 잡고 moon.log 디자인을 그대로 이식했다.
