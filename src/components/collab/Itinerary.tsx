@@ -331,7 +331,12 @@ export default function Itinerary({ plan, items, owner, pending = [], mine = [] 
         }
     }
     if (fit && !pts.length) pts.push(...spare);
-    if (fit && pts.length) map.fitBounds(pts, { padding: [50, 50], maxZoom: plan.scope === 'local' ? 16 : 14, animate: false });
+    if (fit && pts.length) {
+      // 지도 위 버튼(지도 종류·날짜)이 덮는 만큼 위를 비운다. 좁은 화면에선 두 줄
+      const box = mapEl.current?.getBoundingClientRect();
+      const under = box ? Math.max(0, ...Array.from(mapEl.current!.parentElement!.querySelectorAll('.map-base, .map-days'), (c) => c.getBoundingClientRect().bottom - box.top)) : 0;
+      map.fitBounds(pts, { paddingTopLeft: [50, Math.max(50, under + 30)], paddingBottomRight: [50, 50], maxZoom: plan.scope === 'local' ? 16 : 14, animate: false });
+    }
   };
   const fittedRef = useRef(false);
   useEffect(() => {

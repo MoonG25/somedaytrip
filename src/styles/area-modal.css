@@ -182,3 +182,8 @@
 .place-suggest:hover {
   border-style: solid;
 }
+
+/* 옆으로 넘기는 DAY 칩 줄이 창 너비를 밀어내지 않게 (아이폰 SE에서 오른쪽이 잘렸다) */
+.item-form > * {
+  min-width: 0;
+}
